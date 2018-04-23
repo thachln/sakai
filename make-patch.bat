@@ -22,4 +22,21 @@ copy %RELEASE_FOLDER%\webapps\sakai-site-manage-tool.war %RELEASE_PATCH%\webapps
 copy %RELEASE_FOLDER%\webapps\sakai-tool-tool-su.war %RELEASE_PATCH%\webapps\
 copy %RELEASE_FOLDER%\webapps\sakai-signup-tool.war %RELEASE_PATCH%\webapps\
 copy %RELEASE_FOLDER%\webapps\lessonbuilder-tool.war %RELEASE_PATCH%\webapps\
-
+copy %RELEASE_FOLDER%\webapps\samigo-app.war %RELEASE_PATCH%\webapps\
+copy %RELEASE_FOLDER%\messageforums-tool.war %RELEASE_PATCH%\webapps\
+copy %RELEASE_FOLDER%\sakai-site-*.war %RELEASE_PATCH%\webapps\
+copy %RELEASE_FOLDER%\sakai-syllabus-tool.war %RELEASE_PATCH%\webapps\
+copy %RELEASE_FOLDER%\sakai-user-tool-admin-prefs.war %RELEASE_PATCH%\webapps\
+copy %RELEASE_FOLDER%\sakai-user-tool-prefs.war %RELEASE_PATCH%\webapps\
+copy %RELEASE_FOLDER%\sakai-web-portlet.war %RELEASE_PATCH%\webapps\
+copy %RELEASE_FOLDER%\sakai-web-portlet-basiclti.war %RELEASE_PATCH%\webapps\
+copy %RELEASE_FOLDER%\sakai-web-tool.war %RELEASE_PATCH%\webapps\
+copy %RELEASE_FOLDER%\profile2-tool.war %RELEASE_PATCH%\webapps\
+copy %RELEASE_FOLDER%\sakai-postem-tool.war %RELEASE_PATCH%\webapps\
+copy %RELEASE_FOLDER%\sakai-message-tool.war %RELEASE_PATCH%\webapps\
+copy %RELEASE_FOLDER%\sakai-message-bundle-manager-tool.war %RELEASE_PATCH%\webapps\
+copy %RELEASE_FOLDER%\sakai-mailarchive-tool.war %RELEASE_PATCH%\webapps\
+copy %RELEASE_FOLDER%\gradebookng-tool.war %RELEASE_PATCH%\webapps\
+copy %RELEASE_FOLDER%\feedback-tool.war %RELEASE_PATCH%\webapps\
+copy %RELEASE_FOLDER%\sakai-chat-tool.war %RELEASE_PATCH%\webapps\
+copy %RELEASE_FOLDER%\sakai-announcement-tool.war %RELEASE_PATCH%\webapps\
