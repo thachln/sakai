@@ -42,3 +42,4 @@ copy %RELEASE_FOLDER%\webapps\sakai-chat-tool.war %RELEASE_PATCH%\webapps\
 copy %RELEASE_FOLDER%\webapps\sakai-announcement-tool.war %RELEASE_PATCH%\webapps\
 copy %RELEASE_FOLDER%\webapps\sakai-content-tool.war %RELEASE_PATCH%\webapps\
 copy %RELEASE_FOLDER%\webapps\sakai-calendar-*.war %RELEASE_PATCH%\webapps\
+copy %RELEASE_FOLDER%\webapps\sakai-assignment-tool.war %RELEASE_PATCH%\webapps\
