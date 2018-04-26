@@ -7,7 +7,7 @@ rd /S  /Q %RELEASE_PATCH%
 REM Call package.bat to make binary package
 REM call package.bat
 
-echo Prepare distribution for sakai 11.x
+echo Prepare distribution for sakai 12.0
 mkdir %RELEASE_PATCH%\webapps %RELEASE_PATCH%\components
 
 copy %RELEASE_FOLDER%\webapps\admin-tools.war %RELEASE_PATCH%\webapps\
@@ -43,3 +43,5 @@ copy %RELEASE_FOLDER%\webapps\sakai-announcement-tool.war %RELEASE_PATCH%\webapp
 copy %RELEASE_FOLDER%\webapps\sakai-content-tool.war %RELEASE_PATCH%\webapps\
 copy %RELEASE_FOLDER%\webapps\sakai-calendar-*.war %RELEASE_PATCH%\webapps\
 copy %RELEASE_FOLDER%\webapps\sakai-assignment-tool.war %RELEASE_PATCH%\webapps\
+copy %RELEASE_FOLDER%\webapps\sakai-citations-*.war %RELEASE_PATCH%\webapps\
+copy %RELEASE_FOLDER%\webapps\sakai-content-tool.war %RELEASE_PATCH%\webapps\
