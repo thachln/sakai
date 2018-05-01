@@ -2034,6 +2034,10 @@ public class ShowPageProducer implements ViewComponentProducer, DefaultView, Nav
 				Double h = new Double(width.getOld()) * 0.75;
                                 if (oMimeType.startsWith("audio/"))
 				    h = 100.0;
+                                // Thach. Maybe for processing .pdf here
+                                if ("application/pdf".equals(mimeType)) {
+                                    item2.decorate(new UIFreeAttributeDecorator("height", Double.toString(h))).decorate(new UIFreeAttributeDecorator("width", "100%"));
+                                } else
                                 item2.decorate(new UIFreeAttributeDecorator("height", Double.toString(h))).decorate(new UIFreeAttributeDecorator("width", width.getOld()));
 				// flag for javascript to adjust height
 				if (!oMimeType.startsWith("audio/"))
