@@ -23,6 +23,7 @@ import java.util.Set;
 import java.util.function.Predicate;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+
 import javax.xml.stream.XMLEventFactory;
 import javax.xml.stream.XMLEventReader;
 import javax.xml.stream.XMLEventWriter;
@@ -31,18 +32,6 @@ import javax.xml.stream.XMLOutputFactory;
 import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.events.XMLEvent;
 
-import com.ctc.wstx.api.ReaderConfig;
-import com.ctc.wstx.api.WstxInputProperties;
-import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.DeserializationContext;
-import com.fasterxml.jackson.databind.deser.std.StdDeserializer;
-import com.fasterxml.jackson.databind.deser.std.StringDeserializer;
-import com.fasterxml.jackson.databind.module.SimpleModule;
-import com.fasterxml.jackson.dataformat.xml.XmlMapper;
-import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
-import lombok.Setter;
-import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.hibernate.HibernateException;
 import org.sakaiproject.assignment.api.AssignmentReferenceReckoner;
@@ -56,6 +45,19 @@ import org.sakaiproject.component.api.ServerConfigurationService;
 import org.sakaiproject.entity.api.ResourceProperties;
 import org.sakaiproject.hibernate.AssignableUUIDGenerator;
 import org.sakaiproject.util.BasicConfigItem;
+
+import com.ctc.wstx.api.ReaderConfig;
+import com.ctc.wstx.api.WstxInputProperties;
+import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.DeserializationContext;
+import com.fasterxml.jackson.databind.deser.std.StdDeserializer;
+import com.fasterxml.jackson.databind.deser.std.StringDeserializer;
+import com.fasterxml.jackson.databind.module.SimpleModule;
+import com.fasterxml.jackson.dataformat.xml.XmlMapper;
+
+import lombok.Setter;
+import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 public class AssignmentConversionServiceImpl implements AssignmentConversionService {
@@ -130,7 +132,7 @@ public class AssignmentConversionServiceImpl implements AssignmentConversionServ
         xmlInputFactory.setProperty(WstxInputProperties.P_MAX_ATTRIBUTES_PER_ELEMENT, numberOfAttributes);
         xmlInputFactory.setProperty(WstxInputProperties.P_MAX_ATTRIBUTE_SIZE, lengthOfAttribute);
         xmlMapper = new XmlMapper(xmlInputFactory);
-        xmlMapper.registerModule(new Jdk8Module());
+//        xmlMapper.registerModule(new Jdk8Module());
         xmlMapper.registerModule(module);
 
         String configValue = "org.sakaiproject.assignment.api.model.Assignment,org.sakaiproject.assignment.api.model.AssignmentSubmission";
