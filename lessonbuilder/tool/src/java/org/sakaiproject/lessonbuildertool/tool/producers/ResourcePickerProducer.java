@@ -125,7 +125,8 @@ public class ResourcePickerProducer implements ViewComponentProducer, ViewParams
 		
 		// parameters for helper
 		ToolSession toolSession = sessionManager.getCurrentToolSession();
-		toolSession.setAttribute(FilePickerHelper.FILE_PICKER_TITLE_TEXT, "Please Choose a File");
+		// toolSession.setAttribute(FilePickerHelper.FILE_PICKER_TITLE_TEXT, "Please Choose a File");
+		toolSession.setAttribute(FilePickerHelper.FILE_PICKER_TITLE_TEXT, messageLocator.getMessage("simplepage.filepicker_title"));
 		toolSession.setAttribute(FilePickerHelper.FILE_PICKER_INSTRUCTION_TEXT, messageLocator.getMessage("simplepage.filepicker_instructions"));
 		// multiple files not valid if replacing an existing item
 		if (itemId == null || itemId == -1)
