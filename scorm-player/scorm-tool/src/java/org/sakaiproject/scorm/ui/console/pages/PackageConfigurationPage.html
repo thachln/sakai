@@ -1,0 +1,210 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  #%L
+  SCORM Tool
+  %%
+  Copyright (C) 2007 - 2016 Sakai Project
+  %%
+  Licensed under the Educational Community License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+  
+              http://opensource.org/licenses/ecl2
+  
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+  #L%
+  -->
+
+<html xmlns="http://www.w3.org/1999/xhtml"
+	xmlns:wicket="http://wicket.sourceforge.net/" xml:lang="en" lang="en">
+<head>
+<wicket:head>
+	<title>SCORM Player - Configuration</title>
+	<script>
+		window.onload = function() {
+			var input = document.getElementById("packageName").focus();
+		}
+	</script>
+</wicket:head>
+</head>
+<body>
+	<!--29/12/2016 HungPC Chia dữ liệu thành 2 cột   -->
+	<!-- Sửa CSS trực tiếp -->
+	<!-- BEGIN -->
+	<wicket:extend>
+		<span wicket:id="config.not.Permission"></span>
+		<form wicket:id="configurationForm">
+			<div style="color: red;" wicket:id="feedback"></div>
+			<p class="shorttext">
+				<span class="reqStar" style="color: red">*</span> <label
+					for="categoryName"> <wicket:message
+						key="form.label.category.name"></wicket:message>
+				</label> <input type="text" wicket:id="categoryName" size="50"
+					maxlength="200" id="categoryName" />
+			</p>
+
+			<div>
+				<div style="width: 100px;float:left">
+					<span class="reqStar" style="color: red">*</span> <label
+						> <wicket:message
+							key="form.label.group"></wicket:message>
+					</label>
+				</div>
+				<div style="width: 400px;float:left;margin-bottom: 15px;">					
+					<span wicket:id="listGroup">
+				      <input wicket:id="check" type="checkbox" />	
+				      <span wicket:id="name">test</span>		     	      
+				      <br />
+				    </span>
+				</div>
+			</div>
+			
+			<p class="shorttext">
+				<span class="reqStar" style="color:red">*</span> <label
+					for="packageName"> <wicket:message
+						key="form.label.package.name"></wicket:message>
+				</label> <input type="text" wicket:id="packageName" size="50"
+					maxlength="200" id="packageName" />
+			</p>
+
+			<p class="instruction labelindnt">
+				<wicket:message key="form.instructions.open.date"></wicket:message>
+			</p>
+
+			<p class="shorttext">
+				<span class="reqStar" style="color:red">*</span> <label
+					for="releaseOnDTF"> <wicket:message
+						key="form.label.open.date"></wicket:message>
+				</label> <span wicket:id="releaseOnDTF"></span>
+			</p>
+			<p class="shorttext">
+				<label for="dueOnDTF"> <wicket:message
+						key="form.label.due.date"></wicket:message>
+				</label> <span wicket:id="dueOnDTF"></span>
+			</p>
+
+			<p class="instruction labelindnt">
+				<wicket:message key="form.instructions.accept.until"></wicket:message>
+			</p>
+			<p class="shorttext">
+				<label for="acceptUntilDTF"> <wicket:message
+						key="form.label.accept.until"></wicket:message>
+				</label> <span wicket:id="acceptUntilDTF"></span>
+			</p>
+
+			<div wicket:id="verifySyncWithGradebook" class="alertMessage">
+				<wicket:message key="verify.synchronizeWithGradebook"></wicket:message>
+			</div>
+			<div style="float: left;">
+				<p class="shorttext">
+					<label for="createdBy"> <wicket:message
+							key="form.label.created.by"></wicket:message>
+					</label> <span wicket:id="createdBy"></span>
+				</p>
+				<p class="shorttext">
+					<label for="createdOn"> <wicket:message
+							key="form.label.created.on"></wicket:message>
+					</label> <span wicket:id="createdOn"></span>
+				</p>
+				<p class="shorttext">
+					<label for="modifiedBy"> <wicket:message
+							key="form.label.last.changed.by"></wicket:message>
+					</label> <span wicket:id="modifiedBy"></span>
+				</p>
+				<p class="shorttext">
+					<label for="modifiedOn"> <wicket:message
+							key="form.label.last.changed.on"></wicket:message>
+					</label> <span wicket:id="modifiedOn"></span>
+				</p>
+			</div>
+
+			<div style="float: left; margin-left: 50px;">				
+				<p class="shorttext">
+					<label for="startNewAttempt"> <wicket:message
+							key="form.label.start.new.attempt"></wicket:message>
+					</label> <input type="checkbox" wicket:id="startNewAttempt"></input>
+				</p>
+
+				<p class="shorttext">
+					<label for="numberOfTries"> <wicket:message
+							key="form.label.number.of.tries"></wicket:message>
+					</label> <select wicket:id="numberOfTries" />
+				</p>
+				<p class="shorttext">
+					<label for="getHighestResult"> <wicket:message
+							key="form.label.get.highest.result"></wicket:message>
+					</label> <input type="checkbox" wicket:id="getHighestResult"></input>
+				</p>
+				<div wicket:id="scos">
+					<p class="shorttext">
+						<label for="synchronizeSCOWithGradebook"> <wicket:message
+								key="form.label.synchronyse.with.gradebook"></wicket:message>
+						</label> <input type="checkbox" wicket:id="synchronizeSCOWithGradebook"></input>
+					</p>
+					<p style="clear: both;" />
+				</div>
+			</div>
+			<div style="clear: both"></div>
+			<div>
+				<p class="instruction labelindnt">
+					<wicket:message key="form.instructions.prerequisite"></wicket:message>
+				</p>
+			</div>			
+			
+			<!-- DuyDPD - Show list of packages -->
+			<div>
+				<div style="float: left">
+					<label>
+						<wicket:message key="form.label.content"></wicket:message>
+					</label>
+				</div>
+				<div style="width: 400px;float:left;margin-bottom: 15px; margin-left:15px">
+					<span wicket:id="listPackages">
+						<input wicket:id="checkPackage" type="checkbox" />
+						<span wicket:id="namePackage"></span><br/>
+					</span>
+				</div>
+			</div>
+			
+			<div style="clear: both"></div>
+			<div>
+				<div>
+					<p class="instruction labelindnt">
+						<wicket:message key="form.instructions.nextPackage"></wicket:message>
+					</p>
+				</div>
+				<div>	
+					<div style="float: left">						
+						<label>
+							<wicket:message key="form.label.content"></wicket:message>
+						</label>
+					</div>
+					<div style="width: 400px;float:left;margin-bottom: 15px;margin-left:15px">
+						<!-- <span wicket:id="groupNextPackage">
+							<span wicket:id="listNextPackages">
+								<input wicket:id="checkNextPackage" type="radio" />
+								<span wicket:id="nameNextPackage"></span><br/>
+							</span>
+						</span> -->
+						<select wicket:id="groupNextPackage" />
+					</div>
+				</div>
+			</div>
+			
+			
+			<div class="act" style="margin-top: 80px">
+				<input type="submit" wicket:message="value:page.submit"
+					class="active" />
+				<!-- <input wicket:id="submit" type="submit" wicket:message="value:page.submit" class="active"/> -->
+				<input wicket:id="cancel" type="submit"
+					wicket:message="value:page.cancel" />
+			</div>
+		</form>
+	</wicket:extend>
+	<!-- END -->
+</body>
+</html>

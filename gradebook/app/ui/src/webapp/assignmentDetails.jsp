@@ -156,6 +156,15 @@
 			</h:commandButton>
 		</div>
 
+		<!-- Hiep Added 28/12/2016 START -->
+		<div id="buttonDiv3" class="act gbButtonBar">
+			<h:commandButton
+			    id="btnExportExcel" 
+			    styleClass="active" 
+			    value="#{msgs.assignment_details_export_excel}"
+			    actionListener="#{assignmentDetailsBean.exportExcel}"/>
+		</div>
+		<!-- Hiep Added 28/12/2016 END -->
 		<t:dataTable cellpadding="0" cellspacing="0"
 			id="gradingTable"
 			value="#{assignmentDetailsBean.scoreRows}"
@@ -202,6 +211,19 @@
 					<h:graphicImage value="images/log.png" alt="#{msgs.inst_view_log_alt}"/>
 				</h:outputLink>
 			</h:column>
+			
+			<!-- Hiep Added 12/11/2016 START -->
+			<h:column>
+				<f:facet name="header">
+					<h:outputText value="Progress"/>
+				</f:facet>
+				<t:div styleClass="gbTextOnRow">
+					<h:outputText value="#{scoreRow.percentEarned}">
+						<f:converter converterId="org.sakaiproject.gradebook.jsf.converter.GRADEBOOK_PERCENTAGE_CONVERTER" />
+					</h:outputText>
+				</t:div>
+			</h:column>
+			<!-- Hiep Added 12/11/2016 END -->
 
 			<%@include file="/inc/scoringAgent/assignmentDetails.jspf"%>
 
@@ -261,6 +283,16 @@
 						</h:inputText>
 					</h:panelGroup>
 				</t:div>
+			</h:column>
+			<%-- ThachLN.Added --%>
+			<h:column>			
+				<f:facet name="header">		
+					<h:outputText value="Completion Status"/>	
+				</f:facet>		
+				<t:div styleClass="gbTextOnRow">		
+					<h:outputText value="#{scoreRow.completionStatus}">	
+					</h:outputText>	
+				</t:div>		
 			</h:column>
 			<h:column>
 				<f:facet name="header">

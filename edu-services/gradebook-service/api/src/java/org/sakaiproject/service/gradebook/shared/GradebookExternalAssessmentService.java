@@ -163,6 +163,27 @@ public interface GradebookExternalAssessmentService {
 			String studentUid, String points)
             throws GradebookNotFoundException, AssessmentNotFoundException;
 
+  /**
+   * Updates an external score as learned progress for an external lessen in the gradebook
+   * Last modified 04/30/2017 by ThachLN
+   * @param gradebookUid
+   *            The Uid of the gradebook
+   * @param externalId
+   *            The external ID of the assignment/assessment
+   * @param studentUid
+   *            The unique id of the student
+   * @param points
+   *            The number of points earned on this assessment, or null if a score should be removed
+   * @param percents
+   *            The number of learned progress
+   * @param completionStatus
+   * @throws GradebookNotFoundException
+   *             When gradebook cannot be found
+   * @throws AssessmentNotFoundException
+   *             When assessment cannot be found
+   */
+  public void updateExternalAssessmentScore(String gradebookUid, String externalId, String studentUid, String points,
+          String percents, String completionStatus) throws GradebookNotFoundException, AssessmentNotFoundException;
 	/**
 	 * 
 	 * @param gradebookUid

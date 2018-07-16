@@ -49,6 +49,7 @@
 		<property name="dateEvolver" ref="fieldDateInputEvolver" />
 		<property name="forumEntity" ref="org.sakaiproject.lessonbuildertool.service.ForumEntity"/>
 		<property name="quizEntity" ref="org.sakaiproject.lessonbuildertool.service.SamigoEntity"/>
+		<property name="scormEntity" ref="org.sakaiproject.lessonbuildertool.service.ScormEntity"/>
  		<property name="bltiEntity" ref="org.sakaiproject.lessonbuildertool.service.BltiEntity"/>
 		<property name="assignmentEntity" ref="org.sakaiproject.lessonbuildertool.service.AssignmentEntity"/>
 		<property name="timeService" ref="org.sakaiproject.time.api.TimeService" />
@@ -159,6 +160,18 @@
 		<property name="quizEntity" ref="org.sakaiproject.lessonbuildertool.service.SamigoEntity"/>
 		<property name="localeGetter" ref="requestLocaleProxy" />
 	</bean>
+	
+	<!-- Hoctdy add start -->
+	<bean class="org.sakaiproject.lessonbuildertool.tool.producers.ScormPickerProducer" >
+		<property name="messageLocator" ref="messageLocator"/>
+		<property name="simplePageBean" ref="simplePageBean" />
+		<property name="simplePageToolDao">
+			<ref bean="org.sakaiproject.lessonbuildertool.model.SimplePageToolDao" />
+		</property>
+		<property name="scormEntity" ref="org.sakaiproject.lessonbuildertool.service.ScormEntity"/>
+		<property name="localeGetter" ref="requestLocaleProxy" />
+	</bean>
+	<!-- Hoctdy add end -->
 
 	<bean class="org.sakaiproject.lessonbuildertool.tool.producers.ResourcePickerProducer" >
 		<property name="messageLocator" ref="messageLocator"/>
@@ -292,6 +305,7 @@
 		<property name="multipartMap" ref="multipartMap" />
 		<property name="forumEntity" ref="org.sakaiproject.lessonbuildertool.service.ForumEntity"/>
 		<property name="quizEntity" ref="org.sakaiproject.lessonbuildertool.service.SamigoEntity"/>
+		<property name="scormEntity" ref="org.sakaiproject.lessonbuildertool.service.ScormEntity"/>
 		<property name="assignmentEntity" ref="org.sakaiproject.lessonbuildertool.service.AssignmentEntity"/>
  		<property name="bltiEntity" ref="org.sakaiproject.lessonbuildertool.service.BltiEntity"/>
 		<property name="gradebookIfc" ref="org.sakaiproject.lessonbuildertool.service.GradebookIfc"/>

@@ -16,6 +16,8 @@
 
 package org.sakaiproject.tool.gradebook.ui;
 
+import java.io.IOException;
+import java.io.OutputStream;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -25,9 +27,15 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import javax.faces.context.FacesContext;
 import javax.faces.event.ActionEvent;
+import javax.servlet.http.HttpServletResponse;
 
 import org.apache.commons.lang.StringUtils;
+import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.xssf.usermodel.XSSFRow;
+import org.apache.poi.xssf.usermodel.XSSFSheet;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.sakaiproject.section.api.coursemanagement.EnrollmentRecord;
 import org.sakaiproject.service.gradebook.shared.GradebookService;
 import org.sakaiproject.service.gradebook.shared.StaleObjectModificationException;
@@ -118,6 +126,23 @@ public class AssignmentDetailsBean extends EnrollmentTableBean {
 
         public Boolean getDroppedFromGrade() {
             return this.gradeRecord.getDroppedFromGrade();
+        }
+        
+		/**
+         * @author hiepnhse61627
+         * @return
+         */
+        public Double getPercentEarned() {
+            return this.gradeRecord.getPercentEarned();
+        }
+        
+        /**
+         * Get Completion Status of the lesson.
+         * @author ThachLN
+         * @return
+         */
+        public String getCompletionStatus() {
+        	return this.gradeRecord.getCompletionStatus();
         }
 
 		public Double getScore() {
@@ -557,6 +582,78 @@ public class AssignmentDetailsBean extends EnrollmentTableBean {
         getPreferencesBean().setAssignmentDetailsTableSectionFilter(assignmentDetailsTableSectionFilter);
         super.setSelectedSectionFilterValue(assignmentDetailsTableSectionFilter);
     }
+    
+	/**	
+	 * Action listener to export excel file for gradebook.
+     * @author hiepnhse61627
+     * Last modified: 04/30/2017 by ThachLN
+     * @param event
+     * @throws IOException 
+     */
+    public void exportExcel(ActionEvent event) throws IOException {
+        FacesContext fc = FacesContext.getCurrentInstance();
+        HttpServletResponse response = (HttpServletResponse) fc.getExternalContext().getResponse();
+        
+        response.reset();
+        response.setContentType("application/octet-stream");
+        String headerValue = String.format("attachment; filename=\"%s\"", "Gradebook.xlsx");
+        response.setHeader("Content-Disposition", headerValue);
+        
+        OutputStream os = response.getOutputStream();
+        
+        XSSFWorkbook workbook = new XSSFWorkbook();
+        // Create a blank spreadsheet
+        XSSFSheet spreadsheet = workbook.createSheet("Gradebook_Sheet");   
+        // Create row object
+        XSSFRow row;
+        // Data
+        List<Object[]> listData = buildExcelContents();
+        // export
+        int rowid = 0;
+        for (Object[] objArr : listData) {
+            row = spreadsheet.createRow(rowid++);
+            int cellid = 0;
+            for (Object obj : objArr) {
+                Cell cell = row.createCell(cellid++);
+                cell.setCellValue((String) obj);                
+            }
+        }
+        final int N_COLS = 7; // Columns: Student Name, Student ID, Log, Progress, Points, Completion Status, Comments
+        for(int i = 0; i < N_COLS ; i++){
+            spreadsheet.autoSizeColumn(i);
+        }
+        
+        workbook.write(os);
+        
+        fc.responseComplete();
+    }
+    
+    private List<Object[]> buildExcelContents() {
+        List<Object[]> lstData = new ArrayList<Object[]>();
+        Object[] header = new Object[] { "Student Name", "Student ID", "Log", "Progress",
+                "Points", " Comments" };
+        lstData.add(header);
+        
+        Iterator iter = this.scoreRows.iterator();
+        List<ScoreRow> listScoreRow = new ArrayList<ScoreRow>();
+        while (iter.hasNext()) {
+            Object value = iter.next();
+            if (value instanceof ScoreRow) {
+                ScoreRow scoreRow = (ScoreRow) value;
+                listScoreRow.add(scoreRow);
+            }
+        }
+        
+        for (ScoreRow scoreRow : listScoreRow) {
+            Object[] objectArr = new Object[] {scoreRow.enrollment.getUser().getDisplayName(), scoreRow.enrollment.getUser().getDisplayId(),
+                                               "", scoreRow.gradeRecord.getPercentEarned() != null ? Math.round(scoreRow.gradeRecord.getPercentEarned()) + " %" : "",
+                                               scoreRow.gradeRecord.getPointsEarned() != null ? Math.round(scoreRow.gradeRecord.getPointsEarned()) + "" : "",
+                                               scoreRow.gradeRecord.getCompletionStatus(),
+                                               scoreRow.getCommentText() != null ? scoreRow.getCommentText() : ""};
+            lstData.add(objectArr);
+        }
+        return lstData;
+	}
 
 	/**
 	 * Action listener to view a different assignment.

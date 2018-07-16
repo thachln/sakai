@@ -1,0 +1,4 @@
+﻿3/10 => 10/10
+------------------
+1) Bỏ Frame bị lỗi bên trái hoặc sửa lại cho đúng (Sau này dùng để liệt kê các bài học)
+2) User không phải admin (Student, Instructor, TA) của site vẫn play được.

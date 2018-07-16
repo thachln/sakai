@@ -21,6 +21,9 @@
 		<value>org/sakaiproject/lessonbuildertool/simplepagepeerevalresult.hbm.xml</value>
 		<value>org/sakaiproject/lessonbuildertool/simplepageproperty.hbm.xml</value>
 		<value>org/sakaiproject/lessonbuildertool/checklistitemstatus.hbm.xml</value>
+		 <!-- Thach.Add.Start.Tracking learned percent -->
+        <value>org/sakaiproject/lessonbuildertool/trackprogress.hbm.xml</value>
+        <!-- Thach.Add.End -->
       </list>
     </property>
   </bean>
