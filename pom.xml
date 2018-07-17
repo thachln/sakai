@@ -74,6 +74,7 @@
                 <module>jobscheduler</module>
                 <module>jsf</module>
                 <module>kernel</module>
+				<module>scorm-player</module>
                 <module>lessonbuilder</module>
                 <module>library</module>
                 <module>login</module>
