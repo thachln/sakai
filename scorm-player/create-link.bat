@@ -1,0 +1,1 @@
+mklink /J D:\Project_Sakai\Sakai-11.2-git\git\sakai\scorm-player D:\Project_FSOFT\TERP\svn\trunk\source\scorm-player 

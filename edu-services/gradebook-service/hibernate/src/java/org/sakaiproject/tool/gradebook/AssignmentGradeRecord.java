@@ -36,6 +36,9 @@ public class AssignmentGradeRecord extends AbstractGradeRecord implements Clonea
 	private Double pointsEarned;
     private String letterEarned;
     private Double percentEarned;
+    // HocTDY.Added.20180704.START
+    private String completionStatus;
+    // HocTDY.Added.20180704.START
     private boolean userAbleToView;
     private Boolean excludedFromGrade;
     private transient BigDecimal earnedWeightedPercentage;
@@ -251,6 +254,14 @@ public class AssignmentGradeRecord extends AbstractGradeRecord implements Clonea
     public void setDroppedFromGrade(Boolean droppedFromGrade) {
         this.droppedFromGrade = droppedFromGrade;
     }
+
+	public String getCompletionStatus() {
+		return completionStatus;
+	}
+
+	public void setCompletionStatus(String completionStatus) {
+		this.completionStatus = completionStatus;
+	}
 }
 
 

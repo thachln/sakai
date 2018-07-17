@@ -1,0 +1,29 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:wicket="http://wicket.apache.org/dtds.data/wicket-xhtml1.3-strict.dtd" xml:lang="en"
+    lang="en">
+<style>
+	.collapsiblePanel {
+		border: thin;
+		border-color: #eee;
+		border-style: solid;
+		margin-bottom: 5px;
+	}
+</style>
+<wicket:panel>
+	<fieldset class="collapsiblePanel">
+		<legend>
+			<h3>
+				<a href="#" wicket:id="showHideLink">
+					<img wicket:id="showHideIcon" align="absmiddle" border="0" />
+				</a>
+				<span wicket:id="titlePanel"></span>
+			</h3>
+		</legend>
+		<div>
+			<table wicket:id="innerPanel" id="cpTable" class="listHier lines nolines" />
+		</div>
+	</fieldset>
+</wicket:panel>
+
+</html>

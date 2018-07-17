@@ -117,6 +117,14 @@
 			org.sakaiproject.tool.gradebook.jsf.LetterGradeConverter
 		</converter-class>
 	</converter>
+	<converter>
+		<converter-id>
+			org.sakaiproject.gradebook.jsf.converter.GRADEBOOK_PERCENTAGE_CONVERTER
+		</converter-id>
+		<converter-class>
+			org.sakaiproject.tool.gradebook.jsf.GradeBookPercentageConverter
+		</converter-class>
+	</converter>
 
 	<validator>
 		<validator-id>

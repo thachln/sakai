@@ -29,7 +29,7 @@ import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 
 import uk.org.ponder.localeutil.LocaleGetter;
-import uk.org.ponder.messageutil.MessageLocator;                                                                                     
+import uk.org.ponder.messageutil.MessageLocator;
 import uk.org.ponder.rsf.components.UIBranchContainer;
 import uk.org.ponder.rsf.components.UICommand;
 import uk.org.ponder.rsf.components.UIContainer;
@@ -60,8 +60,8 @@ import org.sakaiproject.tool.api.Session;
 import org.sakaiproject.tool.cover.SessionManager;
 
 /**
- * Creates a list of Assessments from Samigo for the user to choose from. Their choice will be added
- * to the end of the list of items on this page.
+ * Creates a list of Assessments from Samigo for the user to choose from. Their
+ * choice will be added to the end of the list of items on this page.
  * 
  * @author Eric Jeney <jeney@rutgers.edu>
  * 
@@ -72,19 +72,19 @@ public class QuizPickerProducer implements ViewComponentProducer, NavigationCase
 
 	private SimplePageBean simplePageBean;
 	private SimplePageToolDao simplePageToolDao;
-        private LessonEntity quizEntity;
+	private LessonEntity quizEntity;
 	public MessageLocator messageLocator;
-	public LocaleGetter localeGetter;                                                                                             
+	public LocaleGetter localeGetter;
 
 	public void setSimplePageBean(SimplePageBean simplePageBean) {
 		this.simplePageBean = simplePageBean;
 	}
 
-    	public void setSimplePageToolDao(Object dao) {
+	public void setSimplePageToolDao(Object dao) {
 		simplePageToolDao = (SimplePageToolDao) dao;
 	}
 
-    	public void setQuizEntity(LessonEntity l) {
+	public void setQuizEntity(LessonEntity l) {
 		quizEntity = l;
 	}
 
@@ -94,18 +94,19 @@ public class QuizPickerProducer implements ViewComponentProducer, NavigationCase
 
 	public void fillComponents(UIContainer tofill, ViewParameters viewparams, ComponentChecker checker) {
 		if (((GeneralViewParameters) viewparams).getSendingPage() != -1) {
-		    // will fail if page not in this site
-		    // security then depends upon making sure that we only deal with this page
-		    try {
-			simplePageBean.updatePageObject(((GeneralViewParameters) viewparams).getSendingPage());
-		    } catch (Exception e) {
-			log.info("QuizPicker permission exception " + e);
-			return;
-		    }
+			// will fail if page not in this site
+			// security then depends upon making sure that we only deal with
+			// this page
+			try {
+				simplePageBean.updatePageObject(((GeneralViewParameters) viewparams).getSendingPage());
+			} catch (Exception e) {
+				log.info("QuizPicker permission exception " + e);
+				return;
+			}
 		}
 
 		UIOutput.make(tofill, "html").decorate(new UIFreeAttributeDecorator("lang", localeGetter.get().getLanguage()))
-		    .decorate(new UIFreeAttributeDecorator("xml:lang", localeGetter.get().getLanguage()));        
+				.decorate(new UIFreeAttributeDecorator("xml:lang", localeGetter.get().getLanguage()));
 
 		Long itemId = ((GeneralViewParameters) viewparams).getItemId();
 
@@ -115,79 +116,84 @@ public class QuizPickerProducer implements ViewComponentProducer, NavigationCase
 
 			SimplePage page = simplePageBean.getCurrentPage();
 
-		        String currentItem = null; // default value, normally current
+			String currentItem = null; // default value, normally current
 			if (itemId != null && itemId != -1) {
-			    SimplePageItem i = simplePageToolDao.findItem(itemId);
-			    if (i == null)
-				return;
-			    // trying to hack on item not on this page
-			    if (i.getPageId() != page.getPageId())
-				return;
-			    currentItem = i.getSakaiId();
+				SimplePageItem i = simplePageToolDao.findItem(itemId);
+				if (i == null)
+					return;
+				// trying to hack on item not on this page
+				if (i.getPageId() != page.getPageId())
+					return;
+				currentItem = i.getSakaiId();
 			}
 
 			Session ses = SessionManager.getCurrentSession();
-			
+
 			List<UrlItem> createLinks = quizEntity.createNewUrls(simplePageBean);
 			int toolNum = 0;
-			for (UrlItem createLink: createLinks) {
-			    UIBranchContainer link = UIBranchContainer.make(tofill, "quiz-create:");
-			    GeneralViewParameters view = new GeneralViewParameters(ShowItemProducer.VIEW_ID);
-			    view.setSendingPage(((GeneralViewParameters) viewparams).getSendingPage());
-			    view.setId(Long.toString(((GeneralViewParameters) viewparams).getItemId()));
-			    view.setSource("CREATE/QUIZ/" + (toolNum++));
-			    view.setReturnView(VIEW_ID);
-			    view.setAddBefore(((GeneralViewParameters) viewparams).getAddBefore());
-			    view.setTitle(messageLocator.getMessage("simplepage.return_quiz"));
-			    UIInternalLink.make(link, "quiz-create-link", createLink.label , view);
+			for (UrlItem createLink : createLinks) {
+				UIBranchContainer link = UIBranchContainer.make(tofill, "quiz-create:");
+				GeneralViewParameters view = new GeneralViewParameters(ShowItemProducer.VIEW_ID);
+				view.setSendingPage(((GeneralViewParameters) viewparams).getSendingPage());
+				view.setId(Long.toString(((GeneralViewParameters) viewparams).getItemId()));
+				view.setSource("CREATE/QUIZ/" + (toolNum++));
+				view.setReturnView(VIEW_ID);
+				view.setAddBefore(((GeneralViewParameters) viewparams).getAddBefore());
+				view.setTitle(messageLocator.getMessage("simplepage.return_quiz"));
+				UIInternalLink.make(link, "quiz-create-link", createLink.label, view);
 			}
 
 			UIForm form = UIForm.make(tofill, "quiz-picker");
 			Object sessionToken = SessionManager.getCurrentSession().getAttribute("sakai.csrf.token");
 			if (sessionToken != null)
-			    UIInput.make(form, "csrf", "simplePageBean.csrfToken", sessionToken.toString());
+				UIInput.make(form, "csrf", "simplePageBean.csrfToken", sessionToken.toString());
 
 			List<LessonEntity> plist = quizEntity.getEntitiesInSite();
 
 			if (createLinks.size() == 0) {
-			    UIOutput.make(tofill, "error-div");
-			    UIOutput.make(tofill, "error", messageLocator.getMessage("simplepage.no_assessment_tool"));
-			    UICommand.make(tofill, "cancel", messageLocator.getMessage("simplepage.cancel"), "#{simplePageBean.cancel}");
-			    return;
+				UIOutput.make(tofill, "error-div");
+				UIOutput.make(tofill, "error", messageLocator.getMessage("simplepage.no_assessment_tool"));
+				UICommand.make(tofill, "cancel", messageLocator.getMessage("simplepage.cancel"),
+						"#{simplePageBean.cancel}");
+				return;
 			}
 
 			if (plist == null || plist.size() < 1) {
-			    UIOutput.make(tofill, "error-div");
-			    UIOutput.make(tofill, "error", messageLocator.getMessage("simplepage.no_assessments"));
-			    UICommand.make(tofill, "cancel", messageLocator.getMessage("simplepage.cancel"), "#{simplePageBean.cancel}");
-			    return;
+				UIOutput.make(tofill, "error-div");
+				UIOutput.make(tofill, "error", messageLocator.getMessage("simplepage.no_assessments"));
+				UICommand.make(tofill, "cancel", messageLocator.getMessage("simplepage.cancel"),
+						"#{simplePageBean.cancel}");
+				return;
 			}
 
 			ArrayList<String> values = new ArrayList<String>();
 
-			for (LessonEntity quiz: plist) {
-			    values.add(quiz.getReference());
+			for (LessonEntity quiz : plist) {
+				values.add(quiz.getReference());
 			}
 
 			// if no current item, use first
 			if (currentItem == null)
-			    currentItem = plist.get(0).getReference();
+				currentItem = plist.get(0).getReference();
 
-			UISelect select = UISelect.make(form, "quiz-span", values.toArray(new String[1]), "#{simplePageBean.selectedQuiz}", currentItem);
+			UISelect select = UISelect.make(form, "quiz-span", values.toArray(new String[1]),
+					"#{simplePageBean.selectedQuiz}", currentItem);
 			for (LessonEntity a : plist) {
 
 				UIBranchContainer row = UIBranchContainer.make(form, "quiz:", String.valueOf(plist.indexOf(a)));
 
-				UISelectChoice.make(row, "select", select.getFullID(), plist.indexOf(a)).
-				    decorate(new UIFreeAttributeDecorator("title", a.getTitle()));
+				UISelectChoice.make(row, "select", select.getFullID(), plist.indexOf(a))
+						.decorate(new UIFreeAttributeDecorator("title", a.getTitle()));
 
 				UILink.make(row, "link", a.getTitle(), a.getUrl());
 			}
 
 			UIInput.make(form, "item-id", "#{simplePageBean.itemId}");
-			UIInput.make(form, "add-before", "#{simplePageBean.addBefore}", ((GeneralViewParameters) viewparams).getAddBefore());
+			UIInput.make(form, "add-before", "#{simplePageBean.addBefore}",
+					((GeneralViewParameters) viewparams).getAddBefore());
 
-			UICommand.make(form, "submit", messageLocator.getMessage("simplepage.chooser.select"), "#{simplePageBean.addQuiz}");
+			UICommand.make(form, "submit", messageLocator.getMessage("simplepage.chooser.select"),
+					"#{simplePageBean.addQuiz}");
 			UICommand.make(form, "cancel", messageLocator.getMessage("simplepage.cancel"), "#{simplePageBean.cancel}");
 		}
 	}

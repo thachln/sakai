@@ -127,6 +127,7 @@ import org.tsugi.lti2.ContentItem;
 import uk.org.ponder.messageutil.MessageLocator;
 import uk.org.ponder.rsf.components.UIContainer;
 import uk.org.ponder.rsf.components.UIInternalLink;
+import uk.org.ponder.rsf.components.decorators.UIFreeAttributeDecorator;
 
 /**
  * Backing bean for Simple pages
@@ -216,7 +217,9 @@ public class SimplePageBean {
 	public String[] studentSelectedGroups = new String[] {};
 
 	public String selectedQuiz = null;
-
+	// Hoctdy - add scorm link - start
+	public String selectedScorm = null;
+	// Hoctdy - add scorm link - end
 	public String[] selectedChecklistItems = new String[] {};
 	
 	public long removeId = 0;
@@ -622,6 +625,18 @@ public class SimplePageBean {
 	public void setQuizEntity(Object e) {
 		quizEntity = (LessonEntity)e;
 	}
+	
+	// Hoctdy add start
+	private LessonEntity scormEntity = null;
+
+	public LessonEntity getScormEntity() {
+		return scormEntity;
+	}
+
+	public void setScormEntity(LessonEntity scormEntity) {
+		this.scormEntity = scormEntity;
+	}
+	// Hoctdy add end
 	
 	private LessonEntity assignmentEntity = null;
 	public void setAssignmentEntity(Object e) {
@@ -2209,7 +2224,10 @@ public class SimplePageBean {
 	    	view.setItemId(nextItem.getId());
 	    	view.setBackPath("push");
 	    	UIInternalLink.make(tofill, "next", messageLocator.getMessage("simplepage.next"), view);
-	    	UIInternalLink.make(tofill, "next1", messageLocator.getMessage("simplepage.next"), view);
+	    	UIInternalLink next1Link = UIInternalLink.make(tofill, "next1", messageLocator.getMessage("simplepage.next"), view);
+			// Tho.Add.Support auto next video
+			next1Link.decorate(new UIFreeAttributeDecorator("id", "next1"));
+			// Tho.End
 	    }
 	}
 
@@ -3091,6 +3109,11 @@ public class SimplePageBean {
 					    lessonEntity = assignmentEntity.getEntity(i.getSakaiId()); break;
 					case SimplePageItem.ASSESSMENT:
 					    lessonEntity = quizEntity.getEntity(i.getSakaiId(),this); break;
+					// Hoctdy - Add Scorm Link - Start
+					case SimplePageItem.SCORM:
+						lessonEntity = scormEntity.getEntity(i.getSakaiId(), this);
+						break;
+					// Hoctdy - Add Scorm Link - End
 					case SimplePageItem.FORUM:
 					    lessonEntity = forumEntity.getEntity(i.getSakaiId()); break;
 					}
@@ -3126,6 +3149,11 @@ public class SimplePageBean {
 				    lessonEntity = assignmentEntity.getEntity(i.getSakaiId()); break;
 				case SimplePageItem.ASSESSMENT:
 				    lessonEntity = quizEntity.getEntity(i.getSakaiId(),this); break;
+				// Hoctdy - Add Scorm Link - Start
+				case SimplePageItem.SCORM:
+					lessonEntity = scormEntity.getEntity(i.getSakaiId(), this);
+					break;
+				// Hoctdy - Add Scorm Link - End
 				case SimplePageItem.FORUM:
 				    lessonEntity = forumEntity.getEntity(i.getSakaiId()); break;
 				}
@@ -3207,6 +3235,12 @@ public class SimplePageBean {
 	public void setSelectedQuiz(String selectedQuiz) {
 		this.selectedQuiz = selectedQuiz;
 	}
+	
+	// Hoctdy - Add Scorm Link - Start
+	public void setSelectedScorm(String selectedScorm) {
+		this.selectedScorm = selectedScorm;
+	}
+	// Hoctdy - Add Scorm Link - End
 
 	public void setSelectedBlti(String selectedBlti) {
 		this.selectedBlti = selectedBlti;
@@ -3570,6 +3604,10 @@ public class SimplePageBean {
 		   entity = assignmentEntity.getEntity(i.getSakaiId()); break;
 	       case SimplePageItem.ASSESSMENT:
 		   entity = quizEntity.getEntity(i.getSakaiId(),this); break;
+		   // Hoctdy - Add Scorm Link - Start
+	       case SimplePageItem.SCORM:
+		   entity = scormEntity.getEntity(i.getSakaiId(), this); break;
+		   // Hoctdy - Add Scorm Link - End
 	       case SimplePageItem.FORUM:
 		   entity = forumEntity.getEntity(i.getSakaiId()); break;
 	       case SimplePageItem.MULTIMEDIA:
@@ -3801,6 +3839,11 @@ public class SimplePageBean {
 	       lessonEntity = assignmentEntity.getEntity(i.getSakaiId()); break;
 	   case SimplePageItem.ASSESSMENT:
 	       lessonEntity = quizEntity.getEntity(i.getSakaiId(),this); break;
+	   // Hoctdy - Add Scorm link - Start
+	   case SimplePageItem.SCORM:
+			lessonEntity = scormEntity.getEntity(i.getSakaiId(), this);
+			break;
+	   // Hoctdy - Add Scorm link - End
 	   case SimplePageItem.FORUM:
 	       lessonEntity = forumEntity.getEntity(i.getSakaiId()); break;
 	   case SimplePageItem.MULTIMEDIA:
@@ -4078,6 +4121,72 @@ public class SimplePageBean {
 			}
 		}
 	}
+	
+	// Hoctdy - Add Scorm Link - Start
+	public String addScorm() {
+		if (!itemOk(itemId))
+			return "permission-failed";
+		if (!canEditPage())
+			return "permission-failed";
+		if (!checkCsrf())
+			return "permission-failed";
+
+		if (selectedScorm == null) {
+			return "failure";
+		} else {
+			try {
+				LessonEntity selectedObject = scormEntity.getEntity(selectedScorm, this);
+				if (selectedObject == null)
+					return "failure";
+
+				// editing existing item?
+				SimplePageItem i;
+				if (itemId != null && itemId != -1) {
+					i = findItem(itemId);
+					// do getEntity/getreference to normalize, in case sakaiid
+					// is old format
+					LessonEntity existing = scormEntity.getEntity(i.getSakaiId(), this);
+					String ref = null;
+					if (existing != null)
+						ref = existing.getReference();
+					// if same quiz, nothing to do
+					if ((existing == null) || !ref.equals(selectedScorm)) {
+						// if access controlled, clear restriction from old quiz
+						// and add to new
+						if (i.isPrerequisite()) {
+							if (existing != null) {
+								i.setPrerequisite(false);
+								checkControlGroup(i, false);
+							}
+							// sakaiid and name are used in setting control
+							i.setSakaiId(selectedScorm);
+							i.setName(selectedObject.getTitle());
+							i.setPrerequisite(true);
+							checkControlGroup(i, true);
+						} else {
+							i.setSakaiId(selectedScorm);
+							i.setName(selectedObject.getTitle());
+						}
+						// reset quiz-specific stuff
+						i.setDescription("");
+
+						update(i);
+					}
+				} else { // no, add new item
+					i = appendItem(selectedScorm, selectedObject.getTitle(), SimplePageItem.SCORM);
+					saveItem(i);
+				}
+				return "success";
+			} catch (Exception ex) {
+				ex.printStackTrace();
+				return "failure";
+			} finally {
+				selectedScorm = null;
+			}
+		}
+	}
+
+	// Hoctdy - Add Scorm Link - End
 
 	public void setLinkUrl(String url) {
 		linkUrl = url;

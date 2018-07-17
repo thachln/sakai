@@ -37,6 +37,7 @@ import org.sakaiproject.lessonbuildertool.SimplePageQuestionAnswer;
 import org.sakaiproject.lessonbuildertool.SimplePageQuestionResponse;
 import org.sakaiproject.lessonbuildertool.SimplePageQuestionResponseTotals;
 import org.sakaiproject.lessonbuildertool.SimpleStudentPage;
+import org.sakaiproject.lessonbuildertool.TrackProgress;
 import org.sakaiproject.lessonbuildertool.SimplePagePeerEval;
 import org.sakaiproject.lessonbuildertool.SimplePagePeerEvalResult;
 import org.sakaiproject.lessonbuildertool.SimplePageProperty;
@@ -332,4 +333,54 @@ public interface SimplePageToolDao {
     public String getLessonSubPageJSON(String userId, boolean isInstructor, String siteId, List pages);
 
     public List<SimplePage> getTopLevelPages(String siteId);
+    
+    
+    /**
+     * Support tracking learned progress for each video.
+     * @author ThachLN .
+     * @param lessonId
+     * @return
+     */
+    public TrackProgress findTrackProgressById(Long lessonId);
+    
+    /**
+     * Find the recored tracking of itemId in a siteId.
+     * @param siteId
+     * @param userId 
+     * @param itemId
+     * @return
+     */
+    public TrackProgress findTrackProgressBySiteIdUserIdItemId(String siteId, String userId, Long itemId);
+    
+    /**
+     * Update the percent of the progress.
+     * @param progress
+     * @return number of records are updates. Normally, it is one.
+     */
+    public int update(TrackProgress progress);
+
+    /**
+     * Get the percent value of the progress.
+     * @param id
+     * @param currentSiteId
+     * @param userId
+     * @return
+     */
+    public Double getLearnedProgress(long id, String currentSiteId, String userId);
+    
+    /**
+    * [Give the description for method].
+    * @param itemId
+    * @param siteId
+    * @param userId
+    * @return array of Percent (Double), LastTimeTracked 
+    */
+   public Object[] getReportProgress(long itemId, String siteId, String userId);
+//   public Double getReportProgress(long itemId, String siteId, String userId);
+   
+   public String findSiteIdByAlias(String siteAlias);
+   public String findUserIdByUsername(String username);
+   public List<Double> findPercent(String userId, String siteId);
+
+
 }

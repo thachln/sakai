@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
+        "http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd">
+
+<hibernate-mapping>
+
+    <class name="org.sakaiproject.lessonbuildertool.TrackProgressImpl" table="lesson_builder_track_progress">
+    	<cache usage="nonstrict-read-write" />
+		<id name="id" type="long">
+			<generator class="native" />
+		</id>
+		
+		<property name="lastTimeTracked" column="lastTimeTracked" type="timestamp"/>
+		
+		
+		<property name="itemId" type="long" not-null="true" />
+		<property name="userId" type="string" length="99" not-null="true" />
+		<property name="siteId" type="string" length="99" not-null="true" />
+		<property name="percent" type="double" />
+    </class>
+</hibernate-mapping>

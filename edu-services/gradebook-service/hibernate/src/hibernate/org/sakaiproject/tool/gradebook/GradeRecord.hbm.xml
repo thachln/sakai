@@ -32,6 +32,12 @@
 		<subclass name="org.sakaiproject.tool.gradebook.AssignmentGradeRecord"  discriminator-value="1">
 			<property name="pointsEarned" column="POINTS_EARNED" type="double" not-null="false" />
 			<property name="excludedFromGrade" column="IS_EXCLUDED_FROM_GRADE" type="boolean" not-null="false"/>
+			<!-- HocTDY.Added.20180704.START -->
+			<!-- percent earned from learned grogress -->
+            <property name="percentEarned" column="PERCENT_EARNED" type="double" not-null="false" />
+            <!-- Completion status from Scorm lesson: "completed","incomplete", "failed", "passed" -->
+            <property name="completionStatus" column="COMPLETION_STATUS" type="string" not-null="false" />
+			<!-- HocTDY.Added.20180704.END -->
 		</subclass>
 
 		<subclass name="org.sakaiproject.tool.gradebook.CourseGradeRecord" discriminator-value="2">

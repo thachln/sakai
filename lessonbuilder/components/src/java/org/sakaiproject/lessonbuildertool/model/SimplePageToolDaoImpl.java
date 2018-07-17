@@ -89,6 +89,7 @@ import org.sakaiproject.lessonbuildertool.SimplePageQuestionResponseTotals;
 import org.sakaiproject.lessonbuildertool.SimplePageQuestionResponseTotalsImpl;
 import org.sakaiproject.lessonbuildertool.SimpleStudentPage;
 import org.sakaiproject.lessonbuildertool.SimpleStudentPageImpl;
+import org.sakaiproject.lessonbuildertool.TrackProgress;
 import org.sakaiproject.lessonbuildertool.api.LessonBuilderConstants;
 import org.sakaiproject.lessonbuildertool.api.LessonBuilderEvents;
 import org.sakaiproject.lessonbuildertool.util.LessonsSubNavBuilder;
@@ -1917,4 +1918,269 @@ public class SimplePageToolDaoImpl extends HibernateDaoSupport implements Simple
 			return null;
 		}
 	}
+	
+    /**
+     * [Explain the description for this method here].
+     * @author ThachLN
+     * @param lessonId
+     * @return
+     * @see org.sakaiproject.lessonbuildertool.model.SimplePageToolDao#findTrackProgressById(java.lang.Long)
+     */
+    @Override
+    public TrackProgress findTrackProgressById(Long lessonId) {
+        DetachedCriteria d = DetachedCriteria.forClass(TrackProgress.class).add(Restrictions.eq("id", lessonId));
+
+        List<TrackProgress> list = (List<TrackProgress>) getHibernateTemplate().findByCriteria(d);
+
+        if (list.size() > 0) {
+            return list.get(0);
+        } else {
+            return null;
+        }
+    }
+
+    /**
+     * Find existing record of tracking.
+     * @param siteId
+     * @param userId
+     * @param itemId
+     * @return
+     * @see org.sakaiproject.lessonbuildertool.model.SimplePageToolDao#findTrackProgressBySiteIdUserIdItemId(java.lang.String, java.lang.String, java.lang.Long)
+     */
+    @Override
+    public TrackProgress findTrackProgressBySiteIdUserIdItemId(String siteId, String userId, Long itemId) {
+        String hql = "select trackprogress from org.sakaiproject.lessonbuildertool.TrackProgress trackprogress where siteId = :siteId and userId = :userId and itemId = :itemId";
+        
+        String[] paramNames = new String[]{"siteId", "userId", "itemId"};
+        Object[] paramValues = new Object[] {siteId, userId, itemId};
+        
+        List<TrackProgress> listTrackProgress = (List<TrackProgress>) getHibernateTemplate().findByNamedParam(hql, paramNames, paramValues);
+        
+        int len = (listTrackProgress != null) ? listTrackProgress.size() : 0;
+        if (len > 0) {
+            return listTrackProgress.get(0);
+        } else {
+            // 
+            log.warn(String.format("Query '%s' returns %d records", hql, len));
+            return null;
+        }
+    }
+
+    /**
+     * Update learned percent for the existing record which is identified by s.
+     * @param progress
+     * @return number of updated record(s).
+     * @see org.sakaiproject.lessonbuildertool.model.SimplePageToolDao#update(org.sakaiproject.lessonbuildertool.TrackProgress)
+     */
+    @Override
+    public int update(TrackProgress progress) {
+        int n = 0;
+        Session session = getSessionFactory().openSession();
+        Transaction tx = session.getTransaction();
+        try {
+            tx = session.beginTransaction();
+            String hql = "update org.sakaiproject.lessonbuildertool.TrackProgress set percent = :percent, lastTimeTracked = :lastTimeTracked where siteId = :siteId and userId = :userId and itemId = :itemId";
+            Query query = session.createQuery(hql);
+            query.setDouble("percent", progress.getPercent());
+            // query.setDate("lastTimeTracked", progress.getLastTimeTracked());
+            query.setTimestamp("lastTimeTracked", progress.getLastTimeTracked());
+            
+            query.setString("siteId", progress.getSiteId());
+            query.setString("userId", progress.getUserId());
+            query.setLong("itemId", progress.getItemId());
+
+            n = query.executeUpdate();
+            
+            tx.commit();
+        } catch (Exception ex) {
+            log.error("Could not update the progress.", ex);
+            if (tx != null) {
+                tx.rollback();
+            }
+        } finally {
+            session.close();
+        }
+        
+        return n;
+    }
+    
+    @Override
+    public Double getLearnedProgress(long itemId, String siteId, String userId) {
+        Double percent;
+        String hql = "select percent from org.sakaiproject.lessonbuildertool.TrackProgress trackprogress where siteId = :siteId and userId = :userId and itemId = :itemId";
+        
+        String[] paramNames = new String[]{"siteId", "userId", "itemId"};
+        Object[] paramValues = new Object[] {siteId, userId, itemId};
+        
+
+        List<Double> listResult = (List<Double>) getHibernateTemplate().findByNamedParam(hql, paramNames, paramValues);
+        
+        int len = (listResult != null) ? listResult.size() : 0;
+        if (len > 0) {
+            percent = listResult.get(0);
+        } else {
+            percent = null;
+            // 
+            log.warn(String.format("Query '%s' returns %d records", hql, len));
+          
+        }
+
+        return percent;
+    }
+    
+    
+    /**
+     * [Explain the description for this method here].
+     * @param itemId
+     * @param siteId
+     * @param userId
+     * @return List values of: Video name, learned progress
+     * @see org.sakaiproject.lessonbuildertool.model.SimplePageToolDao#getReportProgress(long, java.lang.String, java.lang.String)
+     */
+//    @Override
+//    public List<Object[]> getReportProgress(long itemId, String siteId, String userId) {
+//        List<Object[]> result;
+//        String sql = "SELECT i.name, p.percent FROM lesson_builder_track_progress p, lesson_builder_items i WHERE (p.itemid = i.id) and (p.itemid = ?) and (p.userid = ?) and (p.siteid = ?)";
+//        
+//        if (log.isDebugEnabled()) {
+//            log.debug(String.format("Executing sql: %s", sql));
+//            log.debug(String.format("itemId=%s; userId=%s; siteId=%s", itemId, userId, siteId));
+//        }
+//        result = sqlService.dbRead(sql, new Object[] {itemId, userId, siteId}, new SqlReader() {
+//            public Object readSqlResultRecord(ResultSet result)
+//            {
+//            try {
+//                return new Object[] {result.getString(1), result.getDouble(2)};
+//            } catch (Exception ignore) {};
+//                return null;
+//            }
+//        });
+//
+//        return result;
+//    }
+    
+    @Override
+    public Object[] getReportProgress(long itemId, String siteId, String userId) {
+        Double percent = null;
+        String sql = "SELECT p.percent, p.lasttimetracked FROM lesson_builder_track_progress p, lesson_builder_items i WHERE (p.itemid = i.id) and (p.itemid = ?) and (p.userid = ?) and (p.siteid = ?)";
+        
+        if (log.isDebugEnabled()) {
+            log.debug(String.format("Executing sql: %s", sql));
+            log.debug(String.format("itemId=%s; userId=%s; siteId=%s", itemId, userId, siteId));
+        }
+        // List<String> result = sqlService.dbRead(sql, new Object[] {itemId, userId, siteId}, null);
+        // if ((result != null) && (result.size() > 0)) {
+        // percent = Double.valueOf(result.get(0));
+        // }
+        List<Object[]> result = sqlService.dbRead(sql, new Object[]{itemId, userId, siteId}, new SqlReader() {
+            public Object readSqlResultRecord(ResultSet result) {
+                try {
+                    // Result set start at 1;
+                    return new Object[]{result.getDouble(1), result.getTimestamp(2)};
+                } catch (Exception ignore) {
+                }
+
+                return null;
+            }
+        });
+        
+        if ((result != null)&& (result.size() > 0)) {
+            // The result has only one record;
+            return result.get(0);
+        } else {
+            return null;
+        }
+
+        // return result;
+    }
+    
+    /**
+     * Get site id from the site alias.
+     * @param siteAlias 
+     * @return
+     * @see org.sakaiproject.lessonbuildertool.model.SimplePageToolDao#findSiteIdByAlias(java.lang.String)
+     */
+    @Override
+    public String findSiteIdByAlias(String siteAlias) {
+//        String hsql = "SELECT target FROM sakai_alias WHERE (alias_id = :alias_id)";
+//        
+//        String[] paramNames = new String[]{"alias_id"};
+//        Object[] paramValues = new Object[] {siteAlias};
+        
+        Object [] fields = new Object[1];
+        fields[0] = siteAlias;
+        List<String> listResult = sqlService.dbRead("select target from SAKAI_ALIAS where alias_id = ?", fields, null);
+
+//        List<String> listResult = (List<String>) getHibernateTemplate().findByNamedParam(hsql, paramNames, paramValues);
+        
+        int len = (listResult != null) ? listResult.size() : 0;
+        
+        if (len >= 1) {
+            log.warn(String.format("Theare many sites from the alias ", siteAlias));
+            
+            // Format of target: /site/66fb75fb-dde9-4212-a7da-681f121d7449
+            String target = listResult.get(0);
+            
+            // Remove "/site/" to get the site it.
+            String siteId = target.replace("/site/", "");
+            
+            return siteId;
+        } else {
+            return null;
+        }
+    }
+
+    @Override
+    public String findUserIdByUsername(String username) {
+        Object [] fields = new Object[1];
+        fields[0] = username;
+        List<String> userIds = sqlService.dbRead("select user_id from SAKAI_USER_ID_MAP where eid = ?", fields, null);
+        
+        if (userIds != null && userIds.size() > 0) {
+            if (userIds.size() > 0) {
+                log.warn(String.format("Theare many eid from the username '%s'", username));
+            }
+        
+            return userIds.get(0);
+        }
+
+        return null;
+    }
+
+    @Override
+    public List<Double> findPercent(String userId, String siteId) {
+        // Sample query to get learning percent of all videos of given userId, siteId
+        //        SELECT i.id, i.name, i.html, p.percent
+        //        FROM lesson_builder_items i
+        //        LEFT JOIN lesson_builder_track_progress p ON (i.id = p.itemId) AND (p.userId = 'admin')
+        //        WHERE 
+        //        (i.type = 7)
+        //        AND (i.pageId IN  (SELECT pageId FROM lesson_builder_pages WHERE siteId = '747304c4-1023-4904-a673-3623a711b3a4'))
+        
+        String sql = 
+                "SELECT p.percent " +
+                "FROM lesson_builder_items i " +
+                "LEFT JOIN lesson_builder_track_progress p ON (i.id = p.itemid) AND (p.userid = ?) " +
+                "WHERE " +
+                "(i.type = 7) " +
+                "AND (i.pageid IN  (SELECT pageid FROM lesson_builder_pages WHERE siteid = ?)) ";
+
+//        String[] paramNames = new String[] {"userid", "siteid"};
+//        Object[] paramValues = new Object[] {userId, siteId};
+//        List<Double> listResult = (List<Double>) getHibernateTemplate().findByNamedParam(hsql, paramNames, paramValues);
+
+        List<Double> listResult = sqlService.dbRead(sql, new Object[]{userId, siteId}, new SqlReader() {
+            public Object readSqlResultRecord(ResultSet result) {
+                try {
+                    // Result set start at 1;
+                    return result.getDouble(1);
+                } catch (Exception ignore) {
+                }
+
+                return null;
+            }
+        });
+
+        return listResult;
+    }
 }
