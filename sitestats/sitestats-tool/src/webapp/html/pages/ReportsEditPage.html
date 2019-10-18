@@ -37,10 +37,11 @@
             <!-- Menu -->
             <menu wicket:id="menu" class="navIntraTool">[menu]</menu>
             <!-- Page title -->
-            <h2>
-                <span wicket:id="reportAction"></span>
-            </h2>
-            
+            <div class="page-header">
+                <h1>
+                    <span wicket:id="reportAction"></span>
+                </h1>
+            </div>
 		    <!-- Last Job run -->
             <span wicket:id="lastJobRun"></span>
 		    
@@ -184,6 +185,7 @@
                         </td>
                         <td>
                             <select wicket:id="reportParams.when" class="when responsive-form" onchange="checkWhenSelection();"/>
+                            <span wicket:id="reportParams.when.serverTimeZone"></span>
                         </td>
                     </tr>
                     <tr id="when-custom-from" style="display: none">

@@ -46,6 +46,8 @@ import org.sakaiproject.entity.api.ResourceProperties;
 import org.sakaiproject.exception.IdUnusedException;
 import org.sakaiproject.exception.PermissionException;
 import org.sakaiproject.exception.TypeException;
+import org.sakaiproject.rubrics.logic.RubricsConstants;
+import org.sakaiproject.rubrics.logic.RubricsService;
 import org.sakaiproject.service.gradebook.shared.GradebookExternalAssessmentService;
 import org.sakaiproject.site.api.Group;
 import org.sakaiproject.site.api.Site;
@@ -204,6 +206,8 @@ public class PublishedAssessmentFacadeQueries extends HibernateDaoSupport implem
 		publishedAssessment
 				.setAssessmentAttachmentSet(publishedAssessmentAttachmentSet);
 
+		publishedAssessment.setCategoryId(a.getCategoryId());
+
 		return publishedAssessment;
 	}
 
@@ -249,6 +253,8 @@ public class PublishedAssessmentFacadeQueries extends HibernateDaoSupport implem
 				.getUnlimitedSubmissions());
 		publishedAccessControl.setMarkForReview(a.getMarkForReview());
 		publishedAccessControl.setHonorPledge(a.getHonorPledge());
+		publishedAccessControl.setFeedbackEndDate(a.getFeedbackEndDate());
+		publishedAccessControl.setFeedbackScoreThreshold(a.getFeedbackScoreThreshold());
 		publishedAccessControl.setAssessmentBase(p);
 		return publishedAccessControl;
 	}
@@ -359,7 +365,8 @@ public class PublishedAssessmentFacadeQueries extends HibernateDaoSupport implem
 							.getLastModifiedBy(), item.getLastModifiedDate(),
 					null, null, null, // set ItemTextSet, itemMetaDataSet and
 					// itemFeedbackSet later
-					item.getTriesAllowed(), item.getPartialCreditFlag(),item.getHash(),item.getHash());
+					item.getTriesAllowed(), item.getPartialCreditFlag(),item.getHash(),item.getHash(),
+					item.getItemId());
 			Set publishedItemTextSet = preparePublishedItemTextSet(
 					publishedItem, item.getItemTextSet(), protocol);
 			Set publishedItemMetaDataSet = preparePublishedItemMetaDataSet(
@@ -377,7 +384,8 @@ public class PublishedAssessmentFacadeQueries extends HibernateDaoSupport implem
 			publishedItem.setItemAttachmentSet(publishedItemAttachmentSet);
 			publishedItem.setAnswerOptionsRichCount(item.getAnswerOptionsRichCount());
 			publishedItem.setAnswerOptionsSimpleOrRich(item.getAnswerOptionsSimpleOrRich());
-			
+			publishedItem.setIsExtraCredit(item.getIsExtraCredit()==null?Boolean.FALSE:item.getIsExtraCredit());
+
 			h.add(publishedItem);
 		}
 		return h;
@@ -765,7 +773,7 @@ public class PublishedAssessmentFacadeQueries extends HibernateDaoSupport implem
 							.equals(EvaluationModelIfc.TO_DEFAULT_GRADEBOOK
 									.toString())) {
 				try {
-					gbsHelper.addToGradebook(publishedAssessment, null, g);
+					gbsHelper.addToGradebook(publishedAssessment, publishedAssessment.getCategoryId(), g);
 				} catch (Exception e) {
 					log.error("Removing published assessment: " + e);
 					delete(publishedAssessment);
@@ -1059,6 +1067,8 @@ public class PublishedAssessmentFacadeQueries extends HibernateDaoSupport implem
 			assessment.setStatus(PublishedAssessmentIfc.DEAD_STATUS);
 			try {
 				saveOrUpdate(assessment);
+				RubricsService rubricsService = (RubricsService) SpringBeanLocator.getInstance().getBean("org.sakaiproject.rubrics.logic.RubricsService");
+				rubricsService.deleteRubricAssociationsByItemIdPrefix(RubricsConstants.RBCS_PUBLISHED_ASSESSMENT_ENTITY_PREFIX + assessmentId + ".", RubricsConstants.RBCS_TOOL_SAMIGO);
 			} catch (Exception e) {
 				log.warn(e.getMessage());
 			}			
@@ -1312,7 +1322,7 @@ public class PublishedAssessmentFacadeQueries extends HibernateDaoSupport implem
 			query = "select distinct new PublishedAssessmentData(p.publishedAssessmentId, p.title, "
 				+ " c.releaseTo, c.startDate, c.dueDate, c.retractDate, "
 				+ " c.feedbackDate, f.feedbackDelivery, f.feedbackComponentOption, f.feedbackAuthoring, c.lateHandling, "
-				+ " c.unlimitedSubmissions, c.submissionsAllowed, em.scoringType, p.status, p.lastModifiedDate, c.timeLimit) "
+				+ " c.unlimitedSubmissions, c.submissionsAllowed, em.scoringType, p.status, p.lastModifiedDate, c.timeLimit, c.feedbackEndDate, c.feedbackScoreThreshold) "
 				+ " from PublishedAssessmentData as p, PublishedAccessControl as c,"
 				+ " PublishedFeedback as f, AuthorizationData as az, PublishedEvaluationModel as em"
 				+ " where c.assessment.publishedAssessmentId=p.publishedAssessmentId "
@@ -1326,7 +1336,7 @@ public class PublishedAssessmentFacadeQueries extends HibernateDaoSupport implem
 			query = "select new PublishedAssessmentData(p.publishedAssessmentId, p.title, "
 				+ " c.releaseTo, c.startDate, c.dueDate, c.retractDate, "
 				+ " c.feedbackDate, f.feedbackDelivery, f.feedbackComponentOption, f.feedbackAuthoring, c.lateHandling, "
-				+ " c.unlimitedSubmissions, c.submissionsAllowed, em.scoringType, p.status, p.lastModifiedDate, c.timeLimit) "
+				+ " c.unlimitedSubmissions, c.submissionsAllowed, em.scoringType, p.status, p.lastModifiedDate, c.timeLimit, c.feedbackEndDate, c.feedbackScoreThreshold) "
 				+ " from PublishedAssessmentData as p, PublishedAccessControl as c,"
 				+ " PublishedFeedback as f, AuthorizationData as az, PublishedEvaluationModel as em"
 				+ " where c.assessment.publishedAssessmentId=p.publishedAssessmentId "
@@ -1371,7 +1381,7 @@ public class PublishedAssessmentFacadeQueries extends HibernateDaoSupport implem
 							.getRetractDate(), p.getFeedbackDate(), p
 							.getFeedbackDelivery(), p.getFeedbackComponentOption(), p.getFeedbackAuthoring(), p
 							.getLateHandling(), p.getUnlimitedSubmissions(), p
-							.getSubmissionsAllowed(), p.getScoringType(), p.getStatus(), p.getLastModifiedDate(), p.getTimeLimit());
+							.getSubmissionsAllowed(), p.getScoringType(), p.getStatus(), p.getLastModifiedDate(), p.getTimeLimit(), p.getFeedbackEndDate(), p.getFeedbackScoreThreshold());
 			pubList.add(f);
 		}
 		return pubList;
@@ -2067,7 +2077,7 @@ public class PublishedAssessmentFacadeQueries extends HibernateDaoSupport implem
 					"select new PublishedAssessmentData(p.publishedAssessmentId, p.title, "
 							+ " c.releaseTo, c.startDate, c.dueDate, c.retractDate, "
 							+ " c.feedbackDate, f.feedbackDelivery, f.feedbackComponentOption, f.feedbackAuthoring, c.lateHandling, "
-							+ " c.unlimitedSubmissions, c.submissionsAllowed) "
+							+ " c.unlimitedSubmissions, c.submissionsAllowed, c.feedbackEndDate, c.feedbackScoreThreshold) "
 							+ " from PublishedAssessmentData as p, PublishedAccessControl as c,"
 							+ " PublishedFeedback as f"
 							+ " where c.assessment.publishedAssessmentId=p.publishedAssessmentId "
@@ -2517,7 +2527,6 @@ public class PublishedAssessmentFacadeQueries extends HibernateDaoSupport implem
 	public void removeSectionAttachment(Long sectionAttachmentId) {
 		PublishedSectionAttachment sectionAttachment = getHibernateTemplate().load(PublishedSectionAttachment.class, sectionAttachmentId);
 		SectionDataIfc section = sectionAttachment.getSection();
-		// String resourceId = sectionAttachment.getResourceId();
 		int retryCount = PersistenceService.getInstance().getPersistenceHelper().getRetryCount();
 		while (retryCount > 0) {
 			try {
@@ -2736,4 +2745,37 @@ public class PublishedAssessmentFacadeQueries extends HibernateDaoSupport implem
 		
 		return updatedAssessmentStringData;
 	}
+
+	public List getQuestionsIdList(final Long publishedAssessmentId) {
+		HibernateCallback<List<Long>> hcb = session -> session
+				.createQuery("select i.itemId from PublishedItemData i, PublishedSectionData s,  PublishedAssessmentData a where a = s.assessment and s = i.section and a.publishedAssessmentId=?")
+				.setLong(0, publishedAssessmentId.longValue())
+				.list();
+		return getHibernateTemplate().execute(hcb);
+	}
+
+
+    public List<PublishedAssessmentData> getPublishedDeletedAssessments(final String siteAgentId) {
+        final HibernateCallback<List<PublishedAssessmentData>> hcb = session -> session.createQuery(
+            "select new PublishedAssessmentData(p.publishedAssessmentId, p.title, p.lastModifiedDate) " +
+                "from PublishedAssessmentData p, AuthorizationData z " +
+                "where p.publishedAssessmentId=z.qualifierId and z.functionId=:functionId " +
+                "and z.agentIdString=:siteId and p.status=:inactiveStatus ")
+                .setString("functionId", "OWN_PUBLISHED_ASSESSMENT")
+                .setString("siteId", siteAgentId)
+                .setInteger("inactiveStatus", AssessmentIfc.DEAD_STATUS)
+                .list();
+        return getHibernateTemplate().execute(hcb);
+    }
+
+    public void restorePublishedAssessment(Long publishedAssessmentId) {
+        final String recoverQuery = "update PublishedAssessmentData set status = :status WHERE publishedAssessmentId = :id";
+        getHibernateTemplate().execute(session -> {
+            Query q = session.createQuery(recoverQuery);
+            q.setInteger("status", AssessmentIfc.ACTIVE_STATUS);
+            q.setLong("id", publishedAssessmentId);
+            return q.executeUpdate();
+        });
+    }
+
 }

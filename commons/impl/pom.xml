@@ -11,7 +11,7 @@
     <parent>
         <artifactId>commons</artifactId>
         <groupId>org.sakaiproject.commons</groupId>
-        <version>13-SNAPSHOT</version>
+        <version>20-SNAPSHOT</version>
     </parent>
 
     <dependencies>
@@ -21,7 +21,7 @@
         </dependency>
         <dependency>
             <groupId>javax.servlet</groupId>
-            <artifactId>servlet-api</artifactId>
+            <artifactId>javax.servlet-api</artifactId>
         </dependency>
         <dependency>
             <groupId>org.sakaiproject.kernel</groupId>
@@ -60,8 +60,8 @@
             <artifactId>commons-fileupload</artifactId>
         </dependency>
         <dependency>
-            <groupId>commons-lang</groupId>
-            <artifactId>commons-lang</artifactId>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-lang3</artifactId>
         </dependency>
         <dependency>
             <groupId>junit</groupId>
@@ -83,12 +83,6 @@
                 <directory>${basedir}/src/sql</directory>
                 <includes>
                     <include>**/*.sql</include>
-                </includes>
-            </resource>
-            <resource>
-                <directory>${basedir}/src/i18n</directory>
-                <includes>
-                    <include>**/*.properties</include>
                 </includes>
             </resource>
         </resources>

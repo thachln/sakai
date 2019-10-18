@@ -302,12 +302,12 @@ public class PermissionLevelManagerImpl extends HibernateDaoSupport implements P
 		return newDBMembershipItem;		
 	}
   
-  public void saveDBMembershipItem(DBMembershipItem item){
-  	getHibernateTemplate().saveOrUpdate(item);
+  public DBMembershipItem saveDBMembershipItem(DBMembershipItem item){
+		return (DBMembershipItem) getSessionFactory().getCurrentSession().merge(item);
   }
   
-  public void savePermissionLevel(PermissionLevel level) {
-	  getHibernateTemplate().saveOrUpdate(level);
+  public PermissionLevel savePermissionLevel(PermissionLevel level) {
+		return (PermissionLevel) getSessionFactory().getCurrentSession().merge(level);
   }
 	
   public PermissionLevel getDefaultOwnerPermissionLevel(){
@@ -716,88 +716,75 @@ public class PermissionLevelManagerImpl extends HibernateDaoSupport implements P
 				PermissionsMask mask = getDefaultOwnerPermissionsMask();
 				PermissionLevel permLevel = createPermissionLevel(PermissionLevelManager.PERMISSION_LEVEL_NAME_OWNER, ownerType, mask);
 
-				savePermissionLevel(permLevel);
+				permLevel = savePermissionLevel(permLevel);
 			}
 
 			if (getDefaultPermissionLevel(authorType) == null) {
 				PermissionsMask mask = getDefaultAuthorPermissionsMask();
 				PermissionLevel permLevel = createPermissionLevel(PermissionLevelManager.PERMISSION_LEVEL_NAME_AUTHOR, authorType, mask);
 
-				savePermissionLevel(permLevel);
+				permLevel = savePermissionLevel(permLevel);
 			}
 
 			if (getDefaultPermissionLevel(contributorType) == null) {
 				PermissionsMask mask = getDefaultContributorPermissionsMask();
 				PermissionLevel permLevel = createPermissionLevel(PermissionLevelManager.PERMISSION_LEVEL_NAME_CONTRIBUTOR, contributorType, mask);
 
-				savePermissionLevel(permLevel);
+				permLevel = savePermissionLevel(permLevel);
 			}
 
 			if (getDefaultPermissionLevel(reviewerType) == null) {
 				PermissionsMask mask = getDefaultReviewerPermissionsMask();
 				PermissionLevel permLevel = createPermissionLevel(PermissionLevelManager.PERMISSION_LEVEL_NAME_REVIEWER, reviewerType, mask);
 
-				savePermissionLevel(permLevel);
+				permLevel = savePermissionLevel(permLevel);
 			}
 
 			if (getDefaultPermissionLevel(noneditingAuthorType) == null) {
 				PermissionsMask mask = getDefaultNoneditingAuthorPermissionsMask();
 				PermissionLevel permLevel = createPermissionLevel(PermissionLevelManager.PERMISSION_LEVEL_NAME_NONEDITING_AUTHOR, noneditingAuthorType, mask);
 
-				savePermissionLevel(permLevel);
+				permLevel = savePermissionLevel(permLevel);
 			}
 
 			if (getDefaultPermissionLevel(noneType) == null) {
 				PermissionsMask mask = getDefaultNonePermissionsMask();
 				PermissionLevel permLevel = createPermissionLevel(PermissionLevelManager.PERMISSION_LEVEL_NAME_NONE, noneType, mask);
 
-				savePermissionLevel(permLevel);
+				permLevel = savePermissionLevel(permLevel);
 			}
 		} catch (Exception e) {
 			log.warn("Error loading initial default types and/or permissions", e);
 		}
 	}
 
-	public void deleteMembershipItems(Set membershipSet)
-	{
-		if(membershipSet != null)
-		{
-			Iterator iter = membershipSet.iterator();
-			Set permissionLevels = new HashSet();
-			while(iter.hasNext())
-			{
-				DBMembershipItem item = (DBMembershipItem) iter.next();
-				if(item != null && item.getPermissionLevel() != null && PermissionLevelManager.PERMISSION_LEVEL_NAME_CUSTOM.equals(item.getPermissionLevelName()))
-				{
-					permissionLevels.add((PermissionLevel)item.getPermissionLevel());
+	public void deleteMembershipItems(Set<DBMembershipItem> membershipSet) {
+		if (membershipSet != null) {
+			Set<PermissionLevel> permissionLevelsToDelete = new HashSet<>();
+			Set<DBMembershipItem> membershipItemsToDelete = new HashSet<>();
+			for (DBMembershipItem item : membershipSet) {
+				if (item != null) {
+					DBMembershipItem managedItem = getHibernateTemplate().merge(item);
+					membershipItemsToDelete.add(managedItem);
+					PermissionLevel managedLevel = managedItem.getPermissionLevel();
+					if (managedLevel != null) {
+						switch (managedItem.getPermissionLevelName()) {
+							case PermissionLevelManager.PERMISSION_LEVEL_NAME_CUSTOM:
+							case PermissionLevelManager.PERMISSION_LEVEL_NAME_OWNER:
+							case PermissionLevelManager.PERMISSION_LEVEL_NAME_AUTHOR:
+							case PermissionLevelManager.PERMISSION_LEVEL_NAME_NONEDITING_AUTHOR:
+							case PermissionLevelManager.PERMISSION_LEVEL_NAME_CONTRIBUTOR:
+							case PermissionLevelManager.PERMISSION_LEVEL_NAME_REVIEWER:
+							case PermissionLevelManager.PERMISSION_LEVEL_NAME_NONE:
+								getHibernateTemplate().merge(managedLevel);
+								permissionLevelsToDelete.add(managedLevel);
+								break;
+						}
+					}
 				}
-				if(item != null && item.getPermissionLevel() != null && PermissionLevelManager.PERMISSION_LEVEL_NAME_OWNER.equals(item.getPermissionLevelName()))
-									{
-										permissionLevels.add((PermissionLevel)item.getPermissionLevel());
-									}
-									if(item != null && item.getPermissionLevel() != null && PermissionLevelManager.PERMISSION_LEVEL_NAME_AUTHOR.equals(item.getPermissionLevelName()))
-									{
-										permissionLevels.add((PermissionLevel)item.getPermissionLevel());
-									}
-									if(item != null && item.getPermissionLevel() != null && PermissionLevelManager.PERMISSION_LEVEL_NAME_NONEDITING_AUTHOR.equals(item.getPermissionLevelName()))
-									{
-										permissionLevels.add((PermissionLevel)item.getPermissionLevel());
-									}
-									if(item != null && item.getPermissionLevel() != null && PermissionLevelManager.PERMISSION_LEVEL_NAME_CONTRIBUTOR.equals(item.getPermissionLevelName()))
-									{
-										permissionLevels.add((PermissionLevel)item.getPermissionLevel());
-									}
-									if(item != null && item.getPermissionLevel() != null && PermissionLevelManager.PERMISSION_LEVEL_NAME_REVIEWER.equals(item.getPermissionLevelName()))
-									{
-										permissionLevels.add((PermissionLevel)item.getPermissionLevel());
-									}
-									if(item != null && item.getPermissionLevel() != null && PermissionLevelManager.PERMISSION_LEVEL_NAME_NONE.equals(item.getPermissionLevelName()))
-									{
-										permissionLevels.add((PermissionLevel)item.getPermissionLevel());
-									}				
 			}
-			getHibernateTemplate().deleteAll(membershipSet);
-			getHibernateTemplate().deleteAll(permissionLevels);
+			getHibernateTemplate().deleteAll(membershipItemsToDelete);
+			getHibernateTemplate().deleteAll(permissionLevelsToDelete);
 		}
 	}
 	

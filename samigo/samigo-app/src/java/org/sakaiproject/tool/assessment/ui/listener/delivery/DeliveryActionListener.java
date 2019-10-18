@@ -557,6 +557,12 @@ public class DeliveryActionListener
     	EventLogFacade eventLogFacade = new EventLogFacade();
     	EventLogData eventLogData = null;
 
+        if (delivery.getAssessmentGradingId() == null) {
+                // Probably an assessment preview
+                log.warn("No assessmentGradingId available for preview or delivery: this failure will not be recorded in the T&Q event log");
+                throw e;
+        }
+
     	List eventLogDataList = eventService.getEventLogData(delivery.getAssessmentGradingId());
     	if(eventLogDataList != null && eventLogDataList.size() > 0) {
     		eventLogData= (EventLogData) eventLogDataList.get(0);
@@ -1045,30 +1051,25 @@ public class DeliveryActionListener
     sec.setNumber("" + part.getSequence());
     sec.setMetaData(part);
 
-    Iterator iter = itemSet.iterator();
-    List itemContents = new ArrayList();
+    List<ItemContentsBean> itemContents = new ArrayList<>();
     int i = 0;
-    while (iter.hasNext())
+    for (ItemDataIfc thisItem : itemSet)
     {
-      ItemDataIfc thisitem = (ItemDataIfc) iter.next();
-      ItemContentsBean itemBean = getQuestionBean(thisitem, itemGradingHash, 
-                                                  delivery, publishedAnswerHash);
+      ItemContentsBean itemBean = getQuestionBean(thisItem, itemGradingHash, delivery, publishedAnswerHash);
 
       // Deal with numbering
       itemBean.setNumber(++i);
-      if (delivery.getSettings().getItemNumbering().equals
-          (AssessmentAccessControl.RESTART_NUMBERING_BY_PART.toString()))
+      if (delivery.getSettings().getItemNumbering().equals(AssessmentAccessControl.RESTART_NUMBERING_BY_PART.toString()))
       {
         itemBean.setSequence(Integer.toString(itemBean.getNumber()));
       }
       else
       {
-        itemBean.setSequence( ( (Integer) itemGradingHash.get("sequence" +
-          thisitem.getItemId().toString())).toString());
+        itemBean.setSequence( ( (Integer) itemGradingHash.get("sequence" + thisItem.getItemId().toString())).toString());
       }
 
       // scoring
-      maxPoints += itemBean.getMaxPoints();
+      maxPoints += itemBean.getItemData().getIsExtraCredit()==true?0:itemBean.getMaxPoints();
       points += itemBean.getExactPoints();
       itemBean.setShowStudentScore(delivery.isShowStudentScore());
       itemBean.setShowStudentQuestionScore(delivery.isShowStudentQuestionScore());
@@ -1150,7 +1151,7 @@ public class DeliveryActionListener
       }
 
       // scoring
-      maxPoints += itemBean.getMaxPoints();
+      maxPoints += itemBean.getItemData().getIsExtraCredit()==true?0:itemBean.getMaxPoints();
       points += itemBean.getExactPoints();
       itemBean.setShowStudentScore(delivery.isShowStudentScore());
       itemBean.setShowStudentQuestionScore(delivery.isShowStudentQuestionScore());
@@ -1990,7 +1991,7 @@ public class DeliveryActionListener
         fbean.setText( (String) texts.toArray()[i++]);
       else
         fbean.setText("");
-      fbean.setHasInput(true);
+      fbean.setHasInput(Boolean.TRUE);
 
       List<ItemGradingData> datas = bean.getItemGradingDataArray();
       if (datas == null || datas.isEmpty())
@@ -2036,7 +2037,7 @@ public class DeliveryActionListener
       fbean.setText( (String) texts.toArray()[i]);
     else
       fbean.setText("");
-    fbean.setHasInput(false);
+    fbean.setHasInput(Boolean.FALSE);
     fibs.add(fbean);
 
     bean.setFibArray(fibs);
@@ -2140,7 +2141,7 @@ public class DeliveryActionListener
         fbean.setText( (String) texts.toArray()[i++]);
       else
         fbean.setText("");
-      fbean.setHasInput(true);
+      fbean.setHasInput(Boolean.TRUE);
 
       List<ItemGradingData> datas = bean.getItemGradingDataArray();
       if (datas == null || datas.isEmpty())
@@ -2191,7 +2192,7 @@ public class DeliveryActionListener
       fbean.setText( (String) texts.toArray()[i]);
      else
       fbean.setText("");
-    fbean.setHasInput(false);
+    fbean.setHasInput(Boolean.FALSE);
     fins.add(fbean);
 
     bean.setFinArray(fins);
@@ -2415,7 +2416,7 @@ public class DeliveryActionListener
           fbean.setItemContentsBean(bean);
           fbean.setAnswer(answer);
           fbean.setText((String) texts.toArray()[i++]);
-          fbean.setHasInput(true); // input box
+          fbean.setHasInput(Boolean.TRUE); // input box
 
           List<ItemGradingData> datas = bean.getItemGradingDataArray();
           if (datas == null || datas.isEmpty())
@@ -2444,7 +2445,7 @@ public class DeliveryActionListener
           fbean.setText( (String) texts.toArray()[i]);
       else
           fbean.setText("");
-      fbean.setHasInput(false);
+      fbean.setHasInput(Boolean.FALSE);
       fins.add(fbean);
 
       bean.setFinArray((ArrayList) fins);
@@ -2454,7 +2455,8 @@ public class DeliveryActionListener
   public void populateImageMapQuestion(ItemDataIfc item, ItemContentsBean bean, Map publishedAnswerHash)
   {	
 	bean.setImageSrc(item.getImageMapSrc());
-	
+	bean.setImageAltText(item.getImageMapAltText());
+
 	Iterator iter = item.getItemTextArraySorted().iterator();
     int j = 1;
     List beans = new ArrayList();
@@ -2562,14 +2564,16 @@ public class DeliveryActionListener
             }
             break;
     case 3: // review assessment
-            if (delivery.getFeedbackComponent()!=null 
-                && (delivery.getFeedbackComponent().getShowImmediate() 
-                	|| delivery.getFeedbackComponent().getShowOnSubmission()
-                    || (delivery.getFeedbackComponent().getShowDateFeedback())
-                        && delivery.getSettings()!=null
-                        && delivery.getSettings().getFeedbackDate()!=null
-                        && delivery.getSettings().getFeedbackDate().before(new Date()))) {
-              delivery.setFeedback("true");
+            if (delivery.getFeedbackComponent()!=null) { 
+                if(delivery.getFeedbackComponent().getShowImmediate() || delivery.getFeedbackComponent().getShowOnSubmission()){
+                    delivery.setFeedback("true");
+                } else if(delivery.getFeedbackComponent().getShowDateFeedback() && delivery.getSettings()!= null) {
+                    if(delivery.getSettings().getFeedbackDate()!=null && delivery.getSettings().getFeedbackEndDate()==null){
+                        delivery.setFeedback(delivery.getSettings().getFeedbackDate().after(new Date()) ? "true" : "false");
+                    } else if(delivery.getSettings().getFeedbackDate()!=null && delivery.getSettings().getFeedbackEndDate()!=null){
+                        delivery.setFeedback(delivery.getSettings().getFeedbackDate().after(new Date()) && delivery.getSettings().getFeedbackEndDate().before(new Date()) ? "true" : "false");
+                    }
+                }
             }
             break;
     case 4: // grade assessment

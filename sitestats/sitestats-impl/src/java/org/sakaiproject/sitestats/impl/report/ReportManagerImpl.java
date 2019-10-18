@@ -22,6 +22,9 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.text.SimpleDateFormat;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Calendar;
@@ -54,7 +57,6 @@ import org.apache.poi.hssf.usermodel.HSSFRow;
 import org.apache.poi.hssf.usermodel.HSSFSheet;
 import org.apache.poi.hssf.usermodel.HSSFWorkbook;
 import org.apache.poi.ss.util.WorkbookUtil;
-import org.apache.xpath.operations.Bool;
 import org.hibernate.Criteria;
 import org.hibernate.criterion.Expression;
 import org.springframework.core.io.ClassPathResource;
@@ -96,8 +98,7 @@ import org.sakaiproject.sitestats.impl.parser.DigesterUtil;
 import org.sakaiproject.sitestats.impl.report.fop.LibraryURIResolver;
 import org.sakaiproject.sitestats.impl.report.fop.ReportInputSource;
 import org.sakaiproject.sitestats.impl.report.fop.ReportXMLReader;
-import org.sakaiproject.time.api.Time;
-import org.sakaiproject.time.api.TimeService;
+import org.sakaiproject.time.api.UserTimeService;
 import org.sakaiproject.tool.api.Placement;
 import org.sakaiproject.tool.api.ToolManager;
 import org.sakaiproject.user.api.User;
@@ -133,7 +134,7 @@ public class ReportManagerImpl extends HibernateDaoSupport implements ReportMana
 	private UserDirectoryService	M_uds;
 	private ContentHostingService	M_chs;
 	private ToolManager				M_tm;
-	private TimeService				M_ts;
+	private UserTimeService			M_uts;
 	private EventTrackingService	M_ets;
 	private MemoryService			M_ms;
 	
@@ -171,11 +172,11 @@ public class ReportManagerImpl extends HibernateDaoSupport implements ReportMana
 	public void setToolManager(ToolManager toolManager) {
 		this.M_tm = toolManager;
 	}
-	
-	public void setTimeService(TimeService timeService) {
-		this.M_ts = timeService; 
+
+	public void setUserTimeService(UserTimeService timeService) {
+		M_uts = timeService;
 	}
-	
+
 	public void setEventTrackingService(EventTrackingService eventTrackingService) {
 		this.M_ets = eventTrackingService;
 	}
@@ -406,28 +407,29 @@ public class ReportManagerImpl extends HibernateDaoSupport implements ReportMana
 		params.setWhenTo(rpp.fDate);
 
 		// who (users, groups, roles)
-		rpp.userIds = null;
+		rpp.userIds = new ArrayList<String>();
 		rpp.inverseUserSelection = false;
 		if(params.getWho().equals(ReportManager.WHO_ALL)){
-			;
+			try{
+				Site site = M_ss.getSite(rpp.siteId);
+				rpp.userIds.addAll(site.getUsers());
+			}catch(IdUnusedException e){
+				log.error("No site with specified siteId.");
+			}
 		}else if(params.getWho().equals(ReportManager.WHO_ROLE) && rpp.siteId != null){
-			rpp.userIds = new ArrayList<String>();
 			try{
 				Site site = M_ss.getSite(rpp.siteId);
 				rpp.userIds.addAll(site.getUsersHasRole(params.getWhoRoleId()));
 			}catch(IdUnusedException e){
 				log.error("No site with specified siteId.");
 			}
-
 		}else if(params.getWho().equals(ReportManager.WHO_GROUPS) && rpp.siteId != null){
-			rpp.userIds = new ArrayList<String>();
 			try{
 				Site site = M_ss.getSite(rpp.siteId);
 				rpp.userIds.addAll(site.getGroup(params.getWhoGroupId()).getUsers());
 			}catch(IdUnusedException e){
 				log.error("No site with specified siteId.");
 			}
-
 		}else if(params.getWho().equals(ReportManager.WHO_CUSTOM)){
 			rpp.userIds = params.getWhoUserIds();
 		}else{
@@ -452,8 +454,7 @@ public class ReportManagerImpl extends HibernateDaoSupport implements ReportMana
 
 		return rpp;
 	}
-	
-	
+
 	/* (non-Javadoc)
 	 * @see org.sakaiproject.sitestats.api.report.ReportManager#getReportFormattedParams()
 	 */
@@ -768,7 +769,7 @@ public class ReportManagerImpl extends HibernateDaoSupport implements ReportMana
 	    			if(("-").equals(userId)) {
 	    				userEid = "-";
 	    				userName = msgs.getString("user_anonymous");
-	    			}else if(("?").equals(userId)) {
+	    			}else if(EventTrackingService.UNKNOWN_USER.equals(userId)) {
 	    				userEid = "-";
 	    				userName = msgs.getString("user_anonymous_access");
 	    			}else{
@@ -804,7 +805,8 @@ public class ReportManagerImpl extends HibernateDaoSupport implements ReportMana
 				row.createCell(ix++).setCellValue(rs.getResourceAction());			
 			}
 			if(isReportColumnAvailable(report.getReportDefinition().getReportParams(), StatsManager.T_DATE)) {
-				row.createCell(ix++).setCellValue(se.getDate().toString());			
+				java.sql.Date sqlDate = (java.sql.Date) se.getDate();
+				row.createCell(ix++).setCellValue(M_uts.shortLocalizedDate(sqlDate.toLocalDate(), msgs.getLocale()));
 			}
 			if(isReportColumnAvailable(report.getReportDefinition().getReportParams(), StatsManager.T_DATEMONTH)) {
 				row.createCell(ix++).setCellValue(dateMonthFrmt.format(se.getDate()));			
@@ -813,7 +815,8 @@ public class ReportManagerImpl extends HibernateDaoSupport implements ReportMana
 				row.createCell(ix++).setCellValue(dateYearFrmt.format(se.getDate()));		
 			}
 			if(isReportColumnAvailable(report.getReportDefinition().getReportParams(), StatsManager.T_LASTDATE)) {
-				row.createCell(ix++).setCellValue(se.getDate().toString());			
+				java.sql.Date sqlDate = (java.sql.Date) se.getDate();
+				row.createCell(ix++).setCellValue(M_uts.shortLocalizedDate(sqlDate.toLocalDate(), msgs.getLocale()));
 			}
             if(report.getReportDefinition().getReportParams().getSiteId() != null && !"".equals(report.getReportDefinition().getReportParams().getSiteId())) {
             }
@@ -977,7 +980,7 @@ public class ReportManagerImpl extends HibernateDaoSupport implements ReportMana
 	    			if(("-").equals(userId)) {
 	    				userEid = "-";
 	    				userName = msgs.getString("user_anonymous");
-	    			}else if(("?").equals(userId)) {
+	    			}else if(EventTrackingService.UNKNOWN_USER.equals(userId)) {
 	    				userEid = "-";
 	    				userName = msgs.getString("user_anonymous_access");
 	    			}else{
@@ -1040,7 +1043,8 @@ public class ReportManagerImpl extends HibernateDaoSupport implements ReportMana
 				if(!isFirst) {
 					sb.append(",");
 				}
-				appendQuoted(sb, se.getDate().toString());
+				java.sql.Date sqlDate = (java.sql.Date) se.getDate();
+				appendQuoted(sb, M_uts.shortLocalizedDate(sqlDate.toLocalDate(), msgs.getLocale()));
 				isFirst = false;
 			}
 			// date (year-month)
@@ -1064,7 +1068,8 @@ public class ReportManagerImpl extends HibernateDaoSupport implements ReportMana
 				if(!isFirst) {
 					sb.append(",");
 				}
-				appendQuoted(sb, se.getDate().toString());
+				java.sql.Date sqlDate = (java.sql.Date) se.getDate();
+				appendQuoted(sb, M_uts.shortLocalizedDate(sqlDate.toLocalDate(), msgs.getLocale()));
 				isFirst = false;
 			}
 			// total
@@ -1225,7 +1230,7 @@ public class ReportManagerImpl extends HibernateDaoSupport implements ReportMana
 	private String getUserDisplayId(String userId) {
 		String userEid = null;		
 		if (userId != null) {
-			if(("-").equals(userId) || ("?").equals(userId)) {
+			if(("-").equals(userId) || EventTrackingService.UNKNOWN_USER.equals(userId)) {
 				userEid = "-";
 			}else{
 				try{
@@ -1245,7 +1250,7 @@ public class ReportManagerImpl extends HibernateDaoSupport implements ReportMana
 		if (userId != null) {
 			if(("-").equals(userId)) {
 				userName = msgs.getString("user_anonymous");
-			}else if(("?").equals(userId)) {
+			}else if(EventTrackingService.UNKNOWN_USER.equals(userId)) {
 				userName = msgs.getString("user_anonymous_access");
 			}else{
 				userName = M_sm.getUserNameForDisplay(userId);
@@ -1347,9 +1352,11 @@ public class ReportManagerImpl extends HibernateDaoSupport implements ReportMana
 		 * @see org.sakaiproject.sitestats.api.report.ReportFormattedParams#getReportGenerationDate(org.sakaiproject.sitestats.api.report.Report)
 		 */
 		public String getReportGenerationDate(Report report) {
-			if(report.getReportGenerationDate() == null)
+			if(report.getReportGenerationDate() == null) {
 				report.setReportGenerationDate(new Date());
-			return report.getLocalizedReportGenerationDate();
+			}
+			Instant time = report.getReportGenerationDate().toInstant();
+			return M_uts.shortLocalizedTimestamp(time, msgs.getLocale());
 		}
 
 		/* (non-Javadoc)
@@ -1532,9 +1539,13 @@ public class ReportManagerImpl extends HibernateDaoSupport implements ReportMana
 			if(report.getReportDefinition().getReportParams().getWhen().equals(ReportManager.WHEN_ALL)){
 				return msgs.getString("report_when_all");
 			}else{
-				Time from = M_ts.newTime(report.getReportDefinition().getReportParams().getWhenFrom().getTime());
-				Time to = M_ts.newTime(report.getReportDefinition().getReportParams().getWhenTo().getTime());
-				return from.toStringLocalFull() + " - " + to.toStringLocalFull();
+				ReportParams rp = report.getReportDefinition().getReportParams();
+				ZonedDateTime from = ZonedDateTime.ofInstant(rp.getWhenFrom().toInstant(), ZoneId.systemDefault());
+				ZonedDateTime to = ZonedDateTime.ofInstant(rp.getWhenTo().toInstant(), ZoneId.systemDefault());
+				String timeZoneMsg = msgs.getFormattedMessage("report_server_time_zone", M_sm.getLocalSakaiName());
+
+				return M_uts.shortLocalizedDate(from.toLocalDate(), msgs.getLocale())
+						+ " - " + M_uts.shortLocalizedDate(to.toLocalDate(), msgs.getLocale()) + " " + timeZoneMsg;
 			}
 		}
 		

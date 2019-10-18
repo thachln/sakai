@@ -32,6 +32,9 @@
 			input[type="checkbox"], input[type="radio"] {
 				margin-right: 0.25em;
 			}
+			label {
+				font-weight: normal;
+			}
 	}
 
 	.listNav {
@@ -196,6 +199,9 @@
 	   			margin-right: 5px;
 	   		}
 	   	}
+	   	&.listHier td:empty{
+   			padding: 0;
+   		}
 	}
 	
 	#samLiteEntryForm\:data{
@@ -380,6 +386,35 @@
 				color: #717171 !important;
 			}
 		}
+	}
+
+	.parts-table {
+		label.notbold {
+			font-weight: normal;
+		}
+	}
+
+	.timerTableColumn {
+		text-align: center
+	}
+
+	.timerTableColumnLeft {
+		text-align: left
+	}
+
+	.matrixTable {
+		border-style: dotted;
+		border-width: 1px;
+		border-color: lightgrey;
+	}
+
+	#delivAssessmentWrapper {
+		width: 96%;
+		float: left;
+	}
+
+	.downloanQuestionCheckbox label {
+		display: none;
 	}
 
 }

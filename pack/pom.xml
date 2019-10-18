@@ -5,7 +5,7 @@
     <parent>
         <groupId>org.sakaiproject</groupId>
         <artifactId>master</artifactId>
-        <version>13-SNAPSHOT</version>
+        <version>20-SNAPSHOT</version>
         <relativePath>../master/pom.xml</relativePath>
     </parent>
 
@@ -14,10 +14,6 @@
     <artifactId>pack</artifactId>
     <packaging>pom</packaging>
 
-    <organization>
-        <name>Sakai Project</name>
-        <url>http://sakaiproject.org/</url>
-    </organization>
 
     <properties>
         <maven.prereq.version>2.0.10</maven.prereq.version>

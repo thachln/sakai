@@ -19,7 +19,6 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -28,14 +27,13 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import org.apache.commons.collections.CollectionUtils;
+import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.hibernate.Query;
 import org.hibernate.criterion.DetachedCriteria;
 import org.hibernate.criterion.Restrictions;
 import org.sakaiproject.api.app.scheduler.ScheduledInvocationManager;
 import org.sakaiproject.assignment.api.AssignmentPeerAssessmentService;
-import org.sakaiproject.assignment.api.AssignmentReferenceReckoner;
 import org.sakaiproject.assignment.api.AssignmentService;
 import org.sakaiproject.assignment.api.AssignmentServiceConstants;
 import org.sakaiproject.assignment.api.model.AssessorSubmissionId;
@@ -407,7 +405,7 @@ public class AssignmentPeerAssessmentServiceImpl extends HibernateDaoSupport imp
     }
 
     public void removePeerAttachment(PeerAssessmentAttachment peerAssessmentAttachment) {
-        getHibernateTemplate().delete(peerAssessmentAttachment);
+        getHibernateTemplate().delete(getHibernateTemplate().merge(peerAssessmentAttachment));
         getHibernateTemplate().flush();
     }
 
@@ -433,10 +431,7 @@ public class AssignmentPeerAssessmentServiceImpl extends HibernateDaoSupport imp
             AssignmentSubmission submission = assignmentService.getSubmission(submissionId);
             //only override grades that have never been graded or was last graded by this service
             //this prevents this service from overriding instructor set grades, which take precedent.
-            if (submission != null
-                    && (!submission.getGraded()
-                        || StringUtils.isBlank(submission.getGradedBy())
-                        || StringUtils.equals(assessorId, submission.getGradedBy()))) {
+            if (submission != null && (!submission.getGraded() || StringUtils.isBlank(submission.getGradedBy()))) {
                 List<PeerAssessmentItem> items = getPeerAssessmentItems(submissionId, submission.getAssignment().getScaleFactor());
                 if (items != null) {
                     //scores are stored w/o decimal points, so a score of 3.4 is stored as 34 in the DB
@@ -450,7 +445,7 @@ public class AssignmentPeerAssessmentServiceImpl extends HibernateDaoSupport imp
                         }
                     }
                     if (denominator > 0) {
-                        totalScore = Math.round(totalScore / denominator);
+                        totalScore = Math.round(totalScore.floatValue() / denominator);
                     } else {
                         totalScore = null;
                     }
@@ -471,9 +466,9 @@ public class AssignmentPeerAssessmentServiceImpl extends HibernateDaoSupport imp
                         changed = true;
                     }
                     if (changed) {
+                        // don't set gradedBy since grading is done by peers
                         submission.setGrade(totleScoreStr);
                         submission.setGraded(true);
-                        submission.setGradedBy(assessorId);
                         submission.setGradeReleased(false);
                         assignmentService.updateSubmission(submission);
                         saved = true;

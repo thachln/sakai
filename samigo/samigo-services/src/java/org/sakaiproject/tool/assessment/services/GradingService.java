@@ -22,6 +22,7 @@
 package org.sakaiproject.tool.assessment.services;
 
 import java.math.BigDecimal;
+import java.math.MathContext;
 import java.math.RoundingMode;
 import java.text.DecimalFormat;
 import java.text.NumberFormat;
@@ -48,7 +49,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.math3.complex.Complex;
 import org.apache.commons.math3.complex.ComplexFormat;
 import org.apache.commons.math3.exception.MathParseException;
@@ -108,28 +109,35 @@ public class GradingService
   public static final String ANSWER_TYPE_REAL = "REAL";
 
   // CALCULATED_QUESTION
-  final String OPEN_BRACKET = "\\{";
-  final String CLOSE_BRACKET = "\\}";
-  final String CALCULATION_OPEN = "[["; // not regex safe
-  final String CALCULATION_CLOSE = "]]"; // not regex safe
-  final String FORMAT_MASK = "0E0";
-  final BigDecimal DEFAULT_MAX_THRESHOLD = BigDecimal.valueOf(1.0e+11);
-  final BigDecimal DEFAULT_MIN_THRESHOLD = BigDecimal.valueOf(0.0001);
+  public static final String OPEN_BRACKET = "\\{";
+  public static final String CLOSE_BRACKET = "\\}";
+  public static final String CALCULATION_OPEN = "[["; // not regex safe
+  public static final String CALCULATION_CLOSE = "]]"; // not regex safe
+  public static final String FORMAT_MASK = "0E0";
+  public static final BigDecimal DEFAULT_MAX_THRESHOLD = BigDecimal.valueOf(1.0e+11);
+  public static final BigDecimal DEFAULT_MIN_THRESHOLD = BigDecimal.valueOf(0.0001);
   /**
    * regular expression for matching the contents of a variable or formula name 
    * in Calculated Questions
    * NOTE: Old regex: ([\\w\\s\\.\\-\\^\\$\\!\\&\\@\\?\\*\\%\\(\\)\\+=#`~&:;|,/<>\\[\\]\\\\\\'\"]+?)
    * was way too complicated.
    */
-  final String CALCQ_VAR_FORM_NAME = "[a-zA-Z][^\\{\\}]*?"; // non-greedy (must start wtih alpha)
-  final String CALCQ_VAR_FORM_NAME_EXPRESSION = "("+CALCQ_VAR_FORM_NAME+")";
+  public static final String CALCQ_VAR_FORM_NAME = "[a-zA-Z][^\\{\\}]*?"; // non-greedy (must start wtih alpha)
+  public static final String CALCQ_VAR_FORM_NAME_EXPRESSION = "("+CALCQ_VAR_FORM_NAME+")";
+  public static final String CALCQ_VAR_FORM_NAME_EXPRESSION_FORMATTED = OPEN_BRACKET + CALCQ_VAR_FORM_NAME_EXPRESSION + CLOSE_BRACKET;
 
   // variable match - (?<!\{)\{([^\{\}]+?)\}(?!\}) - means any sequence inside braces without a braces before or after
-  final Pattern CALCQ_ANSWER_PATTERN = Pattern.compile("(?<!\\{)" + OPEN_BRACKET + CALCQ_VAR_FORM_NAME_EXPRESSION + CLOSE_BRACKET + "(?!\\})");
-  final Pattern CALCQ_FORMULA_PATTERN = Pattern.compile(OPEN_BRACKET + OPEN_BRACKET + CALCQ_VAR_FORM_NAME_EXPRESSION + CLOSE_BRACKET + CLOSE_BRACKET);
-  final Pattern CALCQ_FORMULA_SPLIT_PATTERN = Pattern.compile("(" + OPEN_BRACKET + OPEN_BRACKET + CALCQ_VAR_FORM_NAME + CLOSE_BRACKET + CLOSE_BRACKET + ")");
-  final Pattern CALCQ_CALCULATION_PATTERN = Pattern.compile("\\[\\[([^\\[\\]]+?)\\]\\]?"); // non-greedy
-
+  public static final Pattern CALCQ_ANSWER_PATTERN = Pattern.compile("(?<!\\{)" + CALCQ_VAR_FORM_NAME_EXPRESSION_FORMATTED + "(?!\\})");
+  public static final Pattern CALCQ_FORMULA_PATTERN = Pattern.compile(OPEN_BRACKET + CALCQ_VAR_FORM_NAME_EXPRESSION_FORMATTED + CLOSE_BRACKET);
+  public static final Pattern CALCQ_FORMULA_SPLIT_PATTERN = Pattern.compile("(" + OPEN_BRACKET + OPEN_BRACKET + CALCQ_VAR_FORM_NAME + CLOSE_BRACKET + CLOSE_BRACKET + ")");
+  public static final Pattern CALCQ_CALCULATION_PATTERN = Pattern.compile("\\[\\[([^\\[\\]]+?)\\]\\]?"); // non-greedy
+  // SAK-39922 - Support (or at least watch for support) for binary/unary calculated question (-1--1)
+  public static final Pattern CALCQ_ANSWER_AVOID_DOUBLE_MINUS = Pattern.compile("--");
+  public static final Pattern CALCQ_ANSWER_AVOID_PLUS_MINUS = Pattern.compile("\\+-");
+  // SAK-40942 - Error in calculated questions: the decimal representation .n or n. (where n is a number) does not work
+  public static final Pattern CALCQ_FORMULA_ALLOW_POINT_NUMBER = Pattern.compile("([^\\d]|^)([\\.])([\\d])");
+  public static final Pattern CALCQ_FORMULA_ALLOW_NUMBER_POINT = Pattern.compile("([\\d])([\\.])([^\\d]|$)");
+	  
   /**
    * Get all scores for a published assessment from the back end.
    */
@@ -981,6 +989,7 @@ public class GradingService
                                totalItems, fibEmiAnswersMap, emiScoresMap, publishedAnswerHash, regrade, calcQuestionAnswerSequence);
         }
         catch (FinFormatException e) {
+        	log.warn("Fin Format Exception while processing response. ", e);
         	autoScore = 0d;
         	if (invalidFINMap != null) {
         		if (invalidFINMap.containsKey(itemId)) {
@@ -1182,7 +1191,7 @@ public class GradingService
       //entry.getValue()[1] = min score
       //entry.getValue()[2] = how many question answers to divide minScore across
       for(Entry<Long, Double[]> entry : minScoreCheck.entrySet()){
-    	  if(entry.getValue()[0] < entry.getValue()[1]){
+    	  if(entry.getValue()[0] <= entry.getValue()[1]){
     		  //reset all scores to 0 since the user didn't get all correct answers
     		  iter = itemGradingSet.iterator();
     		  while(iter.hasNext()){
@@ -1254,14 +1263,13 @@ public class GradingService
   }
 
   private double getTotalAutoScore(Set itemGradingSet){
-    double totalAutoScore =0;
-    Iterator iter = itemGradingSet.iterator();
-    while (iter.hasNext()){
-      ItemGradingData i = (ItemGradingData)iter.next();
-      if (i.getAutoScore()!=null)
-	totalAutoScore += i.getAutoScore();
+    BigDecimal totalAutoScore = BigDecimal.ZERO;
+    for(ItemGradingData itemGradingData : (Set<ItemGradingData>) itemGradingSet){
+        if (itemGradingData.getAutoScore()!=null){
+            totalAutoScore = totalAutoScore.add(new BigDecimal(itemGradingData.getAutoScore()));
+        }
     }
-    return totalAutoScore;
+    return totalAutoScore.doubleValue();
   }
 
   public void notifyGradebookByScoringType(AssessmentGradingData data, PublishedAssessmentIfc pub){
@@ -1335,22 +1343,31 @@ public class GradingService
                     correctAnswers++;
                 }
               }
+
               initScore = getAnswerScore(itemGrading, publishedAnswerHash);
-              if (initScore > 0)
-                autoScore = initScore / correctAnswers;
-              else
-                autoScore = (getTotalCorrectScore(itemGrading, publishedAnswerHash) / correctAnswers) * ((double) -1);
+              BigDecimal initialScore = new BigDecimal(initScore);
+              BigDecimal automaticScore = BigDecimal.ZERO;
+
+              if (initialScore.compareTo(BigDecimal.ZERO) == 1){
+                  automaticScore = initialScore.divide(new BigDecimal(correctAnswers), MathContext.DECIMAL128);
+              } else{
+                  automaticScore = new BigDecimal(getTotalCorrectScore(itemGrading, publishedAnswerHash))
+                      .divide(new BigDecimal(correctAnswers), MathContext.DECIMAL128);
+                  automaticScore = automaticScore.multiply(new BigDecimal(-1.0d), MathContext.DECIMAL128);
+              }
 
               //overridescore?
-              if (itemGrading.getOverrideScore() != null)
-                autoScore += itemGrading.getOverrideScore();
-              if (!totalItems.containsKey(itemId)){
-                totalItems.put(itemId, autoScore);
+              if (itemGrading.getOverrideScore() != null){
+                autoScore = automaticScore.add(new BigDecimal(itemGrading.getOverrideScore())).doubleValue();
               }
-              else{
-                accumelateScore = ((Double)totalItems.get(itemId));
-                accumelateScore += autoScore;
-                totalItems.put(itemId, accumelateScore);
+
+              if (!totalItems.containsKey(itemId)){
+                  totalItems.put(itemId, autoScore);
+              } else{
+                  BigDecimal accumulatedScore = new BigDecimal(((Double)totalItems.get(itemId)));
+                  accumulatedScore = accumulatedScore.add(new BigDecimal(autoScore));
+                  accumelateScore = accumulatedScore.doubleValue();
+                  totalItems.put(itemId, accumelateScore);
               }
               break;
 
@@ -1923,6 +1940,11 @@ Here are the definition and 12 cases I came up with (lydia, 01/2006):
 		  String studentAnswerText = null;
 		  if (data.getAnswerText() != null) {
 			  studentAnswerText = data.getAnswerText().replaceAll("\\s+", "").replace(',','.');    // in Spain, comma is used as a decimal point
+			  //The UI syntax expects a format with curly braces for complex numbers, remove them for the Commons Math library.
+			  if(StringUtils.contains(studentAnswerText, "{") && StringUtils.contains(studentAnswerText, "}")){
+				  studentAnswerText = StringUtils.replace(studentAnswerText, "{", "");
+				  studentAnswerText = StringUtils.replace(studentAnswerText, "}", "");
+			  }
 		  }
 
 		  if (range) {
@@ -1955,6 +1977,11 @@ Here are the definition and 12 cases I came up with (lydia, 01/2006):
 
 			  if (answer != null){ 	 
 		             answer = answer.replaceAll("\\s+", "").replace(',','.');  // in Spain, comma is used as a decimal point 	 
+		             //The UI syntax expects a format with curly braces, remove them for the Commons Math library.
+		             if(StringUtils.contains(answer, "{") && StringUtils.contains(answer, "}")){
+		                 answer = StringUtils.replace(answer, "{", "");
+		                 answer = StringUtils.replace(answer, "}", "");
+		             }
 			  }	 
 		 
 			  try {
@@ -2053,7 +2080,7 @@ Here are the definition and 12 cases I came up with (lydia, 01/2006):
    */
   public Map validate(String value) {
 	  Map map = new HashMap();
-	  if (value == null || value.trim().equals("")) {
+	  if (StringUtils.isEmpty(value)) {
 		  return map;
 	  }
 	  String trimmedValue = value.trim();
@@ -2210,15 +2237,13 @@ Here are the definition and 12 cases I came up with (lydia, 01/2006):
 		  acceptableVariance = new BigDecimal(varianceString);
 	  }
 	  
-	  String userAnswerString = data.getAnswerText().replaceAll(",", "").trim();
+	  String userAnswerString = data.getAnswerText().replaceAll(",|[\\s]+", "");
 	  BigDecimal userAnswer;
 	  try {
 		  userAnswer = new BigDecimal(userAnswerString);
 	  } catch(NumberFormatException nfe) {
 		  return totalScore; // zero because it's not even a number!
 	  }
-	  //double userAnswer = Double.valueOf(userAnswerString);
-	  
 	  
 	  // this compares the correctAnswer against the userAnsewr
 	  BigDecimal answerDiff = (correctAnswer.subtract(userAnswer));
@@ -2256,7 +2281,7 @@ Here are the definition and 12 cases I came up with (lydia, 01/2006):
 		  acceptableVariance = new BigDecimal(varianceString);
 	  }
 
-	  String userAnswerString = data.getAnswerText().replaceAll(",", "").trim();
+	  String userAnswerString = data.getAnswerText().replaceAll(",|[\\s]+", "");
 	  BigDecimal userAnswer;
 	  try {
 		  userAnswer = new BigDecimal(userAnswerString);
@@ -2533,15 +2558,15 @@ Here are the definition and 12 cases I came up with (lydia, 01/2006):
 	    return actualNumberReatke;
   }
   
-  public Map<Long, Long> getActualNumberRetakeHash(String agentIdString) {
-	    Map<Long, Long> actualNumberReatkeHash = new HashMap<>();
+  public Map<Long, Integer> getActualNumberRetakeHash(String agentIdString) {
+	    Map<Long, Integer> actualNumberRetakeHash = new HashMap<>();
 	    try {
-	    	actualNumberReatkeHash = PersistenceService.getInstance().
+	    	actualNumberRetakeHash = PersistenceService.getInstance().
 	        getAssessmentGradingFacadeQueries().getActualNumberRetakeHash(agentIdString);
 	    } catch (Exception e) {
 	      log.error(e.getMessage(), e);
 	    }
-	    return actualNumberReatkeHash;
+	    return actualNumberRetakeHash;
   }
     
   public Map<Long, Map<String, Long>> getSiteActualNumberRetakeHash(String siteIdString) {
@@ -3058,6 +3083,20 @@ Here are the definition and 12 cases I came up with (lydia, 01/2006):
   
   /**
    * CALCULATED_QUESTION
+   * SAK-39922 - Support (or at least watch for support) for binary/unary calculated question (-1--1)
+   * SAK-40942 - Error in calculated questions: the decimal representation .n or n. (where n is a number) does not work
+   */
+   private static String checkExpression(String expression) {
+	   expression = CALCQ_ANSWER_AVOID_DOUBLE_MINUS.matcher(expression).replaceAll("+");
+	   expression = CALCQ_ANSWER_AVOID_PLUS_MINUS.matcher(expression).replaceAll("-");
+	   expression = CALCQ_FORMULA_ALLOW_POINT_NUMBER.matcher(expression).replaceAll("$10$2$3");
+	   expression = CALCQ_FORMULA_ALLOW_NUMBER_POINT.matcher(expression).replaceAll("$1$3");
+  
+	   return expression;
+  }
+  
+  /**
+   * CALCULATED_QUESTION
    * replaceMappedVariablesWithNumbers() takes a string and substitutes any variable
    * names found with the value of the variable.  Variables look like {a}, the name of 
    * that variable is "a", and the value of that variable is in variablesWithValues
@@ -3074,7 +3113,7 @@ Here are the definition and 12 cases I came up with (lydia, 01/2006):
       if (expression == null) {
           expression = "";
       }
-
+      
       if (variables == null) {
           variables = new HashMap<>();
       }
@@ -3165,7 +3204,7 @@ Here are the definition and 12 cases I came up with (lydia, 01/2006):
           if (decimalPlaces < 0) {
               decimalPlaces = 0;
           }
-          formula = cleanFormula(formula);
+          formula = checkExpression(cleanFormula(formula));
           SamigoExpressionParser parser = new SamigoExpressionParser(); // this will turn the expression into a number in string form
           String numericString = parser.parse(formula, decimalPlaces+1);
           if (this.isAnswerValid(numericString)) {

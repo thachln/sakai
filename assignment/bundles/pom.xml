@@ -6,17 +6,12 @@
     <parent>
         <groupId>org.sakaiproject.assignment</groupId>
         <artifactId>assignment</artifactId>
-        <version>13-SNAPSHOT</version>
+        <version>20-SNAPSHOT</version>
     </parent>
 
     <name>sakai-assignment-bundles</name>
     <groupId>org.sakaiproject.assignment</groupId>
     <artifactId>sakai-assignment-bundles</artifactId>
-    <organization>
-        <name>The Sakai Foundation</name>
-        <url>http://sakaiproject.org/</url>
-    </organization>
-    <inceptionYear>2003</inceptionYear>
     <packaging>jar</packaging>
 
     <build>

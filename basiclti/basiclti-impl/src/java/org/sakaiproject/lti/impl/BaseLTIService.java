@@ -25,12 +25,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.UUID;
+import java.util.concurrent.CopyOnWriteArrayList;
 
-import lombok.extern.slf4j.Slf4j;
-
-import org.sakaiproject.lti.api.LTISubstitutionsFilter;
+import org.apache.commons.lang3.StringUtils;
 import org.sakaiproject.authz.api.SecurityService;
 import org.sakaiproject.component.api.ServerConfigurationService;
 import org.sakaiproject.component.cover.ComponentManager;
@@ -40,14 +38,17 @@ import org.sakaiproject.exception.IdUnusedException;
 import org.sakaiproject.exception.PermissionException;
 import org.sakaiproject.lti.api.LTIExportService.ExportType;
 import org.sakaiproject.lti.api.LTIService;
-import org.sakaiproject.site.api.SiteService;
+import org.sakaiproject.lti.api.LTISubstitutionsFilter;
 import org.sakaiproject.site.api.Site;
 import org.sakaiproject.site.api.SitePage;
+import org.sakaiproject.site.api.SiteService;
 import org.sakaiproject.site.api.ToolConfiguration;
 import org.sakaiproject.tool.api.SessionManager;
 import org.sakaiproject.user.api.UserDirectoryService;
 import org.sakaiproject.util.ResourceLoader;
 import org.sakaiproject.util.foorm.SakaiFoorm;
+
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * <p>
@@ -179,10 +180,6 @@ public abstract class BaseLTIService implements LTIService {
 			log.warn("{}=Missing LTIService Translation", str);
 		}
 
-		strings = foorm.checkI18NStrings(LTIService.DEPLOY_MODEL, rb);
-		for (String str : strings) {
-			log.warn("{}=Missing LTIService Translation", str);
-		}
 	}
 
 	/**
@@ -190,6 +187,25 @@ public abstract class BaseLTIService implements LTIService {
 	 */
 	public void destroy() {
 		log.info("destroy()");
+	}
+
+	protected String[] getContentModelDaoIfConfigurable(Map<String, Object> tool, boolean isAdminRole) {
+		if (tool == null) {
+			return null;
+		}
+
+		boolean phase1 = foorm.formHasConfiguration(tool, CONTENT_MODEL, null, null);
+		String[] retval = foorm.filterForm(tool, CONTENT_MODEL);
+		if (!isAdminRole) {
+			boolean phase2 = foorm.formHasConfiguration(null, retval, null, ".*:role=admin.*");
+			if (!phase1 && !phase2) {
+				return null;
+			}
+
+			retval = foorm.filterForm(null, retval, null, ".*:role=admin.*");
+		}
+
+		return retval;
 	}
 
 	/**********************************************************************************************************************************************************************************************************************************************************
@@ -216,6 +232,12 @@ public abstract class BaseLTIService implements LTIService {
 	public String[] getContentModel(Long tool_id, String siteId) {
 		Map<String, Object> tool = getToolDao(tool_id, siteId, isAdmin(siteId));
 		return getContentModelDao(tool, isAdmin(siteId));
+	}
+
+	@Override
+	public String[] getContentModelIfConfigurable(Long tool_id, String siteId) {
+		Map<String, Object> tool = getToolDao(tool_id, siteId, isAdmin(siteId));
+		return getContentModelDaoIfConfigurable(tool, isAdmin(siteId));
 	}
 
 	@Override
@@ -722,7 +744,22 @@ public abstract class BaseLTIService implements LTIService {
 		
 				ToolConfiguration tool = sitePage.addTool(WEB_PORTLET);
 				String fa_icon = (String)content.get(LTI_FA_ICON);
-				if ( fa_icon != null && fa_icon.length() > 0 ) {
+
+				// if not present in lti_content, fallback to lti_tool's value
+				if (StringUtils.isBlank(fa_icon)) {
+					Object objToolId = content.get(LTI_TOOL_ID);
+
+					// In MySQL this is stored as an integer of 1/0 (true/false), however in Oracle it returns a BigDecimal.
+					// Both Integer and BigDecimal extend from Number, and Number has an abstract .longValue().
+					// So we check for instanceof Number here for compatibility with both MySQL and Oracle.
+					if (objToolId != null && objToolId instanceof Number) {
+						Long toolId = ((Number)objToolId).longValue();
+						Map<String, Object> ltiTool = getToolDao(toolId, siteId);
+						fa_icon = (String)ltiTool.get(LTI_FA_ICON);
+					}
+				}
+
+				if ( !StringUtils.isBlank(fa_icon) && !"none".equals(fa_icon) ) {
 					tool.getPlacementConfig().setProperty("imsti.fa_icon",fa_icon);
 				}
 				tool.getPlacementConfig().setProperty("source",(String)content.get("launch_url"));
@@ -825,37 +862,6 @@ public abstract class BaseLTIService implements LTIService {
 			return new String(rb.getFormattedMessage("error.link.placement.update", new Object[]{key.toString()}));
 		}
 	}
-
-	// The methods for deployment objects
-	public String[] getDeployModel() {
-		return DEPLOY_MODEL;
-	}
-
-	public Object insertDeployDao(Properties newProps) {
-		return insertDeployDao(newProps, null, true, true);
-	}
-
-	public Object updateDeployDao(Long key, Object newProps) {
-		return updateDeployDao(key, newProps, null, true, true);
-	}
-
-	public boolean deleteDeployDao(Long key) {
-		return deleteDeployDao(key, null, true, true);
-	}
-
-	public Map<String, Object> getDeployDao(Long key) {
-		return getDeployDao(key, null, true);
-	}
-
-	public List<Map<String, Object>> getDeploysDao(String search, String order, int first, int last) {
-		return getDeploysDao(search, order, first, last, null, true);
-	}
-
-	public abstract Object insertProxyBindingDao(Properties newProps);
-	public abstract Object updateProxyBindingDao(Long key, Object newProps);
-	public abstract boolean deleteProxyBindingDao(Long key);
-	public abstract Map<String, Object> getProxyBindingDao(Long key);
-	public abstract Map<String, Object> getProxyBindingDao(Long tool_id, String siteId);
 
 	@Override
 	public void registerPropertiesFilter(LTISubstitutionsFilter filter) {

@@ -91,6 +91,7 @@ public class ItemFacade implements Serializable, ItemDataIfc, Comparable<ItemDat
   protected Date createdDate;
   protected String lastModifiedBy;
   protected Date lastModifiedDate;
+  protected Boolean isExtraCredit;
   protected Set itemTextSet;
   protected Set itemMetaDataSet;
   protected Set itemTagSet;
@@ -677,6 +678,20 @@ public class ItemFacade implements Serializable, ItemDataIfc, Comparable<ItemDat
     this.data.setLastModifiedDate(lastModifiedDate);
   }
 
+  public void setIsExtraCredit(Boolean isExtraCredit) {
+      this.isExtraCredit = isExtraCredit;
+      this.data.setIsExtraCredit(isExtraCredit);
+  }
+
+  public Boolean getIsExtraCredit() throws DataFacadeException {
+      try {
+          this.data = (ItemDataIfc) item.getData();
+      } catch (AssessmentException ex) {
+          throw new DataFacadeException(ex.getMessage());
+      }
+      return this.data.getIsExtraCredit();
+  }
+
   /**
    * Get item text set (question text set) from ItemFacade.data
    * @return
@@ -1171,7 +1186,11 @@ public class ItemFacade implements Serializable, ItemDataIfc, Comparable<ItemDat
   public String getImageMapSrc() {
 	  return getItemMetaDataByLabel(ItemMetaDataIfc.IMAGE_MAP_SRC);
   }
-  
+
+  public String getImageMapAltText() {
+      return getItemMetaDataByLabel(ItemMetaDataIfc.IMAGE_MAP_ALT_TEXT);
+  }
+
 	public List getEmiAnswerOptions() {
 		try {
 			this.data = (ItemDataIfc) item.getData();

@@ -51,11 +51,11 @@ should be included in file importing DeliveryMessages
                          value="#{question.matrixArray}"
                          var="matrixBean"
                          rowIndexVar="rowIndex"
-                         columnClasses="Tablecolumn"
+                         columnClasses="matrixColumn"
                          rowClasses=""
                          frame="border"
                          rules="rows"
-                         styleClass="TableClass">
+                         styleClass="matrixTable">
                 <t:column headerstyle="#{question.itemData.relativeWidthStyle}" style="text-align:right;padding-left:0.3em" >
                     <f:facet name="header">
                         <t:outputText value="                "/>
@@ -115,7 +115,7 @@ should be included in file importing DeliveryMessages
              && delivery.navigation ne '1' && delivery.displayMardForReview }">
 <h:selectBooleanCheckbox value="#{question.review}" id="mark_for_review" />
 	<h:outputLabel for="mark_for_review" value="#{deliveryMessages.mark}" />
-	<h:outputLink title="#{assessmentSettingsMessages.whats_this_link}" value="#" onclick="javascript:window.open('../author/markForReviewPopUp.faces','MarkForReview','width=300,height=220,scrollbars=yes, resizable=yes');">
+	<h:outputLink title="#{assessmentSettingsMessages.whats_this_link}" value="#" onclick="javascript:window.open('/samigo-app/jsf/author/markForReviewPopUp.faces','MarkForReview','width=350,height=280,scrollbars=yes, resizable=yes');event.preventDefault();">
 		<h:outputText  value=" #{assessmentSettingsMessages.whats_this_link}"/>
 	</h:outputLink>
 </h:panelGroup>

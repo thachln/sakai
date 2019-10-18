@@ -15,6 +15,8 @@ Handlebars.registerPartial('comment', Handlebars.partials['comment']);
 Handlebars.registerPartial('wrapped_comment', Handlebars.partials['wrapped_comment']);
 Handlebars.registerPartial('inplace_comment_editor', Handlebars.partials['inplace_comment_editor']);
 
+var commonsHelpers = {};
+
 commons.states = {
         POSTS: 'posts',
         POST: 'post',
@@ -38,7 +40,8 @@ commons.switchState = function (state, arg) {
 
         var templateData = {
                 currentUserId: commons.userId,
-                isUserSite: commons.isUserSite
+                isUserSite: commons.isUserSite,
+                maxUploadSize: commons.maxUploadSize
             };
 
         // renderPageOfPosts uses this. Set it to the start page
@@ -215,11 +218,12 @@ commons.switchState = function (state, arg) {
 
             var fileInsertButton = $('#commons-image-dialog-insert-button');
             var fileField = $('#commons-image-dialog-file');
+            var fileMessage = $('#commons-image-dialog-message');
 
             fileInsertButton.click(function (e) {
 
                 var file = fileField[0].files[0];
-                var extension = file.name.substring(file.name.lastIndexOf('.') + 1);
+                var extension = file.name.substring(file.name.lastIndexOf('.') + 1).toLowerCase();
 
                 if (commons.imageFileExtensions.indexOf(extension) != -1) {
                     var formData = new FormData();
@@ -236,12 +240,19 @@ commons.switchState = function (state, arg) {
             });
 
             fileField.change(function (e) {
-                fileInsertButton.prop('disabled', false);
+
+                var file = fileField[0].files[0];
+                if ((file.size/1000000) > parseInt(commons.maxUploadSize)) {
+                    fileMessage.html('File too big');
+                } else {
+                    fileInsertButton.prop('disabled', false);
+                }
             });
 
             $('#commons-image-dialog-cancel-button').click(function (e) {
 
                 fileInsertButton.prop('disabled', true);
+                fileMessage.html('');
                 fileField.val('');
                 editorImageButton.qtip('api').hide();
             });
@@ -278,17 +289,7 @@ commons.switchState = function (state, arg) {
     } else if (commons.states.PERMISSIONS === state) {
         $('#commons-toolbar > li > span').removeClass('current');
         $('#commons-permissions-link > span').addClass('current');
-
-        var permissionsCallback = function (perms) {
-
-                commons.utils.renderTemplate('permissions', {'perms': perms}, 'commons-content');
-
-                $(document).ready(function () {
-                    $('#commons_permissions_save_button').click(commons.utils.savePermissions);
-                });
-            };
-
-        commons.utils.getSitePermissionMatrix(permissionsCallback);
+        commons.utils.renderTemplate('permissions', {}, 'commons-content');
     } else if (commons.states.PERMISSIONS_NOT_SET === state) {
         commons.utils.renderTemplate('permissions_not_set', {}, 'commons-content');
     }
@@ -304,8 +305,6 @@ commons.switchState = function (state, arg) {
     moment.locale(sakai.locale.userLocale);
 
     var languagesLoaded = function () {
-
-        commons.i18n = portal.i18n.translations['commons'];
 
         if (commons.embedder === 'SITE') {
             commons.utils.renderTemplate('toolbar', {} ,'commons-toolbar');
@@ -323,10 +322,8 @@ commons.switchState = function (state, arg) {
                     return;
                 }
 
-                if (commons.isUserSite) {
-                    $("#commons-toolbar").hide();
-                } else {
-                    $("#commons-toolbar").toggle(commons.currentUserPermissions.updateSite);
+                if (!commons.isUserSite) {
+                    $('#commons-toolbar').removeClass('hidden').toggle(commons.currentUserPermissions.updateSite);
                 }
 
                 if (commons.currentUserPermissions.postReadAny || commons.currentUserPermissions.postCreate) {
@@ -345,12 +342,15 @@ commons.switchState = function (state, arg) {
 
     $(document).ready(function () {
 
-        portal.i18n.loadProperties({
-            resourceClass: 'org.sakaiproject.commons.api.CommonsManager',
-            resourceBundle: 'org.sakaiproject.commons.impl.ui',
-            namespace: 'commons',
-            callback: function () { languagesLoaded(); }
+      import("/webcomponents/sakai-i18n.js").then(m => {
+
+        m.loadProperties({bundle: 'commons'}).then(i18n => {
+
+          commons.i18n = i18n;
+          commonsHelpers["tr"] =  (key, options) => new Handlebars.SafeString(m.tr("commons", key, options.hash));
+          languagesLoaded();
         });
+      });
     });
 
     if (CKEDITOR) {

@@ -606,6 +606,7 @@ public abstract class BaseUserDirectoryService implements UserDirectoryService, 
 			functionManager().registerFunction(SECURE_UPDATE_USER_OWN_PASSWORD);
 			functionManager().registerFunction(SECURE_UPDATE_USER_OWN_TYPE);
 			functionManager().registerFunction(SECURE_UPDATE_USER_ANY);
+			functionManager().registerFunction(SECURE_VIEW_USER_ANY);
 			functionManager().registerFunction("user.studentnumber.visible");
 			
 
@@ -2529,13 +2530,17 @@ public abstract class BaseUserDirectoryService implements UserDirectoryService, 
 		/**
 		 * @inheritDoc
 		 */
-		public String getDisplayName()
+		public String getDisplayName(String context)
 		{
 			String rv = null;
 
 			// If a contextual aliasing service exists, let it have the first try.
 			if (m_contextualUserDisplayService != null) {
-				rv = m_contextualUserDisplayService.getUserDisplayName(this);
+				if (context != null) {
+					rv = m_contextualUserDisplayService.getUserDisplayName(this, context);
+				} else {
+					rv = m_contextualUserDisplayService.getUserDisplayName(this);
+				}
 				if (rv != null) {
 					return rv;
 				}
@@ -2575,13 +2580,24 @@ public abstract class BaseUserDirectoryService implements UserDirectoryService, 
 		/**
 		 * @inheritDoc
 		 */
-		public String getDisplayId()
+		public String getDisplayName() {
+			return getDisplayName(null);
+		}
+
+		/**
+		 * @inheritDoc
+		 */
+		public String getDisplayId(String context)
 		{
 			String rv = null;
 			
 			// If a contextual aliasing service exists, let it have the first try.
 			if (m_contextualUserDisplayService != null) {
-				rv = m_contextualUserDisplayService.getUserDisplayId(this);
+				if (context != null) {
+					rv = m_contextualUserDisplayService.getUserDisplayId(this, context);
+				} else {
+					rv = m_contextualUserDisplayService.getUserDisplayId(this);
+				}
 				if (rv != null) {
 					return rv;
 				}
@@ -2600,6 +2616,13 @@ public abstract class BaseUserDirectoryService implements UserDirectoryService, 
 			}
 
 			return rv;
+		}
+
+		/**
+		 * @inheritDoc
+		 */
+		public String getDisplayId() {
+			return getDisplayId(null);
 		}
 
 		/**

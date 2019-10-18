@@ -44,6 +44,8 @@ import java.util.Map;
 import java.util.Set;
 
 import javax.faces.application.FacesMessage;
+import javax.faces.bean.ManagedBean;
+import javax.faces.bean.SessionScoped;
 import javax.faces.context.ExternalContext;
 import javax.faces.context.FacesContext;
 import javax.faces.event.ValueChangeEvent;
@@ -51,6 +53,8 @@ import javax.faces.model.SelectItem;
 import javax.servlet.ServletContext;
 
 import lombok.extern.slf4j.Slf4j;
+
+import org.apache.commons.lang3.StringUtils;
 
 import org.sakaiproject.component.cover.ServerConfigurationService;
 import org.sakaiproject.authz.api.SecurityAdvisor;
@@ -68,6 +72,8 @@ import org.sakaiproject.event.cover.NotificationService;
 import org.sakaiproject.exception.IdUnusedException;
 import org.sakaiproject.exception.PermissionException;
 import org.sakaiproject.exception.TypeException;
+import org.sakaiproject.portal.util.PortalUtils;
+import org.sakaiproject.rubrics.logic.RubricsConstants;
 import org.sakaiproject.tool.api.ToolSession;
 import org.sakaiproject.tool.assessment.data.ifc.assessment.AttachmentIfc;
 import org.sakaiproject.tool.assessment.data.ifc.assessment.ItemAttachmentIfc;
@@ -96,14 +102,11 @@ import org.sakaiproject.tool.cover.ToolManager;
 import org.sakaiproject.util.FormattedText;
 import org.sakaiproject.util.ResourceLoader;
 
-/**
- * Backing bean for Item Authoring, uses ItemBean for UI
- * $Id$
- */
+/* For author: Item Author backing bean. */
 @Slf4j
-public class ItemAuthorBean
-  implements Serializable
-{
+@ManagedBean(name="itemauthor")
+@SessionScoped
+public class ItemAuthorBean implements Serializable {
 
   /** Use serialVersionUID for interoperability. */
   private final static long serialVersionUID = 8266438770394956874L;
@@ -145,6 +148,10 @@ public class ItemAuthorBean
 
 
   private String language;
+
+  // Rubrics
+  private String rbcsToken;
+  private String rubricStateDetails;
 
   public String getLanguage() {
     Locale loc = new ResourceLoader().getLocale();
@@ -1195,7 +1202,7 @@ public class ItemAuthorBean
     ItemService service = loadItemService(isEditPendingAssessmentFlow);
     ItemFacade itemData = null;
     // itemId == null => new questiion
-    if (this.itemId!=null){
+    if (StringUtils.isNotEmpty(this.itemId)){
       try{
         itemData = service.getItem(this.itemId);
       }
@@ -1538,7 +1545,7 @@ public class ItemAuthorBean
 	    FacesContext context = FacesContext.getCurrentInstance();
 	    ExternalContext external = context.getExternalContext();
 	    Long fileSize = (Long)((ServletContext)external.getContext()).getAttribute("TEMP_FILEUPLOAD_SIZE");
-	    Long maxSize = (Long)((ServletContext)external.getContext()).getAttribute("FILEUPLOAD_SIZE_MAX");
+	    Long maxSize = Long.valueOf(ServerConfigurationService.getString("samigo.sizeMax", "40960"));
 
 	    ((ServletContext)external.getContext()).removeAttribute("TEMP_FILEUPLOAD_SIZE");
 	    if (fileSize!=null){
@@ -1602,4 +1609,27 @@ public class ItemAuthorBean
         }
     }
 
+    public String getRbcsToken() {
+        return rbcsToken;
+    }
+
+    public void setRbcsToken(String rbcsToken) {
+        this.rbcsToken = rbcsToken;
+    }
+
+    public String getRubricStateDetails() {
+        if (StringUtils.isNotBlank(this.rubricStateDetails) && !StringUtils.isNotBlank(ContextUtil.lookupParam(RubricsConstants.RBCS_ASSOCIATION_STATE_DETAILS))) {
+            return this.rubricStateDetails;
+        }
+        this.rubricStateDetails = ContextUtil.lookupParam(RubricsConstants.RBCS_ASSOCIATION_STATE_DETAILS);
+        return this.rubricStateDetails;
+    }
+
+    public void setRubricStateDetails(String rubricStateDetails) {
+        this.rubricStateDetails = rubricStateDetails;
+    }
+
+    public String getCDNQuery() {
+        return PortalUtils.getCDNQuery();
+    }
 }

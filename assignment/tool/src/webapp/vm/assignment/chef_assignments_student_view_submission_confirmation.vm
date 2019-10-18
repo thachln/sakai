@@ -10,6 +10,9 @@
             $tlang.getString('confirm.savesubmission.title')
         #end
     </h3>
+    #if (!$!allowAddAssignment)
+        #progressBar($!service.getProgressBarStatus($!submission))
+    #end
     <div class="success">
         #if ($!submission.Submitted)
             $tlang.getString('confirm.submission.success')
@@ -25,7 +28,7 @@
     #if ($!email_confirmation && $!submission.Submitted)
         #if (!$!user_email)
             ## no email could be sent due to the missing recipent email address
-            <p class="alertMessage">$tlang.getString('confirm.submission.email.noEmailAddress')</p>
+            <p class="sak-banner-error">$tlang.getString('confirm.submission.email.noEmailAddress')</p>
         #end
     #end
     <form name="addSubmissionForm" action="#toolForm($action)" method="post" onsubmit="return true;">
@@ -113,7 +116,7 @@
 ##                  <th>$tlang.getString('gen.history')</th>
 ##                  <td>
 ##                      #foreach ($entry in $submission.getSubmissionLog())
-##                          $entry<br>
+##                          $validator.escapeHtml($entry)<br>
 ##                      #end
 ##                  </td>
 ##              </tr>
@@ -187,13 +190,7 @@
             #end
         #end
 
-        #if ($!linkInvoked)
-            <p class="act">
-                <input type="submit" accesskey="x" onClick="SPNR.disableControlsAndSpin( this, null ); window.close();"
-                       name="eventSubmit_doConfirm_assignment_submission" value="$tlang.getString("gen.closeexit")"
-                       class="active"/>
-            </p>
-        #else
+        #if (!$!linkInvoked)
             <p class="act">
                 <input type="submit" accesskey="x" name="eventSubmit_doConfirm_assignment_submission"
                        value="$tlang.getString('gen.backtolist')" class="active"

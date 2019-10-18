@@ -31,7 +31,7 @@ import javax.faces.context.FacesContext;
 import javax.faces.model.SelectItem;
 
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 
 import org.sakaiproject.api.app.messageforums.Attachment;
 import org.sakaiproject.api.app.messageforums.DiscussionForum;
@@ -39,6 +39,8 @@ import org.sakaiproject.api.app.messageforums.UserPreferencesManager;
 import org.sakaiproject.api.app.messageforums.ui.DiscussionForumManager;
 import org.sakaiproject.api.app.messageforums.ui.UIPermissionsManager;
 import org.sakaiproject.component.cover.ComponentManager;
+import org.sakaiproject.rubrics.logic.RubricsConstants;
+import org.sakaiproject.rubrics.logic.RubricsService;
 import org.sakaiproject.util.ResourceLoader;
 
 /**
@@ -70,6 +72,8 @@ public class DiscussionForumBean
   private static final String MESSAGECENTER_BUNDLE = "org.sakaiproject.api.app.messagecenter.bundle.Messages";
   private static final ResourceLoader rb = new ResourceLoader(MESSAGECENTER_BUNDLE);    
    
+  private static RubricsService rubricsService = ComponentManager.get(RubricsService.class);
+
   private SimpleDateFormat ourDateFormat() {
       SimpleDateFormat df = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss");
       df.setTimeZone(userPreferencesManager.getTimeZone());
@@ -390,6 +394,24 @@ public class DiscussionForumBean
   {
 	  log.debug("setForumAutoMarkThreadsRead()");
 	  forum.setAutoMarkThreadsRead(autoMarkThreadsRead);
+  }
+
+  /**
+   * Return whether or not the forum will use specific group permissions.
+   */
+  public String getRestrictPermissionsForGroups()
+  {
+	  log.debug("getRestrictPermissionsForGroups()");
+	  return Boolean.toString(forum.getRestrictPermissionsForGroups());
+  }
+  
+  /**
+   * Set the restrictPermissionsForGroups setting for the forum.
+   */
+  public void setRestrictPermissionsForGroups(String restrictPermissionsForGroups)
+  {
+	  log.debug("setRestrictPermissionsForGroups()");
+	  forum.setRestrictPermissionsForGroups(Boolean.parseBoolean(restrictPermissionsForGroups));
   }
 
   /**
@@ -747,5 +769,9 @@ public class DiscussionForumBean
 			String formattedOpenDate = formatter_date.format(forum.getOpenDate());
 			return formattedOpenDate;
 		}
+	}
+
+	public String getHasRubric(){
+		return rubricsService.hasAssociatedRubric(RubricsConstants.RBCS_TOOL_FORUMS, RubricsConstants.RBCS_FORUM_ENTITY_PREFIX + forum.getId()) ? Boolean.TRUE.toString() : Boolean.FALSE.toString();
 	}
 }

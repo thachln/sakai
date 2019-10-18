@@ -14,6 +14,13 @@
 
 #set($i = 0) ## Counter for directUrl ids 
 
+#set($homePage = false)
+#foreach( $page in $sitePages.pageNavTools )
+    #if (${page.current} && ${page.pageProps.is_home_page})
+        #set($homePage = true)
+        #break
+    #end
+#end
 <!-- START VM includePageBody.vm -->
 
 <h1 class="skip" tabindex="-1" id="tocontent">${rloader.sit_contentshead}</h1>
@@ -24,9 +31,7 @@
         #set( $numberTools = $pageColumn0Tools.size() )
     #end
 
-    <main id="$pageWrapperClass" class="Mrphs-mainContent #if( $numberTools > 1 )Mrphs-multipleTools #end" role="main">
-
-        #parse("/vm/morpheus/snippets/siteStatus-snippet.vm")
+    <main id="$pageWrapperClass" class="Mrphs-mainContent #if( $numberTools > 1 || $homePage)Mrphs-multipleTools #end" role="main">
 
         <div id="$pageColumnLayout" class="${columnClasses}">
 
@@ -83,8 +88,9 @@
 
                                 #end ## END of IF (${tool.toolShowResetButton})
 
-                                <div class="Mrphs-toolTitleNav__button_container">
-                                
+                                <div class="Mrphs-toolTitleNav__button_container #if(${homePage})home#end">
+
+
                                 #if (${tool.toolJSR168Edit})
 
                                     <a class="Mrphs-toolTitleNav__link Mrphs-toolTitleNav__link--edit" accesskey="e" id="jsr-edit" href="${tool.toolJSR168Edit}" title="${rloader.sit_edit}">
@@ -96,18 +102,19 @@
 				                <span class="Mrphs-toolTitleNav__addRight"></span>
                                 #if ( $toolDirectUrlEnabled && ${tool.showDirectToolUrl} )
 
-                                    <a class="Mrphs-toolTitleNav__link Mrphs-toolTitleNav__link--directurl" href="#${tool.toolPlacementIDJS}_directurl" rel="#${tool.toolPlacementIDJS}_directurl" title="${rloader.tool_direct_link}">
+                                    <button class="Mrphs-toolTitleNav__link Mrphs-toolTitleNav__link--directurl" rel="#${tool.toolPlacementIDJS}_directurl" title="${rloader.tool_direct_link}" aria-haspopup="dialog">
                                         <span class="Mrphs-itemTitle">${rloader.tool_direct_button_link}</span>
-                                    </a>
-                                    <div id="${tool.toolPlacementIDJS}_directurl" class="Mrphs-directUrl Mrphs-directUrl__dropDown">
-                                        <i class="fa fa-times dropDown_close" aria-hidden="true"></i>
+                                    </button>
+                                    <div id="${tool.toolPlacementIDJS}_directurl" role="dialog" aria-labelledby="${tool.toolPlacementIDJS}_directurl__title" class="Mrphs-directUrl Mrphs-directUrl__dropDown">
+                                        <i class="fa fa-times dropDown_close" aria-hidden="true" tabindex="0"></i>
+                                        <label for="${tool.toolPlacementIDJS}_urlholder" id="${tool.toolPlacementIDJS}_directurl__title" class="dropDown_title">${rloader.tool_direct_link}</label>
                                         #if($toolShortUrlEnabled)
 
-                                            <input type="checkbox" id="directToolUrl-${i}" onclick="toggleShortUrlOutput('${tool.directToolUrl}', this, '${tool.toolPlacementIDJS}_urlholder');" class="Mrphs-directUrl__checkbox"><label for="directToolUrl-${i}">${rloader.short_url}</label>
+                                            <input tabindex="0" type="checkbox" id="directToolUrl-${i}" onclick="toggleShortUrlOutput('${tool.directToolUrl}', this, '${tool.toolPlacementIDJS}_urlholder');" class="Mrphs-directUrl__checkbox"><label for="directToolUrl-${i}">${rloader.short_url}</label>
 
                                         #end ## END of IF ($toolShortUrlEnabled)
 
-                                        <textarea class="Mrphs-directUrl__textarea ${tool.toolPlacementIDJS}_urlholder" >${tool.directToolUrl}</textarea>
+                                        <textarea name="${tool.toolPlacementIDJS}_urlholder" id="${tool.toolPlacementIDJS}_urlholder" tabindex="0" class="Mrphs-directUrl__textarea ${tool.toolPlacementIDJS}_urlholder" >${tool.directToolUrl}</textarea>
                                     </div>
 
                                 #end ## END of IF ( $toolDirectUrlEnabled && ${tool.showDirectToolUrl} )
@@ -247,16 +254,21 @@
                                 #end ## END of IF (${tool.toolJSR168Edit})
                                  
                                 #if ( $toolDirectUrlEnabled && ${tool.showDirectToolUrl} )
-                                    <a class="Mrphs-toolTitleNav__link Mrphs-toolTitleNav__link--directurl" href="#${tool.toolPlacementIDJS}_directurl" rel="#${tool.toolPlacementIDJS}_directurl" title="${rloader.tool_direct_link}">
+                                	<!-- TO-DO: let same as the other -->
+                                	
+                                	<button class="Mrphs-toolTitleNav__link Mrphs-toolTitleNav__link--directurl" rel="#${tool.toolPlacementIDJS}_directurl" title="${rloader.tool_direct_link}" aria-haspopup="dialog">
                                         <span class="Mrphs-itemTitle">${rloader.tool_direct_button_link}</span>
-                                    </a>
-                                    <div id="${tool.toolPlacementIDJS}_directurl" class="Mrphs-directUrl Mrphs-directUrl__dropDown">
-                                        <i class="fa fa-times dropDown_close" aria-hidden="true"></i>
+                                    </button>
+                                    <div id="${tool.toolPlacementIDJS}_directurl" role="dialog" aria-labelledby="${tool.toolPlacementIDJS}_directurl__title" class="Mrphs-directUrl Mrphs-directUrl__dropDown">
+                                        <i class="fa fa-times dropDown_close" aria-hidden="true" tabindex="0"></i>
+                                        <label for="${tool.toolPlacementIDJS}_urlholder" id="${tool.toolPlacementIDJS}_directurl__title" class="dropDown_title">${rloader.tool_direct_link}</label>
                                         #if($toolShortUrlEnabled)
-                                            <input type="checkbox" id="directToolUrl-${i}" onclick="toggleShortUrlOutput('${tool.directToolUrl}', this, '${tool.toolPlacementIDJS}_urlholder');" class="Mrphs-directUrl__checkbox"><label for="directToolUrl-${i}">${rloader.short_url}</label>
+
+                                            <input tabindex="0" type="checkbox" id="directToolUrl-${i}" onclick="toggleShortUrlOutput('${tool.directToolUrl}', this, '${tool.toolPlacementIDJS}_urlholder');" class="Mrphs-directUrl__checkbox"><label for="directToolUrl-${i}">${rloader.short_url}</label>
+
                                         #end ## END of IF ($toolShortUrlEnabled)
-                                        
-                                        <textarea class="Mrphs-directUrl__textarea ${tool.toolPlacementIDJS}_urlholder" >${tool.directToolUrl}</textarea>
+
+                                        <textarea name="${tool.toolPlacementIDJS}_urlholder" id="${tool.toolPlacementIDJS}_urlholder" tabindex="0" class="Mrphs-directUrl__textarea ${tool.toolPlacementIDJS}_urlholder" >${tool.directToolUrl}</textarea>
                                     </div>
                                 #end ## END of IF ( $toolDirectUrlEnabled && ${tool.showDirectToolUrl} )
                                 

@@ -28,7 +28,7 @@
         </script>
 		<sakai:view_title value="#{msgs.edit_channel_title}" rendered="#{!ChatTool.currentChannelEdit.newChannel}" />
 		<sakai:view_title value="#{msgs.add_channel_title}" rendered="#{ChatTool.currentChannelEdit.newChannel}" />
-		<h:messages globalOnly="false" styleClass="alertMessage" 
+		<h:messages globalOnly="false" styleClass="sak-banner-warn"
 			showDetail="true" showSummary="false" rendered="#{not empty facesContext.maximumSeverity}" />
 		<h:form id="editRoomForm" styleClass="edit-room">
 
@@ -120,10 +120,11 @@
 			</h:panelGrid>
 
 			<sakai:button_bar>
-				<sakai:button_bar_item id="submit"
+				<h:commandButton id="submit"
 					action="#{ChatTool.processActionEditRoomSave}"
-					value="#{msgs['gen.save']}" />
-				<sakai:button_bar_item id="cancel" immediate="true"
+					value="#{msgs['gen.save']}"
+					styleClass="active" />
+				<h:commandButton id="cancel" immediate="true"
 					action="#{ChatTool.processActionEditRoomCancel}"
 					value="#{msgs['gen.cancel']}" />
 			</sakai:button_bar>

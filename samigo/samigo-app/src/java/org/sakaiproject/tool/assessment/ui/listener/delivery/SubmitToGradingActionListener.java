@@ -38,7 +38,7 @@ import javax.faces.event.ActionEvent;
 import javax.faces.event.ActionListener;
 
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 
 import org.sakaiproject.component.cover.ComponentManager;
 import org.sakaiproject.entity.api.EntityPropertyNotDefinedException;
@@ -317,9 +317,7 @@ public class SubmitToGradingActionListener implements ActionListener {
 		while (iter.hasNext()) {
 			SectionContentsBean part = iter.next();
 			log.debug("****1c. inside submitToGradingService, part " + part);
-			Iterator<ItemContentsBean> iter2 = part.getItemContents().iterator();
-			while (iter2.hasNext()) { // go through each item from form
-				ItemContentsBean item = iter2.next();
+			for (ItemContentsBean item : part.getItemContents()) { // go through each item from form
 				log.debug("****** before prepareItemGradingPerItem");
 				prepareItemGradingPerItem(ae, delivery, item, adds, removes);
 				log.debug("****** after prepareItemGradingPerItem");
@@ -333,13 +331,9 @@ public class SubmitToGradingActionListener implements ActionListener {
 		StringBuilder redrawAnchorName = new StringBuilder("p");
 		String tmpAnchorName = "";
 
-		Iterator<SectionContentsBean> iterPart = delivery.getPageContents().getPartsContents().iterator();
-		while (iterPart.hasNext()) {
-			SectionContentsBean part = iterPart.next();
+		for (SectionContentsBean part : delivery.getPageContents().getPartsContents()) {
 			String partSeq = part.getNumber();
-			Iterator<ItemContentsBean> iterItem = part.getItemContents().iterator();
-			while (iterItem.hasNext()) { // go through each item from form
-				ItemContentsBean item = iterItem.next();
+			for (ItemContentsBean item : part.getItemContents()) { // go through each item from form
 				String itemSeq = item.getSequence();
 				Long itemId = item.getItemData().getItemId();
 				if (item.getItemData().getTypeId() == 5) {
@@ -351,12 +345,10 @@ public class SubmitToGradingActionListener implements ActionListener {
 						if (tmpAnchorName.equals("") || tmpAnchorName.compareToIgnoreCase(redrawAnchorName.toString()) > 0) {
 							tmpAnchorName = redrawAnchorName.toString();
 						}
-					}
-					else {
+					} else {
 						item.setIsInvalidSALengthInput(false);
 					}
-				}
-				else if (item.getItemData().getTypeId() == 11) {
+				} else if (item.getItemData().getTypeId() == 11) {
 					if (invalidFINMap.containsKey(itemId)) {
 						item.setIsInvalidFinInput(true);
 						redrawAnchorName.append(partSeq);
@@ -367,9 +359,7 @@ public class SubmitToGradingActionListener implements ActionListener {
 						}
 						List list = (List) invalidFINMap.get(itemId);
 						List<FinBean> finArray = item.getFinArray();
-						Iterator<FinBean> iterFin = finArray.iterator();
-						while (iterFin.hasNext()) {
-							FinBean finBean = iterFin.next();
+						for (FinBean finBean : finArray) {
 							if (finBean.getItemGradingData() != null) {
 								Long itemGradingId = finBean.getItemGradingData().getItemGradingId();
 								if (list.contains(itemGradingId)) {
@@ -377,8 +367,7 @@ public class SubmitToGradingActionListener implements ActionListener {
 								}
 							}
 						}
-					}
-					else {
+					} else {
 						item.setIsInvalidFinInput(false);
 					}
 				}
@@ -423,11 +412,8 @@ public class SubmitToGradingActionListener implements ActionListener {
 			// 2. add any modified SAQ/TF/FIB/Matching/MCMR/FIN
 			// 3. save any modified Mark for Review in FileUplaod/Audio
 
-			Map<Long, ItemDataIfc> fibMap = getFIBMap(publishedAssessment);
-			Map<Long, ItemDataIfc> finMap = getFINMap(publishedAssessment);
 			Map<Long, ItemDataIfc> calcQuestionMap = getCalcQuestionMap(publishedAssessment); // CALCULATED_QUESTION
 			Map<Long, ItemDataIfc> imagQuestionMap = getImagQuestionMap(publishedAssessment); // IMAGEMAP_QUESTION
-			Map<Long, ItemDataIfc> mcmrMap = getMCMRMap(publishedAssessment);
 			Map<Long, ItemDataIfc> emiMap = getEMIMap(publishedAssessment);
 			Set<ItemGradingData> itemGradingSet = adata.getItemGradingSet();
 			log.debug("*** 2a. before removal & addition " + (new Date()));
@@ -459,7 +445,7 @@ public class SubmitToGradingActionListener implements ActionListener {
 						+ adds.size());
 
 				HashSet<ItemGradingData> updateItemGradingSet = getUpdateItemGradingSet(
-						itemGradingSet, adds, fibMap, finMap, calcQuestionMap,imagQuestionMap,mcmrMap, emiMap, adata);
+						itemGradingSet, adds, calcQuestionMap,imagQuestionMap, emiMap, adata);
 				adata.setItemGradingSet(updateItemGradingSet);
 			}
 		}
@@ -508,15 +494,6 @@ public class SubmitToGradingActionListener implements ActionListener {
 		return adata;
 	}
 
-	private Map<Long, ItemDataIfc> getFIBMap(PublishedAssessmentIfc publishedAssessment) {
-		return publishedAssesmentService.prepareFIBItemHash(publishedAssessment);
-	}
-
-  
-  	private Map<Long, ItemDataIfc> getFINMap(PublishedAssessmentIfc publishedAssessment){
-	    return publishedAssesmentService.prepareFINItemHash(publishedAssessment);
-	}
-  	
   	/**
   	 * CALCULATED_QUESTION
   	 * @param publishedAssessment
@@ -533,10 +510,6 @@ public class SubmitToGradingActionListener implements ActionListener {
   	 */
   	private Map<Long, ItemDataIfc> getImagQuestionMap(PublishedAssessmentIfc publishedAssessment){
 	    return (Map<Long, ItemDataIfc>) publishedAssesmentService.prepareImagQuestionItemHash(publishedAssessment);
-	}  
-
-	private Map<Long, ItemDataIfc> getMCMRMap(PublishedAssessmentIfc publishedAssessment) {
-		return publishedAssesmentService.prepareMCMRItemHash(publishedAssessment);
 	}
 
 	private Map<Long, ItemDataIfc> getEMIMap(PublishedAssessmentIfc publishedAssessment) {
@@ -545,9 +518,8 @@ public class SubmitToGradingActionListener implements ActionListener {
 	}
 
 	private HashSet<ItemGradingData> getUpdateItemGradingSet(Set oldItemGradingSet, Set<ItemGradingData> newItemGradingSet,
-															 Map<Long, ItemDataIfc> fibMap, Map<Long, ItemDataIfc> finMap,
 															 Map<Long, ItemDataIfc> calcQuestionMap, Map<Long, ItemDataIfc> imagQuestionMap,
-															 Map<Long, ItemDataIfc> mcmrMap, Map<Long, ItemDataIfc> emiMap, AssessmentGradingData adata) {
+															 Map<Long, ItemDataIfc> emiMap, AssessmentGradingData adata) {
 		log.debug("Submitforgrading: oldItemGradingSet.size = "
 				+ oldItemGradingSet.size());
 		log.debug("Submitforgrading: newItemGradingSet.size = "
@@ -568,13 +540,12 @@ public class SubmitToGradingActionListener implements ActionListener {
 					.getItemGradingId());
 			if (oldItem != null) {
 			    if (!oldItem.equals(newItem) || 
-			    //Now Check all the maps
-			            fibMap.get(oldItem.getPublishedItemId()) != null
-			            || emiMap.get(oldItem.getPublishedItemId()) != null 
-			            || finMap.get(oldItem.getPublishedItemId())!=null
+			    // Check for presence of old data in the EMI, calcQuestion and imagQuestion maps.
+			    // FIB, NR, and MCMR maps are not checked; checking them for previous data can cause updates when only the date has changed.
+			    // The above check (!oldItem.equals(newItem) suffices for checking new data against these question types. See SAK-39928 for more details.
+			            emiMap.get(oldItem.getPublishedItemId()) != null
 			            || calcQuestionMap.get(oldItem.getPublishedItemId())!=null
-						|| imagQuestionMap.get(oldItem.getPublishedItemId())!=null
-			            || mcmrMap.get(oldItem.getPublishedItemId()) != null) {
+						|| imagQuestionMap.get(oldItem.getPublishedItemId()) != null) {
 			        String newAnswerText = newItem.getAnswerText();
 			        oldItem.setReview(newItem.getReview());
 			        oldItem.setPublishedAnswerId(newItem.getPublishedAnswerId());

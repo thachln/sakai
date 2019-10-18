@@ -3,21 +3,23 @@
 <%@ taglib uri="http://java.sun.com/jsf/html" prefix="h" %>
 <%@ taglib uri="http://java.sun.com/jsf/core" prefix="f" %>
 <%@ taglib uri="http://myfaces.apache.org/tomahawk" prefix="t"%>
-<%@ taglib uri="http://sakaiproject.org/jsf/sakai" prefix="sakai" %>
+<%@ taglib uri="http://sakaiproject.org/jsf2/sakai" prefix="sakai" %>
 <%@ taglib uri="http://sakaiproject.org/jsf/messageforums" prefix="mf" %>
 <jsp:useBean id="msgs" class="org.sakaiproject.util.ResourceLoader" scope="session">
    <jsp:setProperty name="msgs" property="baseName" value="org.sakaiproject.api.app.messagecenter.bundle.Messages"/>
 </jsp:useBean>
 <f:view>
 	<sakai:view title="#{msgs.cdfm_discussion_topic_settings}" toolCssHref="/messageforums-tool/css/msgcntr.css">
-	<script type="text/javascript">includeLatestJQuery("msgcntr");</script>
-	<sakai:script contextBase="/messageforums-tool" path="/js/sak-10625.js"/>      
-	<script type="text/javascript" src="/messageforums-tool/js/jquery.charcounter.js"> </script>
-	<sakai:script contextBase="/messageforums-tool" path="/js/permissions_header.js"/>
-	<sakai:script contextBase="/messageforums-tool" path="/js/forum.js"/>
-	<sakai:script contextBase="/messageforums-tool" path="/js/messages.js"/>
-	<sakai:script contextBase="/messageforums-tool" path="/js/datetimepicker.js"/>
-	<script type="text/javascript" src="/library/js/lang-datepicker/lang-datepicker.js"></script>
+	<script>includeLatestJQuery("msgcntr");</script>
+	<script>includeWebjarLibrary("momentjs");</script>
+	<script src="/messageforums-tool/js/sak-10625.js"></script>
+	<script src="/messageforums-tool/js/jquery.charcounter.js"> </script>
+	<script src="/messageforums-tool/js/permissions_header.js"></script>
+	<script src="/messageforums-tool/js/forum.js"></script>
+	<script src="/messageforums-tool/js/messages.js"></script>
+	<script src="/messageforums-tool/js/datetimepicker.js"></script>
+	<script src="/library/js/lang-datepicker/lang-datepicker.js"></script>
+	<script type="module" src="/rubrics-service/webcomponents/rubric-association-requirements.js<h:outputText value="#{ForumTool.CDNQuery}" />"></script>
 	<link href="/library/webjars/jquery-ui/1.12.1/jquery-ui.min.css" rel="stylesheet" type="text/css" />
 	
 	<%
@@ -27,12 +29,12 @@
     		thisId = "Main" + org.sakaiproject.tool.cover.ToolManager.getCurrentPlacement().getId();
   		}
 	%>
-	<script type="text/javascript">
+	<script>
 		function resize(){
   			mySetMainFrameHeight('<%= org.sakaiproject.util.Web.escapeJavascript(thisId)%>');
   		}
 	</script> 
-	<script type="text/javascript">
+	<script>
 	function setDatesEnabled(radioButton){
 		$(".calWidget").fadeToggle('slow');
 	}
@@ -44,6 +46,21 @@
 	function closeDateCal(){
 		NewCal('revise:closeDate','MMDDYYYY',true,12, '<h:outputText value="#{ForumTool.defaultAvailabilityTime}"/>');	
 	}
+
+	function updateGradeAssignment(){
+		var elems = document.getElementsByTagName('sakai-rubric-association');
+		var topicAssignments = document.getElementById("revise:topic_assignments");
+		if( topicAssignments !== null && topicAssignments.value != null && topicAssignments.value != 'Default_0'){
+			for (var i = 0; i<elems.length; i++) {
+				elems[i].style.display = 'inline';
+			}
+		} else {
+			for (var i = 0; i<elems.length; i++) {
+				elems[i].style.display = 'none';
+			}
+		}
+	}
+
 	function setAutoCreatePanel(radioButton) {
 		$(".createOneTopicPanel").slideToggle("fast");
 		$(".createTopicsForGroupsPanel").slideToggle("fast");
@@ -60,7 +77,29 @@
 			revealIDsToRoles.css("display", "none");
 		}
 	}
+
+	function toggleIncludeContentsInEmailsOption(checked) {
+		var includeContentsInEmails = $("#revise\\:includeContentsInEmailsContainer");
+		if (checked)
+		{
+			includeContentsInEmails.css("display", "");
+		}
+		else
+		{
+			includeContentsInEmails.css("display", "none");
+		}
+	}
 	</script>
+<!-- RUBRICS VARIABLES -->
+<%
+	FacesContext fcontext = FacesContext.getCurrentInstance();
+	Application appl = fcontext.getApplication();
+	ValueBinding vbinding = appl.createValueBinding("#{ForumTool}");
+	DiscussionForumTool forumTool = (DiscussionForumTool) vbinding.getValue(fcontext);
+	String stateDetails = forumTool.getRbcsStateDetails();
+	String entityId = "top." + forumTool.getSelectedTopic().getTopic().getId();
+%>
+<!-- END RUBRICS VARIABLES -->
 
 <!--jsp/dfReviseTopicSettingsAttach.jsp-->
     <h:form id="revise">
@@ -70,16 +109,15 @@
 				      		rendered="#{ForumTool.messagesandForums}" />
 				      <h:commandLink action="#{ForumTool.processActionHome}" value="#{msgs.cdfm_discussion_forums}" title=" #{msgs.cdfm_discussion_forums}"
 				      		rendered="#{ForumTool.forumsTool}" />
-			  			  <f:verbatim><h:outputText value=" " /><h:outputText value=" / " /><h:outputText value=" " /></f:verbatim>
+			  			  <h:outputText value=" " /><h:outputText value=" / " /><h:outputText value=" " />
 						  <h:commandLink action="#{ForumTool.processActionDisplayForum}" title=" #{ForumTool.selectedForum.forum.title}" rendered="#{ForumTool.showForumLinksInNav}">
 							  <f:param value="#{ForumTool.selectedForum.forum.id}" name="forumId"/>
 							  <h:outputText value="#{ForumTool.selectedForum.forum.title}"/>
 						  </h:commandLink>
 						  <h:outputText value="#{ForumTool.selectedForum.forum.title}" rendered="#{!ForumTool.showForumLinksInNav}"/>
-						  <f:verbatim><h:outputText value=" " /><h:outputText value=" / " /><h:outputText value=" " /></f:verbatim>
+						  <h:outputText value=" " /><h:outputText value=" / " /><h:outputText value=" " />
 						  <h:outputText value="#{ForumTool.selectedTopic.topic.title}" />
-							<h:outputText value="#{msgs.cdfm_discussion_topic_settings}" />
-			
+		
 						</h3>
 
  			<div class="instruction">
@@ -148,7 +186,6 @@
 				</f:facet>
 							<h:commandLink action="#{ForumTool.processDeleteAttachSetting}" 
 								immediate="true"
-								onfocus="document.forms[0].onsubmit();"
 								title="#{msgs.cdfm_remove}">
 							<h:outputText value="#{msgs.cdfm_remove}"/>
 								<f:param value="#{eachAttach.attachment.attachmentId}" name="dfmsg_current_attach"/>
@@ -173,12 +210,12 @@
 			</h:panelGroup>
 
 			<p class="act" style="padding:0 0 1em 0;">
-				<sakai:button_bar_item action="#{ForumTool.processAddAttachmentRedirect}" 
+				<h:commandButton action="#{ForumTool.processAddAttachmentRedirect}" 
 					value="#{msgs.cdfm_button_bar_add_attachment_more_redirect}" 
 					accesskey="a" 
 					 rendered="#{!empty ForumTool.attachments}"
 					 style="font-size:95%"/>
-				<sakai:button_bar_item action="#{ForumTool.processAddAttachmentRedirect}" 
+				<h:commandButton action="#{ForumTool.processAddAttachmentRedirect}" 
 					value="#{msgs.cdfm_button_bar_add_attachment_redirect}" 
 					accesskey="a" 
 					 rendered="#{empty ForumTool.attachments}" 
@@ -207,7 +244,7 @@
 						id="topic_postFirst">
 					</h:selectBooleanCheckbox> <h:outputLabel for="topic_postFirst" value="#{msgs.cdfm_postFirst}" />
 				</p>	
-				<t:htmlTag value="p" styleClass="checkbox" rendered="#{ForumTool.anonymousEnabled}">
+				<t:htmlTag value="p" styleClass="checkbox anonTopic" rendered="#{ForumTool.anonymousEnabled}">
 					<h:selectBooleanCheckbox
 						title="postAnonymous" value="#{ForumTool.selectedTopic.topicPostAnonymous}"
 						id="topic_postAnonymous"
@@ -216,11 +253,11 @@
 					</h:selectBooleanCheckbox> 
 					<h:outputLabel for="topic_postAnonymous"> 
 						<h:outputText value="#{msgs.cdfm_postAnonymous}"/>
-						<h:outputText value="#{msgs.cdfm_noReviseAfter}" styleClass="messageInstruction" rendered="#{!ForumTool.postAnonymousRevisable && !ForumTool.existingTopic}"/>
-						<h:outputText value="#{msgs.cdfm_noRevise}" styleClass="messageInstruction" rendered="#{!ForumTool.postAnonymousRevisable && ForumTool.existingTopic}"/>
+						<h:outputText value="#{msgs.cdfm_noReviseAfter}" styleClass="sak-banner-info" rendered="#{!ForumTool.postAnonymousRevisable && !ForumTool.existingTopic}"/>
+						<h:outputText value="#{msgs.cdfm_noRevise}" styleClass="sak-banner-info" rendered="#{!ForumTool.postAnonymousRevisable && ForumTool.existingTopic}"/>
 					</h:outputLabel>
 				</t:htmlTag>
-				<t:htmlTag value="p" id="revealIDsToRolesContainer" style="display: #{ForumTool.selectedTopic.topicPostAnonymous ? '' : 'none'}" styleClass="checkbox indnt1" rendered="#{ForumTool.anonymousEnabled}">
+				<t:htmlTag value="p" id="revealIDsToRolesContainer" style="display: #{ForumTool.selectedTopic.topicPostAnonymous ? '' : 'none'}" styleClass="checkbox indnt1 anonTopic" rendered="#{ForumTool.anonymousEnabled}">
 					<h:selectBooleanCheckbox
 						title="revealIDsToRoles" value="#{ForumTool.selectedTopic.topicRevealIDsToRoles}"
 						id="topic_revealIDsToRoles"
@@ -228,8 +265,8 @@
 					</h:selectBooleanCheckbox> 
 					<h:outputLabel for="topic_revealIDsToRoles">
 						<h:outputText value="#{msgs.cdfm_revealIDsToRoles}"/>
-						<h:outputText value="#{msgs.cdfm_noReviseAfter}" styleClass="messageInstruction" rendered="#{!ForumTool.revealIDsToRolesRevisable && !ForumTool.existingTopic}"/>
-						<h:outputText value="#{msgs.cdfm_noRevise}" styleClass="messageInstruction" rendered="#{!ForumTool.revealIDsToRolesRevisable && ForumTool.existingTopic}"/>
+						<h:outputText value="#{msgs.cdfm_noReviseAfter}" styleClass="sak-banner-info" rendered="#{!ForumTool.revealIDsToRolesRevisable && !ForumTool.existingTopic}"/>
+						<h:outputText value="#{msgs.cdfm_noRevise}" styleClass="sak-banner-info" rendered="#{!ForumTool.revealIDsToRolesRevisable && ForumTool.existingTopic}"/>
 					</h:outputLabel>
 				</t:htmlTag>
 			</div>	
@@ -245,16 +282,12 @@
                <h:panelGroup id="openDateSpan" styleClass="indnt2 openDateSpan  calWidget" style="display: #{ForumTool.selectedTopic.availabilityRestricted ? 'block' : 'none'}">
 
                	   <h:outputLabel value="#{msgs.openDate}: " for="openDate"/>
-
 	               <h:inputText id="openDate" styleClass="openDate" value="#{ForumTool.selectedTopic.openDate}"/>
-
 
               	</h:panelGroup>
                <h:panelGroup id="closeDateSpan" styleClass="indnt2 openDateSpan  calWidget" style="display: #{ForumTool.selectedTopic.availabilityRestricted ? '' : 'none'}">
 
-					
-              		<h:outputLabel value="#{msgs.closeDate}: " for="closeDate"/>
-
+	               <h:outputLabel value="#{msgs.closeDate}: " for="closeDate"/>
 	               <h:inputText id="closeDate" styleClass="closeDate" value="#{ForumTool.selectedTopic.closeDate}"/>
 
               	</h:panelGroup>
@@ -262,10 +295,7 @@
 
 			</div>
 
-
-			
-
-			<script type="text/javascript">
+			<script>
 			      localDatePicker({
 			      	input:'[id="revise:openDate"]', 
 			      	allowEmptyDate: true, 
@@ -282,6 +312,23 @@
 			      	useTime:1
 			      });
 			</script>
+
+			<h4><h:outputText value="#{msgs.cdfm_forum_notifications}"/></h4>
+			<div class="indnt1">
+				<p class="checkbox">
+					<h:selectBooleanCheckbox
+						title="allowEmailNotifications" value="#{ForumTool.selectedTopic.topicAllowEmailNotifications}"
+						id="topic_allow_email_notifications"
+						onclick='toggleIncludeContentsInEmailsOption(this.checked);resizeFrame();'>
+					</h:selectBooleanCheckbox> <h:outputLabel for="topic_allow_email_notifications" value="#{msgs.cdfm_allowEmailNotifications}" />
+				<t:htmlTag value="p" id="includeContentsInEmailsContainer" style="display: #{ForumTool.selectedTopic.topicAllowEmailNotifications ? '' : 'none'}" styleClass="checkbox indnt1">
+					<h:selectBooleanCheckbox
+						title="includeContentsInEmails" value="#{ForumTool.selectedTopic.topicIncludeContentsInEmails}"
+						id="topic_includeContentsInEmails">
+					</h:selectBooleanCheckbox> <h:outputLabel for="topic_includeContentsInEmails" value="#{msgs.cdfm_includeContentsInEmails}" />
+				</t:htmlTag>
+				</p>
+			</div>
 
 		<%--
 		   <h4><h:outputText  value="Confidential Responses"/></h4>
@@ -318,10 +365,10 @@
 				<h4><h:outputText value="#{msgs.perm_choose_assignment_head}" rendered="#{ForumTool.gradebookExist}" /></h4>
 				<h:panelGrid columns="2" rendered="#{ForumTool.gradebookExist && !ForumTool.selectedForum.markForDeletion}" style="margin-top:.5em;clear:both"  styleClass="itemSummary">
 			    <h:panelGroup  style="white-space:nowrap;">
-						<h:outputLabel for="topic_assignments"  value="#{msgs.perm_choose_assignment}"  ></h:outputLabel>
+						<h:outputLabel for="topic_assignments" value="#{msgs.perm_choose_assignment}"  ></h:outputLabel>
 			  	</h:panelGroup>		
 					  <h:panelGroup  styleClass="gradeSelector   itemAction actionItem"> 
-						<h:selectOneMenu value="#{ForumTool.selectedTopic.gradeAssign}" id="topic_assignments" disabled="#{not ForumTool.editMode}">
+						<h:selectOneMenu value="#{ForumTool.selectedTopic.gradeAssign}" onchange="updateGradeAssignment()" id="topic_assignments" disabled="#{not ForumTool.editMode}">
 			     	    <f:selectItems value="#{ForumTool.assignments}" />
 			  	    </h:selectOneMenu>
 									<h:outputText value="#{msgs.perm_choose_assignment_none_t}" styleClass="instrWOGrades" style="display:none;margin-left:0"/>
@@ -336,15 +383,41 @@
 					    </h:panelGroup>
 			  </h:panelGrid>
 
+		<sakai-rubric-association styleClass="checkbox" style="margin-left:10px;display:none"
+
+			token='<h:outputText value="#{ForumTool.rbcsToken}"/>'
+			dont-associate-label='<h:outputText value="#{msgs.topic_dont_associate_label}" />'
+			dont-associate-value="0"
+			associate-label='<h:outputText value="#{msgs.topic_associate_label}" />'
+			associate-value="1"
+
+			tool-id="sakai.forums"
+			<% if(entityId != null && !"".equals(entityId)){ %>
+				entity-id=<%= entityId %>
+			<%}%>
+			<% if(stateDetails != null && !"".equals(stateDetails)){ %>
+				state-details=<%= stateDetails %>
+			<%}%>
+
+			fine-tune-points='<h:outputText value="#{msgs.option_pointsoverride}" />'
+			hide-student-preview='<h:outputText value="#{msgs.option_studentpreview}" />'
+
+		></sakai-rubric-association>
+			  
 				<h:panelGroup rendered="#{ForumTool.selectedTopic.topic.id==null && !empty ForumTool.siteGroups}">
 					<f:verbatim><h4></f:verbatim><h:outputText  value="#{msgs.cdfm_autocreate_topics_header}" /><f:verbatim></h4></f:verbatim>
 				</h:panelGroup>
 				<div class="indnt1">
 					<h:panelGrid columns="1" columnClasses="longtext,checkbox" cellpadding="0" cellspacing="0" >
-						<h:panelGroup rendered="#{ForumTool.selectedTopic.topic.id==null && !empty ForumTool.siteGroups}">
-							<h:selectOneRadio layout="pageDirection" onclick="this.blur()" onchange="setAutoCreatePanel(this);" disabled="#{not ForumTool.editMode}" id="createTopicsForGroups" value="#{ForumTool.createTopicsForGroups}">
+						<h:panelGroup rendered="#{ForumTool.selectedTopic.topic.id==null && !empty ForumTool.siteGroups && !ForumTool.selectedForum.restrictPermissionsForGroups}">
+							<h:selectOneRadio layout="pageDirection" onclick="this.blur()" onchange="setAutoCreatePanel(this);" disabled="#{not ForumTool.editMode}" id="createTopicsForGroups" value="#{ForumTool.selectedTopic.restrictPermissionsForGroups}">
 								<f:selectItem itemValue="false" itemLabel="#{msgs.cdfm_create_one_topic}"/>
 								<f:selectItem itemValue="true" itemLabel="#{msgs.cdfm_autocreate_topics_for_groups}"/>
+							</h:selectOneRadio>
+						</h:panelGroup>
+						<h:panelGroup style="display:none" rendered="#{ForumTool.selectedTopic.topic.id==null && !empty ForumTool.siteGroups && ForumTool.selectedForum.restrictPermissionsForGroups}">
+							<h:selectOneRadio layout="pageDirection" onclick="this.blur()" onchange="setAutoCreatePanel(this);" disabled="#{not ForumTool.editMode}" id="createTopicsForGroups2" value="#{ForumTool.selectedTopic.restrictPermissionsForGroups}">
+								<f:selectItem itemValue="false" itemLabel="#{msgs.cdfm_create_one_topic}"/>
 							</h:selectOneRadio>
 						</h:panelGroup>
 					</h:panelGrid>
@@ -354,7 +427,7 @@
 				</div>
 
 				<div id="createTopicsForGroupsPanel" class="createTopicsForGroupsPanel" style="display:none" >
-				<h:panelGroup rendered="#{ForumTool.selectedTopic.topic.id==null && !empty ForumTool.siteGroups}"> 
+				<h:panelGroup rendered="#{ForumTool.selectedTopic.topic.id==null && !empty ForumTool.siteGroups && !ForumTool.selectedForum.restrictPermissionsForGroups}">
 					<h:outputText value="#{msgs.cdfm_autocreate_topics_desc}" rendered="#{ForumTool.selectedTopic.topic.id==null && !empty ForumTool.siteGroups}" />
 					<h:panelGroup styleClass="itemAction">
 						<h:outputLink value="#" style="text-decoration:none"  styleClass="instrWithGrades">
@@ -377,27 +450,27 @@
 				</h:panelGroup>
 				</div>
 				
-<script type="text/javascript">
+<script>
 setPanelId('<%= org.sakaiproject.util.Web.escapeJavascript(thisId)%>');
 $(function () {
-	if (<h:outputText value="#{ForumTool.selectedTopic.topic.id==null && !empty ForumTool.siteGroups && ForumTool.createTopicsForGroups}" />) {
+	if (<h:outputText value="#{ForumTool.selectedTopic.topic.id==null && !empty ForumTool.siteGroups && ForumTool.selectedTopic.restrictPermissionsForGroups}" />) {
 		$("#createOneTopicPanel").hide();
 		$("#createTopicsForGroupsPanel").show();
 	}
 });
 </script>
       <div class="act">
-          <h:commandButton action="#{ForumTool.processActionSaveTopicSettings}" value="#{msgs.cdfm_button_bar_save_setting}" accesskey="s"
-          								 rendered="#{!ForumTool.selectedTopic.markForDeletion}" styleClass="blockMeOnClick"> 
+          <h:commandButton action="#{ForumTool.processActionSaveTopicSettings}" actionListener="#{ForumTool.keepStateDetails}" value="#{msgs.cdfm_button_bar_save_setting}" accesskey="s"
+          								 rendered="#{!ForumTool.selectedTopic.markForDeletion}" styleClass="blockMeOnClick active"> 
     	 	  	<f:param value="#{ForumTool.selectedTopic.topic.id}" name="topicId"/>    
     	 	  	<f:param value="#{ForumTool.selectedForum.forum.id}" name="forumId"/>         
           </h:commandButton>
-          <h:commandButton action="#{ForumTool.processActionSaveTopicAsDraft}" value="#{msgs.cdfm_button_bar_save_draft}" accesskey="v"
+          <h:commandButton action="#{ForumTool.processActionSaveTopicAsDraft}" actionListener="#{ForumTool.keepStateDetails}"  value="#{msgs.cdfm_button_bar_save_draft}" accesskey="v"
           								 rendered="#{!ForumTool.selectedTopic.markForDeletion}" styleClass="blockMeOnClick">
 	        	<f:param value="#{ForumTool.selectedTopic.topic.id}" name="topicId"/>
 	        	<f:param value="#{ForumTool.selectedForum.forum.id}" name="forumId"/> 
           </h:commandButton>
-          <h:commandButton action="#{ForumTool.processActionSaveTopicAndAddTopic}" value="#{msgs.cdfm_button_bar_save_setting_add_topic}" accesskey="t"
+          <h:commandButton action="#{ForumTool.processActionSaveTopicAndAddTopic}" actionListener="#{ForumTool.keepStateDetails}"  value="#{msgs.cdfm_button_bar_save_setting_add_topic}" accesskey="t"
           								 rendered="#{!ForumTool.selectedTopic.markForDeletion}"  styleClass="blockMeOnClick">
 	        	<f:param value="#{ForumTool.selectedTopic.topic.id}" name="topicId"/>
 	        	<f:param value="#{ForumTool.selectedForum.forum.id}" name="forumId"/> 
@@ -410,12 +483,12 @@ $(function () {
                            value="#{msgs.cdfm_button_bar_delete_topic}" rendered="#{ForumTool.selectedTopic.markForDeletion}" styleClass="blockMeOnClick">
 	        	<f:param value="#{ForumTool.selectedTopic.topic.id}" name="topicId" />
           </h:commandButton>
-          <h:commandButton  action="#{ForumTool.processActionHome}" value="#{msgs.cdfm_button_bar_cancel}" accesskey="c" />
-          <h:outputText styleClass="messageProgress" style="display:none" value="#{msgs.cdfm_processing_submit_message}" />
+          <h:commandButton immediate="true" action="#{ForumTool.processActionHome}" value="#{msgs.cdfm_button_bar_cancel}" accesskey="x" />
+          <h:outputText styleClass="sak-banner-info" style="display:none" value="#{msgs.cdfm_processing_submit_message}" />
        </div>
        
 	 </h:form>
-			  <script type="text/javascript">
+			  <script>
             $(document).ready(function(){
 							$('.displayMore').click(function(e){
 									e.preventDefault();
@@ -430,6 +503,7 @@ $(function () {
 								$('.gradeSelector').find('.instrWithGrades').hide();
 								$('.gradeSelector').find('.instrWOGrades').show();
 							}
+							updateGradeAssignment();
 							
 		
 				var charRemFormat = $('.charRemFormat').text();

@@ -149,7 +149,7 @@ public class PollVoteProducer implements ViewComponentProducer,ViewParamsReporte
 			UIVerbatim.make(tofill,"poll-description",poll.getDetails());
 		}
 
-		log.debug("this poll has " + poll.getPollOptions().size()+ " options");
+		log.debug("this poll has " + poll.getOptions().size()+ " options");
 
 		UIForm voteForm = UIForm.make(tofill,"options-form",""); 
 
@@ -166,8 +166,8 @@ public class PollVoteProducer implements ViewComponentProducer,ViewParamsReporte
 		String[] labels = new String[pollOptions.size()];
 		for (int i = 0;i<  pollOptions.size(); i++ ) {
 			Option po = (Option)pollOptions.get(i);
-			if (po.getOptionText() != null ) {
-				labels[i]= po.getOptionText();
+			if (po.getText() != null ) {
+				labels[i]= po.getText();
 			} else {
 				log.warn("Option text is null!");
 				labels[i]="null option!";
@@ -191,7 +191,7 @@ public class PollVoteProducer implements ViewComponentProducer,ViewParamsReporte
 		String selectID = radio.getFullID();
 		for (int i = 0;i < pollOptions.size(); i++ ) {
 			Option po = (Option)pollOptions.get(i);
-			log.debug("got option " + po.getOptionText() + " with id of  " + po.getId());
+			log.debug("got option " + po.getText() + " with id of  " + po.getId());
 			UIBranchContainer radioRow = UIBranchContainer.make(voteForm,
 					isMultiple ? "option:select"
 							: "option:radio"						 

@@ -17,18 +17,18 @@ package org.sakaiproject.webservices;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Properties;
 import java.util.Set;
-import java.util.Date;
-import java.util.Collections;
-import java.util.Collection;
-import java.util.Map.Entry;
 
 import javax.jws.WebMethod;
 import javax.jws.WebParam;
@@ -40,13 +40,11 @@ import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
 
-import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang.StringUtils;
-import org.apache.commons.lang.LocaleUtils;
+import org.apache.commons.lang3.LocaleUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.cxf.message.Message;
 import org.apache.cxf.phase.PhaseInterceptorChain;
 import org.apache.cxf.transport.http.AbstractHTTPDestination;
-
 import org.sakaiproject.authz.api.AuthzGroup;
 import org.sakaiproject.authz.api.Member;
 import org.sakaiproject.authz.api.Role;
@@ -57,7 +55,6 @@ import org.sakaiproject.calendar.api.CalendarEventEdit;
 import org.sakaiproject.calendar.api.RecurrenceRule;
 import org.sakaiproject.entity.api.EntityProducer;
 import org.sakaiproject.entity.api.EntityTransferrer;
-import org.sakaiproject.entity.api.EntityTransferrerRefMigrator;
 import org.sakaiproject.entity.api.ResourceProperties;
 import org.sakaiproject.entity.api.ResourcePropertiesEdit;
 import org.sakaiproject.event.api.UsageSession;
@@ -77,16 +74,18 @@ import org.sakaiproject.tool.api.Tool;
 import org.sakaiproject.user.api.PreferencesEdit;
 import org.sakaiproject.user.api.User;
 import org.sakaiproject.user.api.UserEdit;
+import org.sakaiproject.user.api.UserNotDefinedException;
 import org.sakaiproject.util.ArrayUtil;
 import org.sakaiproject.util.FormattedText;
 import org.sakaiproject.util.ResourceLoader;
-import org.sakaiproject.util.BaseResourcePropertiesEdit;
-import org.sakaiproject.util.Xml;
 import org.sakaiproject.util.Web;
+import org.sakaiproject.util.Xml;
 import org.w3c.dom.Attr;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
+
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * SakaiScript.jws
@@ -526,10 +525,10 @@ public class SakaiScript extends AbstractWebService {
      * Gets the email address for a given user
      * <p/>
      * Differs from original above as that one uses the session to get the email address hence you must know this in advance or be logged in to the web services
-     * with that user. This uses a userid as well so we could be logged in as admin and retrieve the email address for any user.
+     * with that user. This uses a eid as well so we could be logged in as admin and retrieve the email address for any user.
      *
      * @param sessionid the id of a valid session
-     * @param userid    the login username (ie jsmith26) of the user you want the email address for
+     * @param eid    the login username (ie jsmith26) of the user you want the email address for
      * @return the email address for the user
      * @throws RuntimeException
      */
@@ -539,13 +538,13 @@ public class SakaiScript extends AbstractWebService {
     @GET
     public String getUserEmail(
             @WebParam(name = "sessionid", partName = "sessionid") @QueryParam("sessionid") String sessionid,
-            @WebParam(name = "userid", partName = "userid") @QueryParam("userid") String userid) {
+            @WebParam(name = "eid", partName = "eid") @QueryParam("eid") String eid) {
         Session session = establishSession(sessionid);
         try {
-            User user = userDirectoryService.getUserByEid(userid);
+            User user = userDirectoryService.getUserByEid(eid);
             return user.getEmail();
         } catch (Exception e) {
-            log.error("WS getUserEmail() failed for user: " + userid + " : " + e.getClass().getName() + " : " + e.getMessage());
+            log.error("WS getUserEmail() failed for user: " + eid + " : " + e.getClass().getName() + " : " + e.getMessage());
             return "";
         }
     }
@@ -572,10 +571,10 @@ public class SakaiScript extends AbstractWebService {
      * Gets the display name for a given user
      * <p/>
      * Differs from original above as that one uses the session to get the displayname hence you must know this in advance or be logged in to the web services
-     * with that user. This uses a userid as well so we could be logged in as admin and retrieve the display name for any user.
+     * with that user. This uses a eid as well so we could be logged in as admin and retrieve the display name for any user.
      *
      * @param sessionid the id of a valid session
-     * @param userid    the login username (ie jsmith26) of the user you want the display name for
+     * @param eid    the login username (ie jsmith26) of the user you want the display name for
      * @return the display name for the user
      * @throws RuntimeException
      */
@@ -585,13 +584,19 @@ public class SakaiScript extends AbstractWebService {
     @GET
     public String getUserDisplayName(
             @WebParam(name = "sessionid", partName = "sessionid") @QueryParam("sessionid") String sessionid,
-            @WebParam(name = "userid", partName = "userid") @QueryParam("userid") String userid) {
+            @WebParam(name = "eid", partName = "eid") @QueryParam("eid") String eid) {
         Session session = establishSession(sessionid);
         try {
-            User user = userDirectoryService.getUserByEid(userid);
-            return user.getDisplayName();
+            return userDirectoryService.getUserByEid(eid).getDisplayName();
+        } catch (UserNotDefinedException unde) {
+            try {
+                return userDirectoryService.getUser(eid).getDisplayName();
+            } catch (UserNotDefinedException unde2) {
+                log.error("WS getUserDisplayName() failed for user: " + eid + " : " + unde2.getClass().getName() + " : " + unde2.getMessage());
+                return "";
+            }
         } catch (Exception e) {
-            log.error("WS getUserDisplayName() failed for user: " + userid + " : " + e.getClass().getName() + " : " + e.getMessage());
+            log.error("WS getUserDisplayName() failed for user: " + eid + " : " + e.getClass().getName() + " : " + e.getMessage());
             return "";
         }
     }
@@ -1894,7 +1899,7 @@ public class SakaiScript extends AbstractWebService {
      * Return XML document listing all sites the given user has read or write access to.
      *
      * @param sessionid the session id of a super user
-     * @param userid    eid (eg jsmith26) if the user you want the list for
+     * @param eid    eid (eg jsmith26) if the user you want the list for
      * @return
      * @		if not super user or any other error occurs from main method
      */
@@ -1904,10 +1909,10 @@ public class SakaiScript extends AbstractWebService {
     @GET
     public String getSitesUserCanAccess(
             @WebParam(name = "sessionid", partName = "sessionid") @QueryParam("sessionid") String sessionid,
-            @WebParam(name = "userid", partName = "userid") @QueryParam("userid") String userid) {
+            @WebParam(name = "eid", partName = "eid") @QueryParam("eid") String eid) {
 
         //get a session for the other user, reuse if possible
-        String newsessionid = getSessionForUser(sessionid, userid, true);
+        String newsessionid = getSessionForUser(sessionid, eid, true);
 
         //might be an exception that was returned, so check session is valid.
         Session session = establishSession(newsessionid);
@@ -1973,7 +1978,7 @@ public class SakaiScript extends AbstractWebService {
      * Return XML document listing all sites user has read or write access based on their session id, including My Workspace sites
      *
      * @param sessionid the session id of a super user
-     * @param userid    eid (eg jsmith26) if the user you want the list for
+     * @param eid    eid (eg jsmith26) if the user you want the list for
      * @return
      * @		if not super user or any other error occurs from main method
      */
@@ -1983,10 +1988,10 @@ public class SakaiScript extends AbstractWebService {
     @GET
     public String getAllSitesForUser(
             @WebParam(name = "sessionid", partName = "sessionid") @QueryParam("sessionid") String sessionid,
-            @WebParam(name = "userid", partName = "userid") @QueryParam("userid") String userid) {
+            @WebParam(name = "eid", partName = "eid") @QueryParam("eid") String eid) {
 
         //get a session for the other user, reuse if possible
-        String newsessionid = getSessionForUser(sessionid, userid, true);
+        String newsessionid = getSessionForUser(sessionid, eid, true);
 
         //might be an exception that was returned, so check session is valid.
         Session session = establishSession(newsessionid);
@@ -2712,7 +2717,7 @@ public class SakaiScript extends AbstractWebService {
      *
      * @param sessionid    the id of a valid session, generally the admin user
      * @param authzgroupid the id of the authzgroup or site you want to check (if site: /site/SITEID)
-     * @param eid          the userid of the person you want to check
+     * @param eid          the user eid of the person you want to check
      * @return true if in site, false if not or error.
      * @throws RuntimeException
      */
@@ -3027,7 +3032,7 @@ public class SakaiScript extends AbstractWebService {
      * Get a user's type (for their account)
      *
      * @param sessionid the id of a valid session
-     * @param userid    the userid of the person you want the type for
+     * @param eid    the user eid of the person you want the type for
      * @return type if set or blank
      * @throws RuntimeException
      */
@@ -3037,13 +3042,13 @@ public class SakaiScript extends AbstractWebService {
     @GET
     public String getUserType(
             @WebParam(name = "sessionid", partName = "sessionid") @QueryParam("sessionid") String sessionid,
-            @WebParam(name = "userid", partName = "userid") @QueryParam("userid") String userid) {
+            @WebParam(name = "eid", partName = "eid") @QueryParam("eid") String eid) {
         Session session = establishSession(sessionid);
         try {
-            User user = userDirectoryService.getUserByEid(userid);
+            User user = userDirectoryService.getUserByEid(eid);
             return user.getType();
         } catch (Exception e) {
-            log.warn("WS getUserType() failed for user: " + userid);
+            log.warn("WS getUserType() failed for user: " + eid);
             return "";
         }
 
@@ -3397,7 +3402,7 @@ public class SakaiScript extends AbstractWebService {
      * Creates and returns the session ID for a given user.
      * <p/>
      * The sessionid argument must be a valid session for a super user ONLY otherwise it will fail.
-     * The userid argument must be the EID (ie jsmith) of a valid user.
+     * The eid argument must be the EID (ie jsmith) of a valid user.
      * This new sessionid can then be used with getSitesUserCanAccess() to get the sites for the given user.
      *
      * @param sessionid the sessionid of a valid session for a super user
@@ -3774,7 +3779,7 @@ public class SakaiScript extends AbstractWebService {
      * and then get the list of pages & tools visible to that user in the site.
      *
      * @param sessionid must be a valid session for a superuser
-     * @param userid    eid, eg jsmith26
+     * @param eid    eid, eg jsmith26
      * @param siteid    site to get the list for.
      * @return
      * @
@@ -3785,11 +3790,11 @@ public class SakaiScript extends AbstractWebService {
     @GET
     public String getPagesAndToolsForSite(
             @WebParam(name = "sessionid", partName = "sessionid") @QueryParam("sessionid") String sessionid,
-            @WebParam(name = "userid", partName = "userid") @QueryParam("userid") String userid,
+            @WebParam(name = "eid", partName = "eid") @QueryParam("eid") String eid,
             @WebParam(name = "siteid", partName = "siteid") @QueryParam("siteid") String siteid) {
 
         //get a session for the other user, reuse if possible
-        String newsessionid = getSessionForUser(sessionid, userid, true);
+        String newsessionid = getSessionForUser(sessionid, eid, true);
 
         //might be an exception that was returned, so check session is valid.
         Session session = establishSession(newsessionid);
@@ -4160,7 +4165,38 @@ public class SakaiScript extends AbstractWebService {
         return Xml.writeDocumentToString(dom);
     }
 
-
+    /**
+     * Get all site IDs for which the criteria fully or partially matches the title, the description or the skin.
+     *
+     * @param sessionid     valid session
+     * @param criteria      string to search for
+     * @return The site IDs
+     */
+    @WebMethod
+    @Path("/findSitesByTitle")
+    @Produces("text/plain")
+    @GET
+    public String findSitesByTitle(
+            @WebParam(name = "sessionid", partName = "sessionid") @QueryParam("sessionid") String sessionid,
+            @WebParam(name = "criteria", partName = "criteria") @QueryParam("criteria") String criteria) {
+        Session s = establishSession(sessionid);
+        String siteIDs = "";
+        try {
+            List<String> siteIdsList = siteService.getSiteIds(SelectionType.ANY, null, criteria,
+                    null, SortType.NONE, null);
+            if (siteIdsList != null && !siteIdsList.isEmpty()) {
+            	StringBuilder sb = new StringBuilder();
+                for (String siteId : siteIdsList) {
+                    sb.append(siteId).append(",");
+                }
+                siteIDs = sb.substring(0, sb.length() - 1);
+            }
+        } catch (Throwable t) {
+            log.warn("Error encountered {}", t.getMessage());
+        }
+        return siteIDs;
+    }
+    
     /**
      * Get the placement ID for a given tool in the given site
      *
@@ -4284,7 +4320,7 @@ public class SakaiScript extends AbstractWebService {
         			transversalMap.putAll(entityMap);
         		}
 
-        		updateEntityReferences(toolId, sourcesiteid, transversalMap, site);
+                updateEntityReferences(toolId, destinationsiteid, transversalMap, site);
             }
         } catch (Exception e) {
             log.error("WS copySiteContent(): " + e.getClass().getName() + " : " + e.getMessage(), e);
@@ -4344,7 +4380,7 @@ public class SakaiScript extends AbstractWebService {
     			transversalMap.putAll(entityMap);
     		}
 
-    		updateEntityReferences(toolid, sourcesiteid, transversalMap, site);
+    		updateEntityReferences(toolid, destinationsiteid, transversalMap, site);
     	}
     	catch (Exception e)
     	{
@@ -4362,46 +4398,30 @@ public class SakaiScript extends AbstractWebService {
      * @param fromContext The context to import from.
      * @param toContext   The context to import into.
      */
-    protected Map transferCopyEntities(String toolId, String fromContext, String toContext)
-    {
-    	Map transversalMap = new HashMap();
+	protected Map transferCopyEntities(String toolId, String fromContext, String toContext) {
 
-    	// offer to all EntityProducers
-    	for (Iterator i = entityManager.getEntityProducers().iterator(); i.hasNext();)
-    	{
-    		EntityProducer ep = (EntityProducer) i.next();
-    		if (ep instanceof EntityTransferrer)
-    		{
-    			try
-    			{
-    				EntityTransferrer et = (EntityTransferrer) ep;
+		Map transversalMap = new HashMap();
 
-    				// if this producer claims this tool id
-    				if (ArrayUtil.contains(et.myToolIds(), toolId))
-    				{
-    					if(ep instanceof EntityTransferrerRefMigrator)
-    					{
-    						EntityTransferrerRefMigrator etMp = (EntityTransferrerRefMigrator) ep;
-    						Map<String,String> entityMap = etMp.transferCopyEntitiesRefMigrator(fromContext, toContext, new ArrayList(), true);
-    						if(entityMap != null)
-    						{
-    							transversalMap.putAll(entityMap);
-    						}
-    					}
-    					else
-    					{
-    						et.transferCopyEntities(fromContext, toContext,	new ArrayList(), true);
-    					}
-    				}
-    			}
-    			catch (Throwable t)
-    			{
-    				log.warn("Error encountered while asking EntityTransfer to transferCopyEntities from: " + fromContext + " to: " + toContext, t);
-    			}
-    		}
-    	}
-    	
-    	// record direct URL for this tool in old and new sites, so anyone using the URL in HTML text will 
+		// offer to all EntityProducers
+		for (EntityProducer ep : entityManager.getEntityProducers()) {
+			if (ep instanceof EntityTransferrer) {
+				try {
+					EntityTransferrer et = (EntityTransferrer) ep;
+
+					// if this producer claims this tool id
+					if (ArrayUtil.contains(et.myToolIds(), toolId)) {
+						Map<String,String> entityMap = et.transferCopyEntities(fromContext, toContext, new ArrayList<String>(), null, true);
+						if (entityMap != null) {
+							transversalMap.putAll(entityMap);
+						}
+					}
+				} catch (Throwable t) {
+					log.warn("Error encountered while asking EntityTransfer to transferCopyEntities from: " + fromContext + " to: " + toContext, t);
+				}
+			}
+		}
+
+		// record direct URL for this tool in old and new sites, so anyone using the URL in HTML text will
 		// get a proper update for the HTML in the new site
 		// Some tools can have more than one instance. Because getTools should always return tools
 		// in order, we can assume that if there's more than one instance of a tool, the instances
@@ -4413,10 +4433,10 @@ public class SakaiScript extends AbstractWebService {
 		Collection<ToolConfiguration> toTools = null;
 		try
 		{
-		    fromSite = siteService.getSite(fromContext);
-		    toSite = siteService.getSite(toContext);
-		    fromTools = fromSite.getTools(toolId);
-		    toTools = toSite.getTools(toolId);
+			fromSite = siteService.getSite(fromContext);
+			toSite = siteService.getSite(toContext);
+			fromTools = fromSite.getTools(toolId);
+			toTools = toSite.getTools(toolId);
 		}
 		catch (Exception e)
 		{
@@ -4426,37 +4446,37 @@ public class SakaiScript extends AbstractWebService {
 		// getTools appears to return tools in order. So we should be able to match them
 		if (fromTools != null && toTools != null)
 		{
-		    Iterator<ToolConfiguration> toToolIt = toTools.iterator();
-		    for (ToolConfiguration fromTool: fromTools)
-		    {
+			Iterator<ToolConfiguration> toToolIt = toTools.iterator();
+			for (ToolConfiguration fromTool: fromTools)
+			{
 				if (toToolIt.hasNext())
 				{
-				    ToolConfiguration toTool = toToolIt.next();
-				    String fromUrl = serverConfigurationService.getPortalUrl() + "/directtool/" + Web.escapeUrl(fromTool.getId()) + "/";
-				    String toUrl = serverConfigurationService.getPortalUrl() + "/directtool/" + Web.escapeUrl(toTool.getId()) + "/";
-				    if (transversalMap.get(fromUrl) == null)
-				    {
-				    	transversalMap.put(fromUrl, toUrl);
-				    }
-				    if (shortenedUrlService.shouldCopy(fromUrl))
-				    {
+					ToolConfiguration toTool = toToolIt.next();
+					String fromUrl = serverConfigurationService.getPortalUrl() + "/directtool/" + Web.escapeUrl(fromTool.getId()) + "/";
+					String toUrl = serverConfigurationService.getPortalUrl() + "/directtool/" + Web.escapeUrl(toTool.getId()) + "/";
+					if (transversalMap.get(fromUrl) == null)
+					{
+						transversalMap.put(fromUrl, toUrl);
+					}
+					if (shortenedUrlService.shouldCopy(fromUrl))
+					{
 						fromUrl = shortenedUrlService.shorten(fromUrl, false);
 						toUrl = shortenedUrlService.shorten(toUrl, false);
 						if (fromUrl != null && toUrl != null)
 						{
-						    transversalMap.put(fromUrl, toUrl);
+							transversalMap.put(fromUrl, toUrl);
 						}
-				    }
+					}
 				}
 				else
 				{
-				    break;
+					break;
 				}
-		    }
+			}
 		}
 
-    	return transversalMap;
-    }
+		return transversalMap;
+	}
     
     
     protected void updateEntityReferences(String toolId, String toContext, Map transversalMap, Site newSite)
@@ -4470,17 +4490,16 @@ public class SakaiScript extends AbstractWebService {
 			for (Iterator i = entityManager.getEntityProducers().iterator(); i.hasNext();)
 			{
 				EntityProducer ep = (EntityProducer) i.next();
-				if (ep instanceof EntityTransferrerRefMigrator && ep instanceof EntityTransferrer)
+				if (ep instanceof EntityTransferrer)
 				{
 					try
 					{
 						EntityTransferrer et = (EntityTransferrer) ep;
-						EntityTransferrerRefMigrator etRM = (EntityTransferrerRefMigrator) ep;
 
 						// if this producer claims this tool id
 						if (ArrayUtil.contains(et.myToolIds(), toolId))
 						{
-							etRM.updateEntityReferences(toContext, transversalMap);
+							et.updateEntityReferences(toContext, transversalMap);
 						}
 					}
 					catch (Throwable t)

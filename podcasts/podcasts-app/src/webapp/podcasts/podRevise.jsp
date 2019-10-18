@@ -31,7 +31,9 @@
   <h:form id="podRev" enctype="multipart/form-data">
 
     <div>  <!-- Page title and Instructions -->
-      <h3><h:outputText value="#{msgs.revise_title}" /></h3>
+      <div class="page-header">
+        <h1><h:outputText value="#{msgs.revise_title}" /></h1>
+      </div>
       <div class="indnt1">
           <p class="instruction"> 
             <h:outputText value="#{msgs.revise_directions}" />
@@ -52,7 +54,7 @@
 		</td>
 	  </tr>
 	  <tr>
-        <td colspan=3><h:message for="podfile" styleClass="alertMessage" /></td>
+        <td colspan=3><h:message for="podfile" styleClass="sak-banner-error" /></td>
       </tr>
       <tr>  <!-- ****** Date ****** --> 
         <td><h:outputText value="#{msgs.date_prompt}" />&nbsp;&nbsp;&nbsp;</td>
@@ -61,17 +63,17 @@
 		</td>
      </tr>
      <tr>
-       <td colspan="3"><h:outputText value="#{msgs.invalid_date_alert}" styleClass="alertMessage" rendered="#{podHomeBean.displayInvalidDateErrMsg}" /></td>
+       <td colspan="3"><h:outputText value="#{msgs.invalid_date_alert}" styleClass="sak-banner-error" rendered="#{podHomeBean.displayInvalidDateErrMsg}" /></td>
      </tr>
      <tr>
-       <td colspan="3"><h:message for="poddate" styleClass="alertMessage" /></td>
+       <td colspan="3"><h:message for="poddate" styleClass="sak-banner-error" /></td>
      </tr>
     <tr>  <!-- ****** Title ****** -->
       <td><h:outputText value="#{msgs.title_prompt}" /></td>
  	  <td><h:inputText id="podtitle" value="#{podHomeBean.selectedPodcast.title}" size="35" maxlength="255" /></td>
  	</tr>
     <tr>
-	  <td colspan="3"><h:outputText value="#{msgs.notitle_alert}" styleClass="alertMessage" rendered="#{podHomeBean.displayNoTitleErrMsg}" /></td>
+	  <td colspan="3"><h:outputText value="#{msgs.notitle_alert}" styleClass="sak-banner-error" rendered="#{podHomeBean.displayNoTitleErrMsg}" /></td>
     </tr>
     <tr> <!-- ****** Description ****** -->
       <td colspan="2"><h:outputText value="#{msgs.description_prompt}" />
@@ -94,7 +96,7 @@
       <sakai:button_bar_item action="#{podHomeBean.processRevisePodcast}" value="#{msgs.change_submit}" 
           accesskey="s" title="#{msgs.change_submit}" styleClass="active" />
       <sakai:button_bar_item action="#{podHomeBean.processCancelRevise}" value="#{msgs.cancel}" 
-          accesskey="c" title="#{msgs.cancel}" />
+          accesskey="x" title="#{msgs.cancel}" />
     </sakai:button_bar>
    </h:form>
  </sakai:view>

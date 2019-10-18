@@ -51,7 +51,10 @@
 <h:panelGroup rendered="#{delivery.actionString=='previewAssessment'}">
   <div class="previewMessage">
      <h:outputText value="#{deliveryMessages.ass_preview}" />
-     <h:commandButton value="#{deliveryMessages.done}" action="#{person.cleanResourceIdListInPreview}" type="submit"/>
+     <h:commandButton value="#{deliveryMessages.done}"
+        action="#{person.cleanResourceIdListInPreview}"
+        type="submit"
+        onclick="return returnToHostUrl(\"#{delivery.selectURL}\");" />
   </div>
 </h:panelGroup>
 
@@ -64,14 +67,15 @@
     <h:outputText value="\"#{delivery.assessmentTitle}\" #{deliveryMessages.t_for} #{delivery.courseName} " escape="false"/>
   </div>
 
-  <h:messages styleClass="messageSamigo" rendered="#{! empty facesContext.maximumSeverity}" layout="table"/>
+  <h:messages styleClass="sak-banner-error" rendered="#{! empty facesContext.maximumSeverity}" layout="table"/>
   
-  <div class="bs-callout-primary">
+  <div class="sak-banner-info">
     <!-- ASSESSMENT INTRODUCTION -->
     <h:outputText value="<br/>#{delivery.instructorMessage}<br/>" escape="false" rendered="#{delivery.instructorMessage != null && delivery.instructorMessage != ''}"/>
 
   <!-- ASSESSMENT ATTACHMENTS -->
   <%@ include file="/jsf/delivery/assessment_attachment.jsp" %>
+
 
 <div class="tier2">
 <h:panelGrid columns="1" border="0">
@@ -194,7 +198,6 @@
 </h:panelGroup>
     <h:outputText id="honorPledgeRequired" value="#{deliveryMessages.honor_required}" styleClass="alertMessage" style="display:none"/>
 
-
 <p class="act">
 
 <!-- BEGIN ASSESSMENT BUTTON -->
@@ -203,8 +206,7 @@
     action="#{delivery.validate}" type="submit" styleClass="active" 
     rendered="#{(delivery.actionString=='takeAssessment'
              || delivery.actionString=='takeAssessmentViaUrl')
-			 && delivery.navigation != 1 && delivery.firstTimeTaking}"
-	onclick="return checkIfHonorPledgeIsChecked()">
+	     && delivery.navigation != 1 && delivery.firstTimeTaking}">
 	<f:actionListener type="org.sakaiproject.tool.assessment.ui.listener.delivery.DeliveryActionListener" />
   </h:commandButton>
   
@@ -212,8 +214,7 @@
     action="#{delivery.validate}" type="submit" styleClass="active" 
     rendered="#{(delivery.actionString=='takeAssessment'
              || delivery.actionString=='takeAssessmentViaUrl')
-			 && delivery.navigation == 1 && delivery.firstTimeTaking}"
-	onclick="return checkIfHonorPledgeIsChecked()">
+	     && delivery.navigation == 1 && delivery.firstTimeTaking}">
 	<f:actionListener type="org.sakaiproject.tool.assessment.ui.listener.delivery.LinearAccessDeliveryActionListener" />
   </h:commandButton>
   
@@ -237,7 +238,7 @@
   </h:commandButton>
   
 
- <h:commandButton id="beginAssessment3" value="#{deliveryMessages.begin_assessment_}" action="#{delivery.pvalidate}" type="submit" styleClass="active" rendered="#{delivery.actionString=='previewAssessment'}" onclick="return checkIfHonorPledgeIsChecked()">
+ <h:commandButton id="beginAssessment3" value="#{deliveryMessages.begin_assessment_}" action="#{delivery.pvalidate}" type="submit" styleClass="active" rendered="#{delivery.actionString=='previewAssessment'}" >
     <f:actionListener type="org.sakaiproject.tool.assessment.ui.listener.delivery.DeliveryActionListener" />
   </h:commandButton>
 
@@ -256,7 +257,10 @@
 <h:panelGroup rendered="#{delivery.actionString=='previewAssessment'}">
  <f:verbatim><div class="previewMessage"></f:verbatim>
      <h:outputText value="#{deliveryMessages.ass_preview}" />
-     <h:commandButton value="#{deliveryMessages.done}" action="#{person.cleanResourceIdListInPreview}" type="submit"/>
+     <h:commandButton value="#{deliveryMessages.done}"
+        action="#{person.cleanResourceIdListInPreview}"
+        type="submit"
+        onclick="return returnToHostUrl(\"#{delivery.selectURL}\");" />
  <f:verbatim></div></f:verbatim>
 </h:panelGroup>
 

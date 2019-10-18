@@ -18,7 +18,6 @@ package org.sakaiproject.site.tool.helper.managegroupsectionrole.impl;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
@@ -32,13 +31,15 @@ import java.util.StringJoiner;
 
 import javax.servlet.http.HttpServletRequest;
 
-import au.com.bytecode.opencsv.CSVReader;
+import com.opencsv.CSVReader;
 import lombok.extern.slf4j.Slf4j;
 import lombok.Getter;
 import lombok.Setter;
 import org.apache.commons.fileupload.FileItem;
-import org.apache.commons.lang.ArrayUtils;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.io.ByteOrderMark;
+import org.apache.commons.io.input.BOMInputStream;
+import org.apache.commons.lang3.ArrayUtils;
+import org.apache.commons.lang3.StringUtils;
 import uk.org.ponder.messageutil.MessageLocator;
 import uk.org.ponder.messageutil.TargettedMessage;
 import uk.org.ponder.messageutil.TargettedMessageList;
@@ -75,7 +76,6 @@ import org.sakaiproject.user.api.User;
 import org.sakaiproject.user.api.UserDirectoryService;
 import org.sakaiproject.user.api.UserNotDefinedException;
 import org.sakaiproject.util.RequestFilter;
-import org.sakaiproject.util.ResourceLoader;
 
 /**
  * 
@@ -594,6 +594,9 @@ public class SiteManageGroupSectionRoleHandler {
         ToolSession session = sessionManager.getCurrentToolSession();
         session.setAttribute(ATTR_TOP_REFRESH, Boolean.TRUE);
 
+        // Go to Site Info landing page on 'Cancel'
+        session.setAttribute(SiteConstants.STATE_TEMPLATE_INDEX, SiteConstants.SITE_INFO_TEMPLATE_INDEX);
+
         return "done";
     }
     
@@ -697,8 +700,8 @@ public class SiteManageGroupSectionRoleHandler {
 		
 		if (group != null)
 		{
-			log.debug("Check if the group is locked : {}", group.isLocked());
-			if(group.isLocked()) {
+			log.debug("Check if the group is locked : {}", group.isLocked(Group.LockMode.MODIFY));
+			if(group.isLocked(Group.LockMode.MODIFY)) {
 				messages.addMessage(new TargettedMessage("editgroup.group.locked",new Object[]{}, TargettedMessage.SEVERITY_ERROR));
 				return null;
 			}
@@ -833,10 +836,7 @@ public class SiteManageGroupSectionRoleHandler {
     		try
     		{
     			siteService.save(site);
-    			
-    			// post event about the participant update
-				EventTrackingService.post(EventTrackingService.newEvent(SiteService.SECURE_UPDATE_GROUP_MEMBERSHIP, group.getId(),true));
-			
+
 				if (serverConfigurationService.getBoolean(SiteHelper.WSETUP_TRACK_USER_MEMBERSHIP_CHANGE, false))
 				{
 					// added members
@@ -1560,7 +1560,13 @@ public class SiteManageGroupSectionRoleHandler {
                         lines = new ArrayList<>();
 
                         try {
-                            reader = new CSVReader(new InputStreamReader(usersFileItem.getInputStream()));
+                            reader = new CSVReader(new InputStreamReader(new BOMInputStream(
+                                        usersFileItem.getInputStream(),
+                                        ByteOrderMark.UTF_8,
+                                        ByteOrderMark.UTF_16BE,
+                                        ByteOrderMark.UTF_16LE,
+                                        ByteOrderMark.UTF_32BE,
+                                        ByteOrderMark.UTF_32LE)));
                             lines = reader.readAll();
                         } catch (IOException ioe) {
                             log.error(ioe.getClass() + " : " + ioe.getMessage());

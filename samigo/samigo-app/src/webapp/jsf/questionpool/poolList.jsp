@@ -114,11 +114,23 @@
             </h:commandLink>
         </span>
     </li>
+    <h:panelGroup rendered="#{authorization.adminAssessment}">
+        <li role="menuitem">
+            <span>
+                <h:commandLink id="restoreAssessments" accesskey="#{generalMessages.a_restore_assessments}" title="#{generalMessages.t_restore_assessments}" action="restoreAssessments" immediate="true">
+                    <h:outputText value="#{generalMessages.restore_assessments}" />
+                    <f:actionListener type="org.sakaiproject.tool.assessment.ui.listener.author.RestoreAssessmentsListener" />
+                </h:commandLink>
+            </span>
+        </li>
+    </h:panelGroup>
 </ul>
 
-<h1>
-  <h:outputText value="#{generalMessages.questionPool}"/>
-</h1>
+<div class="page-header">
+    <h1>
+      <h:outputText value="#{generalMessages.questionPool}"/>
+    </h1>
+</div>
 
 <h:outputText rendered="#{questionpool.importToAuthoring == 'true'}" value="#{questionPoolMessages.msg_imp_poolmanager}"/>
 
@@ -153,7 +165,7 @@
 <h:outputText rendered="#{questionpool.importToAuthoring == 'false' && authorization.createQuestionPool}" escape="false" value="</p>"/>
 </div>
 
-<h:messages styleClass="messageSamigo" rendered="#{! empty facesContext.maximumSeverity}" layout="table"/>
+<h:messages styleClass="sak-banner-error" rendered="#{! empty facesContext.maximumSeverity}" layout="table"/>
  
 <div class="tier2">
 <%@ include file="/jsf/questionpool/poolTreeTable.jsp" %>

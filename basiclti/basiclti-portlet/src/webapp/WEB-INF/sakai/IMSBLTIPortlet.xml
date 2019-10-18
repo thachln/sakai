@@ -4,6 +4,7 @@
                         id="sakai.basiclti"
                         title="External Tool"
                         description="Launch external tools using IMS Learning Tools Interoperability.">
+                        <!-- Note: Tool titles and descriptions are now internationalized and managed in the tools.properties file in the config project and will override the above values -->
 
                 <configuration name="sakai:portlet-pre-render" value="true" />
 
@@ -50,7 +51,6 @@
                 <configuration name="imsti.allowsettings" />
                 <configuration name="imsti.allowroster" />
                 <configuration name="imsti.allowoutcomes" />
-                <configuration name="imsti.contentlink" />
                 <configuration name="imsti.splash" />
                 <configuration name="imsti.fa_icon" /> <!-- A font awesome icon line "fa-adjust" -->
 
@@ -76,7 +76,6 @@
                 <configuration name="final.allowsettings" value="false"/>
                 <configuration name="final.allowroster" value="false"/>
                 <configuration name="final.allowoutcomes" value="false"/>
-                <configuration name="final.contentlink" value="false"/>
                 <configuration name="final.splash" value="false"/>
                 <configuration name="final.fa_icon" value="false"/>
 
@@ -102,10 +101,10 @@
                 <configuration name="sakai:menuClass" value="icon-sakai -2 dashes- sakai-lessonbuildertool"/>
 
                 <configuration name="imsti.launch"
-                   value="http://www.dr-chuck.com/sakai-api-test/tool.php" />
+                   value="https://www.tsugi.org/lti-test/tool.php" />
                 <configuration name="imsti.xml" />
                 <configuration name="imsti.secret" value="secret" />
-                <configuration name="imsti.key" value="lmsng.school.edu" />
+                <configuration name="imsti.key" value="12345" />
 
                 <configuration name="imsti.pagetitle" />
                 <configuration name="imsti.tooltitle" />
@@ -120,7 +119,6 @@
                 <configuration name="imsti.allowsettings" value="on"/>
                 <configuration name="imsti.allowroster" value="on"/>
                 <configuration name="imsti.allowoutcomes" value="on"/>
-                <configuration name="imsti.contentlink" />
                 <configuration name="imsti.splash" value="You are leaving this system."/>
 
                 <configuration name="final.launch" value="true"/>
@@ -141,7 +139,6 @@
                 <configuration name="final.allowsettings" value="true"/>
                 <configuration name="final.allowroster" value="true"/>
                 <configuration name="final.allowoutcomes" value="true"/>
-                <configuration name="final.contentlink" value="true"/>
                 <configuration name="final.splash" value="true"/>
         </tool>
         -->

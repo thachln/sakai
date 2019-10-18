@@ -71,7 +71,7 @@ public enum CalendarEventType {
 		return this.localizedLegend;
 	}
 	
-	public static List getTypes() {
+	public static List<String> getTypes() {
 		List<String> eventTypes = new ArrayList<>();
 		for (CalendarEventType et: CalendarEventType.values()) {
 			eventTypes.add(et.getType());
@@ -106,6 +106,6 @@ public enum CalendarEventType {
 				return et.getType();
 			}
 		}
-		return ACTIVITY.getType();
+		return null;
 	}
 }

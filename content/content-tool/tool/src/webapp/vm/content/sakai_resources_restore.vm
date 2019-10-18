@@ -5,7 +5,8 @@
 		<input name="sakai_action" id="sakai_action" value="doRestore" type="hidden" />
 		<input name="flow" id="flow" value="save" type="hidden" />
 		#set($rootFolderId="")
-			<h3>
+		<div class="page-header">
+			<h1>
 				$tlang.getString("restore.title")
 				$rootFolderId
                 #*
@@ -14,27 +15,28 @@
 					$validator.escapeHtml("$item.name")
 				#end
                 *#
-			</h3>
+			</h1>
+		</div>
 			## set the base collection ID
 			#set($currentFolderId=$rootFolderId)
 		
 		## display restore success message
 		#if ($!restoredResources)
-			<br /><div id="messageSuccessHolder" class="messageSuccess" style="display:block">$tlang.getFormattedMessage("restore.success", $restoredResources)</div>
+			<br /><div id="messageSuccessHolder" class="sak-banner-success">$tlang.getFormattedMessage("restore.success", $restoredResources)</div>
 		#end
 		## display remove success message
 		#if ($!removedResources)
-			<br /><div id="messageSuccessHolder" class="messageSuccess" style="display:block">$tlang.getFormattedMessage("remove.success", $removedResources)</div>
+			<br /><div id="messageSuccessHolder" class="sak-banner-success">$tlang.getFormattedMessage("remove.success", $removedResources)</div>
 		#end
 		#if ($alertMessage)
 			<br /><div class="messageValidation">$validator.escapeHtml($alertMessage)</div><div class="clear"></div>
 		#end
 			<div class="navPanel">
-				<div class="navIntraToolLink viewNav">
+				<div class="navIntraToolLink viewNav act">
 						<span>
-								<input id="restore-button" type="button" value="$tlang.getString("restore.restore")"
+								<input id="restore-button" type="button" class="active" value="$tlang.getString("restore.restore")"
 									onclick="this.disabled = true; submitThis('restoreForm','restore')"
-									disabled="disabled" alt="$tlang.getString("restore.restore")" />
+									disabled="disabled" alt="$tlang.getString("restore.restore")" class="active"/>
 								<input id="remove-button" type="button" value="$tlang.getString("restore.remove")"
 									onclick="this.disabled = true; submitThis('restoreForm','remove')"
 									disabled="disabled" alt="$tlang.getString("restore.remove")" />
@@ -121,7 +123,7 @@
 			</tbody>
 		</table>
 		#else
-			<div class="messageInformation">$tlang.get("restore.empty")</div>
+			<div class="sak-banner-info">$tlang.get("restore.empty")</div>
 		#end
 		
 		<input type="hidden" id="selectAll-count" value="0" />

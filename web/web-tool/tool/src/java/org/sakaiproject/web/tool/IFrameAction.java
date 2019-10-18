@@ -29,8 +29,8 @@ import java.util.Locale;
 import java.util.Properties;
 
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang.StringUtils;
-import org.apache.commons.validator.UrlValidator;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.validator.routines.UrlValidator;
 
 import org.sakaiproject.authz.api.AuthzGroup;
 import org.sakaiproject.authz.api.GroupNotDefinedException;
@@ -763,13 +763,13 @@ public class IFrameAction extends VelocityPortletPaneledAction
 		if(url != null && url.startsWith("http:") && ServerConfigurationService.getServerUrl().startsWith("https:")){
 			context.put("popup", true);
 		}
-		
+		context.put("browser-feature-allow", String.join(";", ServerConfigurationService.getStrings("browser.feature.allow")));
 		//for annotatedurl
 		context.put(TARGETPAGE_URL, state.getAttribute(TARGETPAGE_URL));
 		context.put(TARGETPAGE_POPUP, state.getAttribute(TARGETPAGE_POPUP));
 		context.put(TARGETPAGE_NAME, state.getAttribute(TARGETPAGE_NAME));
 		context.put(ANNOTATED_TEXT, state.getAttribute(ANNOTATED_TEXT));
-		
+
 		// set the resource bundle with our strings
 		context.put("tlang", rb);
 
@@ -831,6 +831,7 @@ public class IFrameAction extends VelocityPortletPaneledAction
 		String special = (String) state.getAttribute(SPECIAL);
 		String source = "";
 		String siteId = "";
+		context.put("browser-feature-allow", String.join(";", ServerConfigurationService.getStrings("browser.feature.allow")));
 		if (special == null)
 		{
 			source = (String) state.getAttribute(SOURCE);

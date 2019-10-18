@@ -35,10 +35,9 @@ import org.sakaiproject.poll.model.Option;
 import org.sakaiproject.poll.model.Poll;
 import org.sakaiproject.poll.model.Vote;
 import org.sakaiproject.poll.tool.params.OptionViewParameters;
+import org.sakaiproject.poll.tool.params.OptionBatchViewParameters;
 import org.sakaiproject.poll.tool.params.PollViewParameters;
 import org.sakaiproject.poll.tool.params.VoteBean;
-import org.sakaiproject.tool.api.Session;
-import org.sakaiproject.tool.api.SessionManager;
 import org.sakaiproject.util.FormattedText;
 
 import uk.org.ponder.localeutil.LocaleGetter;
@@ -204,6 +203,8 @@ public class AddPollProducer implements ViewComponentProducer,NavigationCaseRepo
 			UIMessage.make(actionBlock,"options-title","new_poll_option_title");
 			UIInternalLink.make(actionBlock,"option-add",UIMessage.make("new_poll_option_add"),
 					new OptionViewParameters(PollOptionProducer.VIEW_ID, null, poll.getPollId().toString()));
+			UIInternalLink.make(actionBlock,"option-add-batch",UIMessage.make("new_poll_option_add_batch"),
+					new OptionBatchViewParameters(PollOptionBatchProducer.VIEW_ID, poll.getPollId().toString()));
 
 			List<Vote> votes = pollVoteManager.getAllVotesForPoll(poll);
 			if (votes != null && votes.size() > 0 ) {
@@ -218,18 +219,18 @@ public class AddPollProducer implements ViewComponentProducer,NavigationCaseRepo
 			for (int i = 0; i < options.size(); i++){
 				Option o = (Option)options.get(i);
 				UIBranchContainer oRow = UIBranchContainer.make(actionBlock,"options-row:",o.getOptionId().toString());
-				UIVerbatim.make(oRow,"options-name",o.getOptionText());
+				UIVerbatim.make(oRow,"options-name",o.getText());
 
 
 				UIInternalLink editOption = UIInternalLink.make(oRow,"option-edit",UIMessage.make("new_poll_option_edit"),
 						new OptionViewParameters(PollOptionProducer.VIEW_ID, o.getOptionId().toString()));
 
-				editOption.decorators = new DecoratorList(new UITooltipDecorator(messageLocator.getMessage("new_poll_option_edit") +":" + FormattedText.convertFormattedTextToPlaintext(o.getOptionText())));
+				editOption.decorators = new DecoratorList(new UITooltipDecorator(messageLocator.getMessage("new_poll_option_edit") +":" + FormattedText.convertFormattedTextToPlaintext(o.getText())));
 
 				UIInternalLink deleteOption = UIInternalLink.make(oRow,"option-delete",UIMessage.make("new_poll_option_delete"),
 						new OptionViewParameters(PollOptionDeleteProducer.VIEW_ID,o.getOptionId().toString()));
 
-				deleteOption.decorators = new DecoratorList(new UITooltipDecorator(messageLocator.getMessage("new_poll_option_delete") +":" + FormattedText.convertFormattedTextToPlaintext(o.getOptionText())));
+				deleteOption.decorators = new DecoratorList(new UITooltipDecorator(messageLocator.getMessage("new_poll_option_delete") +":" + FormattedText.convertFormattedTextToPlaintext(o.getText())));
 
 			}
 		}
@@ -338,7 +339,7 @@ public class AddPollProducer implements ViewComponentProducer,NavigationCaseRepo
 		String siteId = externalLogic.getCurrentLocationId();
 		newPoll.parameters.add(new UIELBinding("#{poll.siteId}",siteId));
 
-		if (isNew || poll.getPollOptions() == null || poll.getPollOptions().size() == 0)	 {
+		if (isNew || poll.getOptions() == null || poll.getOptions().size() == 0)	 {
 			UICommand.make(newPoll, "submit-new-poll", UIMessage.make("new_poll_saveoption"),
 			"#{pollToolBean.processActionAdd}");
 		} else {
@@ -357,6 +358,7 @@ public class AddPollProducer implements ViewComponentProducer,NavigationCaseRepo
 		togo.add(new NavigationCase(null, new SimpleViewParameters(VIEW_ID)));
 		togo.add(new NavigationCase("added", new SimpleViewParameters(PollToolProducer.VIEW_ID)));
 		togo.add(new NavigationCase("option", new OptionViewParameters(PollOptionProducer.VIEW_ID, null, null)));
+		togo.add(new NavigationCase("option_batch", new OptionViewParameters(PollOptionBatchProducer.VIEW_ID, null, null)));
 		togo.add(new NavigationCase("cancel", new SimpleViewParameters(PollToolProducer.VIEW_ID)));
 		return togo;
 	}
@@ -403,7 +405,7 @@ public class AddPollProducer implements ViewComponentProducer,NavigationCaseRepo
 		log.debug("Action result got poll: " + poll.getPollId());
 		log.debug("resulting view is: " + result.resultingView);
 
-		if (poll.getPollOptions() == null || poll.getPollOptions().size() == 0) {
+		if (poll.getOptions() == null || poll.getOptions().size() == 0) {
 			result.resultingView = new OptionViewParameters(PollOptionProducer.VIEW_ID, null, poll.getPollId().toString());
 		} else {
 			result.resultingView = new SimpleViewParameters(PollToolProducer.VIEW_ID);

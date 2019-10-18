@@ -19,6 +19,7 @@ package org.sakaiproject.contentreview.urkund;
 
 import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
@@ -31,6 +32,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.SortedSet;
 import java.util.TreeSet;
+
+import javax.servlet.http.HttpServletRequest;
 
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
@@ -51,6 +54,7 @@ import org.sakaiproject.contentreview.exception.TransientSubmissionException;
 import org.sakaiproject.contentreview.advisors.ContentReviewSiteAdvisor;
 import org.sakaiproject.contentreview.dao.ContentReviewConstants;
 import org.sakaiproject.contentreview.dao.ContentReviewItem;
+import org.sakaiproject.contentreview.service.BaseContentReviewService;
 import org.sakaiproject.contentreview.service.ContentReviewQueueService;
 import org.sakaiproject.contentreview.service.ContentReviewService;
 import org.sakaiproject.entity.api.ResourceProperties;
@@ -67,7 +71,7 @@ import org.sakaiproject.user.api.UserNotDefinedException;
 import org.sakaiproject.util.ResourceLoader;
 
 @Slf4j
-public class UrkundReviewServiceImpl implements ContentReviewService {
+public class UrkundReviewServiceImpl extends BaseContentReviewService {
 	private static final String STATE_SUBMITTED = "Submitted";
 	private static final String STATE_ACCEPTED = "Accepted";
 	private static final String STATE_REJECTED = "Rejected";
@@ -129,7 +133,6 @@ public class UrkundReviewServiceImpl implements ContentReviewService {
 	final static long LOCK_PERIOD = 12000000;
 	private Long maxRetry = 20L;
 	
-	@Setter	protected ServerConfigurationService serverConfigurationService;
 	@Setter	protected UserDirectoryService userDirectoryService;
 	@Setter	protected ToolManager toolManager;
 	@Setter	protected ContentHostingService contentHostingService;
@@ -395,23 +398,32 @@ public class UrkundReviewServiceImpl implements ContentReviewService {
 						currentItem.setStatus(ContentReviewConstants.CONTENT_REVIEW_SUBMITTED_REPORT_AVAILABLE_CODE);
 						success++;
 						crqs.update(currentItem);
-					} else if(STATE_REJECTED.equals(submissionData.getStatus().get("State"))) {
-						processError(currentItem, ContentReviewConstants.CONTENT_REVIEW_SUBMISSION_ERROR_NO_RETRY_CODE, "Submission Rejected : "+submissionData.getStatus().get("Message"), null);
-						errors++;
-					} else if(STATE_ERROR.equals(submissionData.getStatus().get("State"))) {
-						processError(currentItem, ContentReviewConstants.CONTENT_REVIEW_SUBMISSION_ERROR_NO_RETRY_CODE, "Submission Error : "+submissionData.getStatus().get("Message"), null);
-						errors++;
 					} else {
-						processError(currentItem, ContentReviewConstants.CONTENT_REVIEW_SUBMISSION_ERROR_RETRY_CODE, "Submission Unknown State ("+submissionData.getStatus().get("State")+") : "+submissionData.getStatus().get("Message"), null);
-						errors++;
+						final Object subDataMessage = submissionData.getStatus().get("Message");
+						if(STATE_REJECTED.equals(submissionData.getStatus().get("State"))) {
+							String errorMsg = createLastError(doc -> createFormattedMessageXML(doc, "submission.rejected", subDataMessage));
+							processError(currentItem, ContentReviewConstants.CONTENT_REVIEW_SUBMISSION_ERROR_NO_RETRY_CODE, errorMsg, null);
+							errors++;
+						} else if(STATE_ERROR.equals(submissionData.getStatus().get("State"))) {
+							String errorMsg = createLastError(doc -> createFormattedMessageXML(doc, "submission.error", subDataMessage));
+							processError(currentItem, ContentReviewConstants.CONTENT_REVIEW_SUBMISSION_ERROR_NO_RETRY_CODE, errorMsg, null);
+							errors++;
+						} else {
+							final Object subDataState = submissionData.getStatus().get("State");
+							String errorMessage = createLastError(doc -> createFormattedMessageXML(doc, "submission.unknown.state", subDataState, subDataMessage));
+							processError(currentItem, ContentReviewConstants.CONTENT_REVIEW_SUBMISSION_ERROR_RETRY_CODE, errorMessage, null);
+							errors++;
+						}
 					}
 				
 				} catch(Exception e){
-					processError(currentItem, ContentReviewConstants.CONTENT_REVIEW_SUBMISSION_ERROR_RETRY_CODE, "Exception processing submission data : "+e.getMessage(), null);
+					String errorMessage = createLastError(doc -> createFormattedMessageXML(doc, "submission.exception", e.getLocalizedMessage()));
+					processError(currentItem, ContentReviewConstants.CONTENT_REVIEW_SUBMISSION_ERROR_RETRY_CODE, errorMessage, null);
 					errors++;
 				}
 			} else {
-				processError(currentItem, ContentReviewConstants.CONTENT_REVIEW_SUBMISSION_ERROR_RETRY_CODE, "Submission Error (Submission Data is null)", null);
+				String errorMessage = createLastError(doc -> createFormattedMessageXML(doc, "submission.not.found"));
+				processError(currentItem, ContentReviewConstants.CONTENT_REVIEW_SUBMISSION_ERROR_RETRY_CODE, errorMessage, null);
 				errors++;
 			}
 		}
@@ -478,6 +490,7 @@ public class UrkundReviewServiceImpl implements ContentReviewService {
 			}
 			
 			if (submissionData != null) {
+				final Object subDataMessage = submissionData.getStatus().get("Message");
 				if(STATE_ANALYZED.equals(submissionData.getStatus().get("State"))) {
 					currentItem.setReviewScore((int) Math.round(submissionData.getSignificance()));
 					currentItem.setStatus(ContentReviewConstants.CONTENT_REVIEW_SUBMITTED_REPORT_AVAILABLE_CODE);
@@ -494,10 +507,13 @@ public class UrkundReviewServiceImpl implements ContentReviewService {
 				} else if(STATE_ACCEPTED.equals(submissionData.getStatus().get("State"))) {
 					inprogress++;
 				} else if(STATE_ERROR.equals(submissionData.getStatus().get("State"))) {
-					processError(currentItem, ContentReviewConstants.CONTENT_REVIEW_REPORT_ERROR_RETRY_CODE, "Report Error : "+submissionData.getStatus().get("Message"), null);
+					String errorMessage = createLastError(doc -> createFormattedMessageXML(doc, "report.error.generic", subDataMessage));
+					processError(currentItem, ContentReviewConstants.CONTENT_REVIEW_REPORT_ERROR_RETRY_CODE, errorMessage, null);
 					errors++;
 				} else {
-					processError(currentItem, ContentReviewConstants.CONTENT_REVIEW_SUBMISSION_ERROR_RETRY_CODE, "Report Unknown State ("+submissionData.getStatus().get("State")+") : "+submissionData.getStatus().get("Message"), null);
+					final Object subDataState = submissionData.getStatus().get("State");
+					String errorMessage = createLastError(doc -> createFormattedMessageXML(doc, "report.unknown.state", subDataState, subDataMessage));
+					processError(currentItem, ContentReviewConstants.CONTENT_REVIEW_SUBMISSION_ERROR_RETRY_CODE, errorMessage, null);
 					errors++;
 				}
 			} else {
@@ -508,6 +524,11 @@ public class UrkundReviewServiceImpl implements ContentReviewService {
 		}
 
 		log.info("Finished fetching reports from Urkund : {} success items, {} in progress, {} errors", success, inprogress, errors);
+	}
+
+	@Override
+	public void syncRosters() {
+		// Auto-generated method stub
 	}
 
 	@Override
@@ -557,7 +578,7 @@ public class UrkundReviewServiceImpl implements ContentReviewService {
 			 * Use ResourceLoader to resolve the file types.
 			 * If the resource loader doesn't find the file extenions, log a warning and return the [missing key...] messages
 			 */
-			ResourceLoader resourceLoader = new ResourceLoader("urkund");
+			ResourceLoader resourceLoader = getResourceLoader();
 			for( String fileExtension : acceptableFileExtensions )
 			{
 				String key = KEY_FILE_TYPE_PREFIX + fileExtension;
@@ -612,10 +633,18 @@ public class UrkundReviewServiceImpl implements ContentReviewService {
 		}
 	}
 
+	public ResourceLoader getResourceLoader(String userRef) {
+		String userId = EntityReference.getIdFromRef(userRef);
+		return new ResourceLoader(userId, "urkund");
+	}
+
+	public String getFormattedMessage(String key, Object... args) {
+		return getResourceLoader().getFormattedMessage(key, args);
+	}
+
 	@Override
 	public String getLocalizedStatusMessage(String messageCode, String userRef) {
-		String userId = EntityReference.getIdFromRef(userRef);
-		ResourceLoader resourceLoader = new ResourceLoader(userId, "urkund");
+		ResourceLoader resourceLoader = getResourceLoader(userRef);
 		return resourceLoader.getString(messageCode);
 	}
 
@@ -651,7 +680,6 @@ public class UrkundReviewServiceImpl implements ContentReviewService {
 	//-----------------------------------------------------------------------------
 	// Extra methods
 	//-----------------------------------------------------------------------------
-	//TODO : add error codes every time 'processError' is called, so we can set i18 messages (CARE : i18 messages do not accept parameters)
 	private String getLocalizedReviewErrorMessage(String contentId) {
 		log.debug("Returning review error for content: {}", contentId);
 
@@ -702,18 +730,19 @@ public class UrkundReviewServiceImpl implements ContentReviewService {
 				//this never should happen, user can not add to queue invalid files
 				if(!urkundContentValidator.isAcceptableContent(resource)){
 					log.error("Not valid extension: resource with id {}", currentItem.getContentId());
-					processError(currentItem, ContentReviewConstants.CONTENT_REVIEW_SUBMISSION_ERROR_NO_RETRY_CODE, "Not valid extension: resource with id " + currentItem.getContentId(), null);
+					String errorMessage = createLastError(doc -> createFormattedMessageXML(doc, "submission.error.invalid.extension"));
+					processError(currentItem, ContentReviewConstants.CONTENT_REVIEW_SUBMISSION_ERROR_NO_RETRY_CODE, errorMessage, null);
 					return false;
 				}
-
 			} catch (TypeException e4) {
-
 				log.warn("TypeException: resource with id {}", currentItem.getContentId());
-				processError(currentItem, ContentReviewConstants.CONTENT_REVIEW_SUBMISSION_ERROR_NO_RETRY_CODE, "TypeException: resource with id " + currentItem.getContentId(), null);
+				String errorMessage = createLastError(doc -> createFormattedMessageXML(doc, "submission.error.type.exception", e4.getLocalizedMessage()));
+				processError(currentItem, ContentReviewConstants.CONTENT_REVIEW_SUBMISSION_ERROR_NO_RETRY_CODE, errorMessage, null);
 				return false;
 			} catch (IdUnusedException e) {
 				log.warn("IdUnusedException: no resource with id {}", currentItem.getContentId());
-				processError(currentItem, ContentReviewConstants.CONTENT_REVIEW_SUBMISSION_ERROR_NO_RETRY_CODE, "IdUnusedException: no resource with id " + currentItem.getContentId(), null);
+				String errorMessage = createLastError(doc -> createFormattedMessageXML(doc, "submission.error.id.unused.exception", e.getLocalizedMessage()));
+				processError(currentItem, ContentReviewConstants.CONTENT_REVIEW_SUBMISSION_ERROR_NO_RETRY_CODE, errorMessage, null);
 				return false;
 			}
 			ResourceProperties resourceProperties = resource.getProperties();
@@ -724,7 +753,8 @@ public class UrkundReviewServiceImpl implements ContentReviewService {
 			}
 		} catch (PermissionException e2) {
 			log.error("Submission failed due to permission error.", e2);
-			processError(currentItem, ContentReviewConstants.CONTENT_REVIEW_SUBMISSION_ERROR_RETRY_CODE, "Permission exception: " + e2.getMessage(), null);
+			String errorMessage = createLastError(doc -> createFormattedMessageXML(doc, "submission.error.permission.exception"));
+			processError(currentItem, ContentReviewConstants.CONTENT_REVIEW_SUBMISSION_ERROR_RETRY_CODE, errorMessage, null);
 			return false;
 		}
 		
@@ -733,7 +763,8 @@ public class UrkundReviewServiceImpl implements ContentReviewService {
 			user = userDirectoryService.getUser(currentItem.getUserId());
 		} catch (UserNotDefinedException e1) {
 			log.error("Submission attempt unsuccessful - User not found.", e1);
-			processError(currentItem, ContentReviewConstants.CONTENT_REVIEW_SUBMISSION_ERROR_RETRY_CODE, "User not found : Contact Service desk for help", null);
+			String errorMessage = createLastError(doc -> createFormattedMessageXML(doc, "submission.error.user.not.defined.exception"));
+			processError(currentItem, ContentReviewConstants.CONTENT_REVIEW_SUBMISSION_ERROR_RETRY_CODE, errorMessage, null);
 			return false;
 		}
 
@@ -742,7 +773,8 @@ public class UrkundReviewServiceImpl implements ContentReviewService {
 
 		if (submitterEmail == null) {
 			log.error("User: {} has no valid email", user.getEid());
-			processError(currentItem, ContentReviewConstants.CONTENT_REVIEW_SUBMISSION_ERROR_USER_DETAILS_CODE, "Invalid user email : Contact Service desk for help", null);
+			String errorMessage = createLastError(doc -> createFormattedMessageXML(doc, "submission.error.email.required"));
+			processError(currentItem, ContentReviewConstants.CONTENT_REVIEW_SUBMISSION_ERROR_USER_DETAILS_CODE, errorMessage, null);
 			return false;
 		}
 		
@@ -752,7 +784,8 @@ public class UrkundReviewServiceImpl implements ContentReviewService {
 			submissionData = urkundConn.uploadFile(submitterEmail, externalId, fileName, resource.getContent(), resource.getContentType());
 		} catch (ServerOverloadException e) {
 			log.error("Submission failed.", e);
-			processError(currentItem, ContentReviewConstants.CONTENT_REVIEW_SUBMISSION_ERROR_RETRY_CODE, "Upload exception: " + e.getMessage(), null);
+			String errorMessage = createLastError(doc -> createFormattedMessageXML(doc, "submission.error", e.getLocalizedMessage()));
+			processError(currentItem, ContentReviewConstants.CONTENT_REVIEW_SUBMISSION_ERROR_RETRY_CODE, errorMessage, null);
 			return false;
 		}
 		
@@ -770,7 +803,8 @@ public class UrkundReviewServiceImpl implements ContentReviewService {
 				return true;
 			}
 		}
-		processError(currentItem, ContentReviewConstants.CONTENT_REVIEW_SUBMISSION_ERROR_RETRY_CODE, "Add Document To Urkund Error", null);
+		String errorMessage = createLastError(doc -> createFormattedMessageXML(doc, "submission.error.unsuccessful"));
+		processError(currentItem, ContentReviewConstants.CONTENT_REVIEW_SUBMISSION_ERROR_RETRY_CODE, errorMessage, null);
 		return false;
 	}
 	
@@ -945,5 +979,26 @@ public class UrkundReviewServiceImpl implements ContentReviewService {
 			return item;
 		}
 		return null;
+	}
+
+	@Override
+	public String getEndUserLicenseAgreementLink(String userId) {
+		return null;
+	}
+
+	@Override
+	public Instant getEndUserLicenseAgreementTimestamp() {
+		return null;
+	}
+
+	@Override
+	public String getEndUserLicenseAgreementVersion() {
+		return null;
+	}
+
+	@Override
+	public void webhookEvent(HttpServletRequest request, int providerId, Optional<String> customParam) {
+		// TODO Auto-generated method stub
+		
 	}
 }

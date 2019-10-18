@@ -17,6 +17,7 @@ package org.sakaiproject.assignment.entityproviders;
 
 import java.time.Instant;
 import java.util.*;
+import java.util.stream.Collectors;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -28,6 +29,7 @@ import org.sakaiproject.assignment.api.AssignmentConstants;
 import org.sakaiproject.assignment.api.AssignmentReferenceReckoner;
 import org.sakaiproject.assignment.api.AssignmentService;
 import org.sakaiproject.assignment.api.AssignmentServiceConstants;
+import org.sakaiproject.assignment.api.MultiGroupRecord;
 import org.sakaiproject.assignment.api.model.*;
 import org.sakaiproject.authz.api.SecurityAdvisor;
 import org.sakaiproject.authz.api.SecurityService;
@@ -49,6 +51,7 @@ import org.sakaiproject.exception.IdUnusedException;
 import org.sakaiproject.exception.PermissionException;
 import org.sakaiproject.service.gradebook.shared.GradebookExternalAssessmentService;
 import org.sakaiproject.service.gradebook.shared.GradebookService;
+import org.sakaiproject.site.api.Group;
 import org.sakaiproject.site.api.Site;
 import org.sakaiproject.site.api.SiteService;
 import org.sakaiproject.site.api.ToolConfiguration;
@@ -212,9 +215,13 @@ public class AssignmentEntityProvider extends AbstractEntityProvider implements 
                                                     + "/directtool/"
                                                     + fromTool.getId()
                                                     + "?assignmentId="
-                                                    + a.getId()
+                                                    + AssignmentReferenceReckoner.reckoner().assignment(a).reckon().getReference()
                                                     + "&panel=Main&sakai_action=doView_assignment");
                         } else if (allowSubmitAssignment) {
+                            String sakaiAction = "doView_submission";
+                            if(a.getHonorPledge()) {
+                                sakaiAction = "doView_assignment_honorPledge";
+                            }
                             assignData
                                     .put("assignmentUrl",
                                             serverConfigurationService
@@ -223,7 +230,7 @@ public class AssignmentEntityProvider extends AbstractEntityProvider implements 
                                                     + fromTool.getId()
                                                     + "?assignmentReference="
                                                     + AssignmentReferenceReckoner.reckoner().assignment(a).reckon().getReference()
-                                                    + "&panel=Main&sakai_action=doView_submission");
+                                                    + "&panel=Main&sakai_action=" + sakaiAction);
                         } else {
                             // user can read the assignment, but not submit, so
                             // render the appropriate url
@@ -340,7 +347,7 @@ public class AssignmentEntityProvider extends AbstractEntityProvider implements 
             Assignment a = assignmentService.getAssignment(assignmentId);
             assignData.put("assignmentId", assignmentId);
             assignData.put("assignmentTitle", a.getTitle());
-            assignData.put("assignmentUrl", assignmentService.getDeepLink(context, assignmentId));
+            assignData.put("assignmentUrl", assignmentService.getDeepLink(context, assignmentId, sessionManager.getCurrentSessionUserId()));
         } catch (IdUnusedException e) {
             throw new EntityNotFoundException("Assignment or site not found", assignmentId, e);
         } catch (PermissionException e) {
@@ -463,7 +470,6 @@ public class AssignmentEntityProvider extends AbstractEntityProvider implements 
      */
     public Map<String, String> getProperties(String reference) {
         Map<String, String> props = new HashMap<String, String>();
-        String parsedRef = reference;
         String defaultView = "doView_submission";
         String[] refParts = reference.split(Entity.SEPARATOR);
         String submissionId = "null"; // setting to the string null
@@ -472,9 +478,8 @@ public class AssignmentEntityProvider extends AbstractEntityProvider implements 
         String decSiteId = "";
         String decPageId = "";
 
+        String assignmentId = refParts[2];
         if (refParts.length >= 4) {
-            parsedRef = refParts[0] + Entity.SEPARATOR + refParts[1]
-                    + Entity.SEPARATOR + refParts[2];
             defaultView = refParts[3];
             if (refParts.length >= 5) {
                 submissionId = refParts[4].replaceAll("_", Entity.SEPARATOR);
@@ -492,7 +497,6 @@ public class AssignmentEntityProvider extends AbstractEntityProvider implements 
             }
         }
 
-        String assignmentId = parsedRef;
         boolean canUserAccessWizardPageAndLinkedArtifcact = false;
         if (!"".equals(decSiteId) && !"".equals(decPageId)
                 && !"null".equals(submissionId)) {
@@ -523,10 +527,9 @@ public class AssignmentEntityProvider extends AbstractEntityProvider implements 
             if (assignment.getDateCreated() != null) {
                 props.put("created_time", assignment.getDateCreated().toString());
             }
-            // TODO add
-//			if (assignment.getAuthorLastModified() != null) {
-//				props.put("modified_by", assignment.getAuthorLastModified());
-//			}
+			if (assignment.getModifier() != null) {
+				props.put("modified_by", assignment.getModifier());
+			}
             if (assignment.getDateModified() != null) {
                 props.put("modified_time", assignment.getDateModified().toString());
             }
@@ -545,6 +548,12 @@ public class AssignmentEntityProvider extends AbstractEntityProvider implements 
             props.put("security.assignment.function", AssignmentServiceConstants.SECURE_ACCESS_ASSIGNMENT);
             props.put("security.assignment.grade.function", AssignmentServiceConstants.SECURE_GRADE_ASSIGNMENT_SUBMISSION);
             props.put("security.assignment.grade.ref", entity.getReference());
+            props.put("url",
+                    "/portal/tool/" + placement
+                    + "?assignmentId=" + assignment.getId()
+                    + "&submissionId=" + submissionId
+                    + "&assignmentReference=" + entity.getReference()
+                    + "&panel=Main&sakai_action=" + defaultView);
         } catch (IdUnusedException e) {
             throw new EntityNotFoundException("No assignment found", reference, e);
         } catch (PermissionException e) {
@@ -583,6 +592,43 @@ public class AssignmentEntityProvider extends AbstractEntityProvider implements 
      */
     public void setPropertyValue(String reference, String name, String value) {
         // TODO: add ability to set properties of an assignment
+    }
+
+    @EntityCustomAction(action ="checkForUsersInMultipleGroups", viewKey = EntityView.VIEW_LIST)
+    public List<MultiGroupRecord> checkForUsersInMultipleGroups(final EntityView view, final Map<String, Object> params) {
+        final String siteId = StringUtils.trimToEmpty((String) params.get("siteId"));
+        final String asnRef = StringUtils.trimToEmpty((String) params.get("asnRef"));
+
+        if (siteId.isEmpty()) {
+            throw new IllegalArgumentException("Site Id must be provided.");
+        }
+
+        // Permission check to avoid revealing group memberships, user must be able to edit the given assignment,
+        // or if none given, add assignments in the site
+        if (!asnRef.isEmpty() && !assignmentService.allowUpdateAssignment(asnRef)) {
+            throw new SecurityException(new PermissionException(sessionManager.getCurrentSessionUserId(), AssignmentServiceConstants.SECURE_UPDATE_ASSIGNMENT, null));
+        }
+        if (asnRef.isEmpty() && !assignmentService.allowAddAssignment(siteId)) {
+            throw new SecurityException(new PermissionException(sessionManager.getCurrentSessionUserId(), AssignmentServiceConstants.SECURE_ADD_ASSIGNMENT, null));
+        }
+
+        final List<String> groupIds;
+        Object groups = params.get("selectedGroups[]");
+        if (groups != null && groups instanceof String[]) {
+            groupIds = Arrays.asList((String[]) groups);
+        } else if (groups != null && groups instanceof String) {
+            groupIds = Collections.singletonList((String) groups);
+        } else {
+            throw new IllegalArgumentException("Selected groups must be provided.");
+        }
+
+        try {
+            List<Group> selectedGroups = siteService.getSite(siteId).getGroups().stream()
+                .filter(g -> groupIds.contains(g.getId())).collect(Collectors.toList());
+            return assignmentService.checkAssignmentForUsersInMultipleGroups(siteId, selectedGroups);
+        } catch (IdUnusedException e) {
+            throw new IllegalArgumentException("Site Id must be provided.");
+        }
     }
 
     @AllArgsConstructor

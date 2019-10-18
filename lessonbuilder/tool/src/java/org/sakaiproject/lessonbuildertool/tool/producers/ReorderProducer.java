@@ -25,6 +25,7 @@ package org.sakaiproject.lessonbuildertool.tool.producers;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -138,6 +139,7 @@ public class ReorderProducer implements ViewComponentProducer, NavigationCaseRep
 				items.remove(0);
 			}
 
+			List<Long> moreItemIds = new ArrayList<>();
 			if (secondPage != null) {
 			    List<SimplePageItem> moreItems = simplePageToolDao.findItemsOnPage(secondPageId);
 
@@ -146,6 +148,7 @@ public class ReorderProducer implements ViewComponentProducer, NavigationCaseRep
 				while(moreItems.size() > 0 && moreItems.get(0).getSequence() <= 0) {
 				    moreItems.remove(0);
 				}
+				moreItemIds = moreItems.stream().collect(Collectors.mapping(SimplePageItem::getId, Collectors.toList()));
 				items.addAll(moreItems);
 			    }
 			} else
@@ -160,12 +163,13 @@ public class ReorderProducer implements ViewComponentProducer, NavigationCaseRep
 			for (SimplePageItem i : items) {
 
 				if (i == null) {
-				    // marker between used and not used
-				    UIContainer row = UIBranchContainer.make(tofill, "item:");
-				    UIOutput.make(row, "seq", "---").decorate(new UIFreeAttributeDecorator("class", "marker"));
-				    UIOutput.make(row, "text-snippet", messageLocator.getMessage(secondPageId == null ? "simplepage.reorder-belowdelete" : "simplepage.reorder-aboveuse"));
-				    second = true;
 				    continue;
+				}
+
+				if (moreItemIds.contains(i.getId())) {
+					second = true;
+				} else {
+					second = false;
 				}
 
 				String subtype = null;
@@ -193,7 +197,7 @@ public class ReorderProducer implements ViewComponentProducer, NavigationCaseRep
 				} else if (SimplePageItem.ANNOUNCEMENTS == i.getType()) {
 					UIOutput.make(row, "text-snippet", messageLocator.getMessage("simplepage.announcements-snippet"));
 				} else if (SimplePageItem.FORUM_SUMMARY == i.getType()) {
-					UIOutput.make(row, "text-snippet", messageLocator.getMessage("simplepage.forums-snippet"));
+					UIOutput.make(row, "text-snippet", messageLocator.getMessage("simplepage.forum-header-title"));
 				} else if (SimplePageItem.TWITTER == i.getType()) {
 					UIOutput.make(row, "text-snippet", messageLocator.getMessage("simplepage.twitter-snippet"));
 				} else if (SimplePageItem.RESOURCE_FOLDER == i.getType()) {

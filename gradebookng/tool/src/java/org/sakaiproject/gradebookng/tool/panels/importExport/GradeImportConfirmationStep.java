@@ -26,8 +26,8 @@ import java.util.Set;
 
 import lombok.extern.slf4j.Slf4j;
 
-import org.apache.commons.lang.StringUtils;
-import org.apache.commons.lang.math.NumberUtils;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.math.NumberUtils;
 import org.apache.wicket.Component;
 import org.apache.wicket.ajax.AjaxRequestTarget;
 import org.apache.wicket.ajax.markup.html.form.AjaxButton;
@@ -45,6 +45,7 @@ import org.sakaiproject.gradebookng.business.model.ProcessedGradeItem;
 import org.sakaiproject.gradebookng.business.model.ProcessedGradeItem.Type;
 import org.sakaiproject.gradebookng.business.model.ProcessedGradeItemDetail;
 import org.sakaiproject.gradebookng.business.util.FormatHelper;
+import org.sakaiproject.gradebookng.business.util.EventHelper;
 import org.sakaiproject.gradebookng.business.util.MessageHelper;
 import org.sakaiproject.gradebookng.tool.model.ImportWizardModel;
 import org.sakaiproject.gradebookng.tool.pages.GradebookPage;
@@ -136,6 +137,8 @@ public class GradeImportConfirmationStep extends BasePanel {
 
 			@Override
 			public void onSubmit(AjaxRequestTarget target, Form<?> form) {
+
+				EventHelper.postImportBeginEvent(getGradebook());
 
 				final Map<String, Long> assignmentMap = new HashMap<>();
 				final List<ProcessedGradeItem> itemsToSave = new ArrayList<>();
@@ -265,6 +268,8 @@ public class GradeImportConfirmationStep extends BasePanel {
 					// Present errors to the user
 					page.updateFeedback(target);
 				}
+
+				EventHelper.postImportCompletedEvent(getGradebook(), !GradeImportConfirmationStep.this.errors);
 			}
 		};
 		form.add(finishButton);

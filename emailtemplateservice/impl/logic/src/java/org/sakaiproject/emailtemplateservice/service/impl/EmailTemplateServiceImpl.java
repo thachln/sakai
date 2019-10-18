@@ -46,10 +46,10 @@ import org.apache.commons.lang3.LocaleUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.math.NumberUtils;
 
-import org.jdom.Document;
-import org.jdom.Element;
-import org.jdom.JDOMException;
-import org.jdom.input.SAXBuilder;
+import org.jdom2.Document;
+import org.jdom2.Element;
+import org.jdom2.JDOMException;
+import org.jdom2.input.SAXBuilder;
 
 import org.simpleframework.xml.core.Persister;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -447,7 +447,10 @@ public void sendRenderedMessages(String key, List<String> userReferences,
 		headers.add("Subject: " + rt.getRenderedSubject());
 		headers.add("Content-Type: multipart/alternative; boundary=\"" + MULTIPART_BOUNDARY + "\"");
 		headers.add("Mime-Version: 1.0");
-		headers.add("Precedence: bulk");
+
+		if (toAddress.size() > 1) {
+			headers.add("Precedence: bulk");
+		}
 
 		String body = message.toString();
 		log.debug("message body " + body);

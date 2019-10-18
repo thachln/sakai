@@ -31,15 +31,17 @@ import java.util.HashSet;
 import java.util.List;
 
 import lombok.extern.slf4j.Slf4j;
+
 import org.easymock.IAnswer;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
 import org.mockito.Mockito;
+import org.springframework.aop.framework.Advised;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
+import org.springframework.test.context.junit4.AbstractJUnit4SpringContextTests;
 
 import org.sakaiproject.content.api.ContentHostingService;
 import org.sakaiproject.event.api.Event;
@@ -62,25 +64,24 @@ import org.sakaiproject.sitestats.test.data.FakeData;
 import org.sakaiproject.sitestats.test.mocks.FakeEventRegistryService;
 import org.sakaiproject.sitestats.test.mocks.FakeServerConfigurationService;
 import org.sakaiproject.sitestats.test.mocks.FakeSite;
-import org.sakaiproject.sitestats.test.perf.mock.StubUtils;
 import org.sakaiproject.tool.api.ToolManager;
 import org.sakaiproject.util.ResourceLoader;
 
-@ContextConfiguration(locations={
-		"/hbm-db.xml",
-		"/hibernate-test.xml"})
-@Slf4j
-public class ReportManagerTest extends AbstractTransactionalJUnit4SpringContextTests {
+import javax.annotation.Resource;
 
-	@Autowired
+@ContextConfiguration(locations = {"/hibernate-test.xml"})
+@Slf4j
+public class ReportManagerTest extends AbstractJUnit4SpringContextTests {
+
+	@Resource(name = "org.sakaiproject.sitestats.test.ReportManager")
 	private ReportManager					M_rm;
-	@Autowired
+	@Resource(name = "org.sakaiproject.sitestats.test.StatsManager")
 	private StatsManager					M_sm;
-	@Autowired
+	@Resource(name = "org.sakaiproject.sitestats.test.StatsUpdateManager")
 	private StatsUpdateManager				M_sum;
 	@Autowired
 	private StatsAuthz						M_sa;
-	@Autowired
+	@Resource(name = "org.sakaiproject.sitestats.test.DB")
 	private DB								db;
 	private SiteService						M_ss;
 	@Autowired
@@ -141,7 +142,7 @@ public class ReportManagerTest extends AbstractTransactionalJUnit4SpringContextT
 		// Site 'non_existent_site' doesn't exist
 		expect(M_ss.isUserSite("non_existent_site")).andStubReturn(false);
 		expect(M_ss.isSpecialSite("non_existent_site")).andStubReturn(false);
-		
+
 		// Content Hosting Service
 //		M_chs = createMock(ContentHostingService.class);
 //		M_chs.checkCollection("/group/site-a-id/folder/");
@@ -163,14 +164,18 @@ public class ReportManagerTest extends AbstractTransactionalJUnit4SpringContextT
 		((FakeEventRegistryService)M_ers).setSiteService(M_ss);
 		((FakeEventRegistryService)M_ers).setToolManager(M_tm);
 		((FakeEventRegistryService)M_ers).setStatsManager(M_sm);
-		((ReportManagerImpl)M_rm).setEventRegistryService(M_ers);
-		((StatsManagerImpl)M_sm).setSiteService(M_ss);
+		ReportManagerImpl rmi = (ReportManagerImpl) ((Advised) M_rm).getTargetSource().getTarget();
+		StatsManagerImpl smi = (StatsManagerImpl) ((Advised) M_sm).getTargetSource().getTarget();
+		StatsUpdateManagerImpl sumi = (StatsUpdateManagerImpl) ((Advised) M_sum).getTargetSource().getTarget();
+		rmi.setEventRegistryService(M_ers);
+		rmi.setSiteService(M_ss);
+		smi.setSiteService(M_ss);
 		//((StatsManagerImpl)M_sm).setContentHostingService(M_chs);
-		((StatsManagerImpl)M_sm).setResourceLoader(msgs);
-		((StatsManagerImpl)M_sm).setEnableSitePresences(true);
-		((ReportManagerImpl)M_rm).setResourceLoader(msgs);
-		((StatsUpdateManagerImpl)M_sum).setSiteService(M_ss);
-		((StatsUpdateManagerImpl)M_sum).setStatsManager(M_sm);
+		smi.setResourceLoader(msgs);
+		smi.setEnableSitePresences(true);
+		rmi.setResourceLoader(msgs);
+		sumi.setSiteService(M_ss);
+		sumi.setStatsManager(M_sm);
 		// This is needed to make the tests deterministic, otherwise on occasion the collect thread will run
 		// and break the tests.
 		M_sum.setCollectThreadEnabled(false);
@@ -217,7 +222,7 @@ public class ReportManagerTest extends AbstractTransactionalJUnit4SpringContextT
 				));
 		// activity
 		Event aAToday = M_sum.buildEvent(today, FakeData.EVENT_CHATNEW, "/chat/msg/"+FakeData.SITE_B_ID, FakeData.SITE_B_ID, FakeData.USER_A_ID, "session-id-a");
-		Event aBToday = M_sum.buildEvent(today, FakeData.EVENT_CONTENTNEW, "/content/group/"+FakeData.SITE_B_ID+"/resource_id", FakeData.SITE_B_ID, FakeData.USER_B_ID, "session-id-b");
+		Event aBToday = M_sum.buildEvent(today, FakeData.EVENT_CONTENTNEW, "/content/group/"+FakeData.SITE_B_ID+"/resource_id", FakeData.SITE_B_ID, FakeData.USER_A_ID, "session-id-a");
 		Event aAOneDayBefore = M_sum.buildEvent(oneDayBefore, FakeData.EVENT_CHATNEW, "/chat/msg/"+FakeData.SITE_A_ID, FakeData.SITE_A_ID, FakeData.USER_A_ID, "session-id-a");
 		Event aATowDaysBefore = M_sum.buildEvent(twoDaysBefore, FakeData.EVENT_CHATNEW, "/chat/msg/"+FakeData.SITE_A_ID, FakeData.SITE_A_ID, FakeData.USER_A_ID, "session-id-a");
 		Event aAFourDaysBefore = M_sum.buildEvent(fourDaysBefore, FakeData.EVENT_CHATNEW, "/chat/msg/"+FakeData.SITE_A_ID, FakeData.SITE_A_ID, FakeData.USER_A_ID, "session-id-a");
@@ -257,7 +262,7 @@ public class ReportManagerTest extends AbstractTransactionalJUnit4SpringContextT
 				));
 		// activity
 		Event aAToday = M_sum.buildEvent(today, FakeData.EVENT_CHATNEW, "/chat/msg/"+FakeData.SITE_B_ID, FakeData.SITE_B_ID, FakeData.USER_A_ID, "session-id-a");
-		Event aBToday = M_sum.buildEvent(today, FakeData.EVENT_CONTENTNEW, "/content/group/"+FakeData.SITE_B_ID+"/resource_id", FakeData.SITE_B_ID, FakeData.USER_B_ID, "session-id-b");
+		Event aBToday = M_sum.buildEvent(today, FakeData.EVENT_CONTENTNEW, "/content/group/"+FakeData.SITE_B_ID+"/resource_id", FakeData.SITE_B_ID, FakeData.USER_A_ID, "session-id-a");
 		Event aAOneDayBefore = M_sum.buildEvent(oneDayBefore, FakeData.EVENT_CHATNEW, "/chat/msg/"+FakeData.SITE_A_ID, FakeData.SITE_A_ID, FakeData.USER_A_ID, "session-id-a");
 		Event aATowDaysBefore = M_sum.buildEvent(twoDaysBefore, FakeData.EVENT_CHATNEW, "/chat/msg/"+FakeData.SITE_A_ID, FakeData.SITE_A_ID, FakeData.USER_A_ID, "session-id-a");
 		Event aAFourDaysBefore = M_sum.buildEvent(fourDaysBefore, FakeData.EVENT_CHATNEW, "/chat/msg/"+FakeData.SITE_A_ID, FakeData.SITE_A_ID, FakeData.USER_A_ID, "session-id-a");
@@ -299,6 +304,11 @@ public class ReportManagerTest extends AbstractTransactionalJUnit4SpringContextT
 		ReportDef rd = null;
 		ReportParams rp = null;
 		List<String> totalsBy = null;
+		List<String> listUserA = new ArrayList<>();
+		List<String> listUserB = new ArrayList<>();
+		List<String> listNoUsers = new ArrayList<>();
+		listUserA.add(FakeData.USER_A_ID);
+		listUserB.add(FakeData.USER_B_ID);
 		
 		// #1 getReport(ReportDef reportDef, boolean restrictToToolsInSite)
 		siteId = FakeData.SITE_B_ID;
@@ -334,10 +344,25 @@ public class ReportManagerTest extends AbstractTransactionalJUnit4SpringContextT
 		checkCollumns(rd.getReportParams());
 		Assert.assertEquals(2, r.getReportData().size());
 		Assert.assertNotNull(M_rm.getReportFormattedParams());
-		
-		// #2 getReportRowCount(ReportDef reportDef, boolean restrictToToolsInSite)
+		rp.setWho(ReportManager.WHO_CUSTOM);
+		rp.setWhoUserIds(listUserA);
+		r = M_rm.getReport(rd, true);
+		checkCollumns(rd.getReportParams());
+		Assert.assertEquals(1, r.getReportData().size());
+		rp.setWhoUserIds(listNoUsers);
+		r = M_rm.getReport(rd, true);
+		checkCollumns(rd.getReportParams());
+		Assert.assertEquals(0, r.getReportData().size());
+
+		// #2 getReportRowCount(ReportDef reportDef, boolean restrictToToolsInSite, List<String> userIds)
+		rp.setWho(ReportManager.WHO_ALL);
 		Assert.assertEquals(1, M_rm.getReportRowCount(rd, true));
 		Assert.assertEquals(2, M_rm.getReportRowCount(rd, false));
+		rp.setWho(ReportManager.WHO_CUSTOM);
+		rp.setWhoUserIds(listUserA);
+		Assert.assertEquals(1, M_rm.getReportRowCount(rd, true));
+		rp.setWhoUserIds(listNoUsers);
+		Assert.assertEquals(0, M_rm.getReportRowCount(rd, true));
 		
 		siteId = FakeData.SITE_B_ID;
 		rd = new ReportDef();
@@ -361,8 +386,13 @@ public class ReportManagerTest extends AbstractTransactionalJUnit4SpringContextT
 		rd.setReportParams(rp);
 		Assert.assertEquals(1, M_rm.getReportRowCount(rd, true));
 		Assert.assertEquals(1, M_rm.getReportRowCount(rd, false));
+		rp.setWho(ReportManager.WHO_CUSTOM);
+		rp.setWhoUserIds(listUserA);
+		Assert.assertEquals(1, M_rm.getReportRowCount(rd, false));
+		rp.setWhoUserIds(listNoUsers);
+		Assert.assertEquals(0, M_rm.getReportRowCount(rd, true));
 	}
-	
+
 	@Test
 	@Ignore		// TODO JUNIT test is not working on hsqldb need to look into
 	public void testGetMoreReports() {
@@ -372,6 +402,11 @@ public class ReportManagerTest extends AbstractTransactionalJUnit4SpringContextT
 		ReportDef rd = null;
 		ReportParams rp = null;
 		List<String> totalsBy = null;
+		List<String> listUserA = new ArrayList<>();
+		List<String> listUserB = new ArrayList<>();
+		List<String> listNoUsers = new ArrayList<>();
+		listUserA.add(FakeData.USER_A_ID);
+		listUserB.add(FakeData.USER_B_ID);
 		
 		// resources
 		siteId = FakeData.SITE_A_ID;
@@ -392,12 +427,24 @@ public class ReportManagerTest extends AbstractTransactionalJUnit4SpringContextT
 		r = M_rm.getReport(rd, true, null, false);
 		checkCollumns(rd.getReportParams());
 		Assert.assertEquals(1, r.getReportData().size());
+		rp.setWho(ReportManager.WHO_CUSTOM);
+		rp.setWhoUserIds(listUserB);
+		r = M_rm.getReport(rd, true);
+		r = M_rm.getReport(rd, true, null, false);
+		checkCollumns(rd.getReportParams());
+		Assert.assertEquals(1, r.getReportData().size());
 		
 		// visits
 		rp.setWhat(ReportManager.WHAT_VISITS);
+		rp.setWho(ReportManager.WHO_ALL);
 		r = M_rm.getReport(rd, true, null, true);
 		checkCollumns(rd.getReportParams());
 		Assert.assertEquals(2, r.getReportData().size());
+		rp.setWho(ReportManager.WHO_CUSTOM);
+		rp.setWhoUserIds(listNoUsers);
+		r = M_rm.getReport(rd, true, null, true);
+		checkCollumns(rd.getReportParams());
+		Assert.assertEquals(0, r.getReportData().size());
 		
 		// visits totals
 		rp.setWhat(ReportManager.WHAT_VISITS_TOTALS);
@@ -405,10 +452,23 @@ public class ReportManagerTest extends AbstractTransactionalJUnit4SpringContextT
 		totalsBy.add(StatsManager.T_SITE);
 		rp.setHowTotalsBy(totalsBy);
 		rd.setId(1);
+		rp.setWho(ReportManager.WHO_ALL);
 		r = M_rm.getReport(rd, true, new PagingPosition(0,5), true);
 		Assert.assertEquals(1, r.getReportData().size());
 		Assert.assertEquals(9, ((SiteVisits)(r.getReportData().get(0))).getTotalVisits());
 		Assert.assertEquals(7, ((SiteVisits)(r.getReportData().get(0))).getTotalUnique());
+		rp.setWho(ReportManager.WHO_CUSTOM);
+		rp.setWhoUserIds(listUserB);
+		r = M_rm.getReport(rd, true, new PagingPosition(0,5), true);
+		Assert.assertEquals(1, r.getReportData().size());
+		Assert.assertEquals(9, ((SiteVisits)(r.getReportData().get(0))).getTotalVisits());
+		Assert.assertEquals(7, ((SiteVisits)(r.getReportData().get(0))).getTotalUnique());
+		rp.setWho(ReportManager.WHO_CUSTOM);
+		rp.setWhoUserIds(listNoUsers);
+		r = M_rm.getReport(rd, true, new PagingPosition(0,5), true);
+		Assert.assertEquals(0, r.getReportData().size());
+		Assert.assertEquals(0, ((SiteVisits)(r.getReportData().get(0))).getTotalVisits());
+		Assert.assertEquals(0, ((SiteVisits)(r.getReportData().get(0))).getTotalUnique());
 		
 //		// activity totals
 //		rp.setWhat(ReportManager.WHAT_ACTIVITY_TOTALS);
@@ -429,9 +489,17 @@ public class ReportManagerTest extends AbstractTransactionalJUnit4SpringContextT
 		totalsBy.add(StatsManager.T_DATE);
 		rp.setHowTotalsBy(totalsBy);
 		rp.setHowSort(false);
+		rp.setWho(ReportManager.WHO_ALL);
 		r = M_rm.getReport(rd, true, null, true);
 		checkCollumns(rd.getReportParams());
 		Assert.assertEquals(7, r.getReportData().size());
+		rp.setWho(ReportManager.WHO_CUSTOM);
+		rp.setWhoUserIds(listUserA);
+		r = M_rm.getReport(rd, true, null, true);
+		Assert.assertEquals(1, r.getReportData().size());
+		rp.setWhoUserIds(listNoUsers);
+		r = M_rm.getReport(rd, true, null, true);
+		Assert.assertEquals(0, r.getReportData().size());
 		
 		// presences II
 		rp.setWhat(ReportManager.WHAT_PRESENCES);
@@ -440,9 +508,19 @@ public class ReportManagerTest extends AbstractTransactionalJUnit4SpringContextT
 		totalsBy.add(StatsManager.T_DATE);
 		rp.setHowTotalsBy(totalsBy);
 		rp.setHowSort(false);
+		rp.setWho(ReportManager.WHO_ALL);
 		r = M_rm.getReport(rd, true, null, true);
 		checkCollumns(rd.getReportParams());
 		Assert.assertEquals(5, r.getReportData().size());
+		rp.setWho(ReportManager.WHO_CUSTOM);
+		rp.setWhoUserIds(listUserA);
+		r = M_rm.getReport(rd, true, null, true);
+		checkCollumns(rd.getReportParams());
+		Assert.assertEquals(1, r.getReportData().size());
+		rp.setWhoUserIds(listNoUsers);
+		r = M_rm.getReport(rd, true, null, true);
+		checkCollumns(rd.getReportParams());
+		Assert.assertEquals(0, r.getReportData().size());
 		
 		// presences III
 		rp.setWhat(ReportManager.WHAT_PRESENCES);
@@ -450,15 +528,29 @@ public class ReportManagerTest extends AbstractTransactionalJUnit4SpringContextT
 		totalsBy.add(StatsManager.T_SITE);
 		rp.setHowTotalsBy(totalsBy);
 		rp.setHowSort(false);
+		rp.setWho(ReportManager.WHO_ALL);
 		r = M_rm.getReport(rd, true, null, true);
 		checkCollumns(rd.getReportParams());
 		Assert.assertEquals(1, r.getReportData().size());
+		rp.setWho(ReportManager.WHO_CUSTOM);
+		rp.setWhoUserIds(listUserA);
+		r = M_rm.getReport(rd, true, null, true);
+		checkCollumns(rd.getReportParams());
+		Assert.assertEquals(1, r.getReportData().size());
+		rp.setWhoUserIds(listNoUsers);
+		r = M_rm.getReport(rd, true, null, true);
+		checkCollumns(rd.getReportParams());
+		Assert.assertEquals(0, r.getReportData().size());
 		
 	}
 	
 	@Test
 	@Ignore        // TODO JUNIT test is not working on hsqldb need to look into
 	public void testReportsFromOverviewPage() {
+		List<String> listUserA = new ArrayList<>();
+		List<String> listNoUsers = new ArrayList<>();
+		listUserA.add(FakeData.USER_A_ID);
+
 		M_sum.collectEvents(getSampleData2());
 		
 		// MiniStatsVisits & MiniStatUniqueVisits
@@ -487,6 +579,15 @@ public class ReportManagerTest extends AbstractTransactionalJUnit4SpringContextT
 			Report rep = M_rm.getReport(r, false);
 			Assert.assertNotNull(rep);
 			Assert.assertEquals(5, rep.getReportData().size());
+			rp.setWho(ReportManager.WHO_CUSTOM);
+			rp.setWhoUserIds(listUserA);
+			rep = M_rm.getReport(r, false);
+			Assert.assertNotNull(rep);
+			Assert.assertEquals(1, rep.getReportData().size());
+			rp.setWhoUserIds(listNoUsers);
+			rep = M_rm.getReport(r, false);
+			Assert.assertNotNull(rep);
+			Assert.assertEquals(0, rep.getReportData().size());
 		}
 		
 		// MiniStatEnrolledUsersWithVisits
@@ -510,6 +611,15 @@ public class ReportManagerTest extends AbstractTransactionalJUnit4SpringContextT
 			Report rep = M_rm.getReport(r, false);
 			Assert.assertNotNull(rep);
 			Assert.assertEquals(2, rep.getReportData().size());
+			rp.setWho(ReportManager.WHO_CUSTOM);
+			rp.setWhoUserIds(listUserA);
+			rep = M_rm.getReport(r, false);
+			Assert.assertNotNull(rep);
+			Assert.assertEquals(1, rep.getReportData().size());
+			rp.setWhoUserIds(listNoUsers);
+			rep = M_rm.getReport(r, false);
+			Assert.assertNotNull(rep);
+			Assert.assertEquals(0, rep.getReportData().size());
 		}
 		
 		// MiniStatEnrolledUsersWithoutVisits
@@ -531,6 +641,15 @@ public class ReportManagerTest extends AbstractTransactionalJUnit4SpringContextT
 			rp.setHowPresentationMode(ReportManager.HOW_PRESENTATION_TABLE);
 			r.setReportParams(rp);
 			Report rep = M_rm.getReport(r, false);
+			Assert.assertNotNull(rep);
+			Assert.assertEquals(0, rep.getReportData().size());
+			rp.setWho(ReportManager.WHO_CUSTOM);
+			rp.setWhoUserIds(listUserA);
+			rep = M_rm.getReport(r, false);
+			Assert.assertNotNull(rep);
+			Assert.assertEquals(0, rep.getReportData().size());
+			rp.setWhoUserIds(listNoUsers);
+			rep = M_rm.getReport(r, false);
 			Assert.assertNotNull(rep);
 			Assert.assertEquals(0, rep.getReportData().size());
 		}
@@ -563,6 +682,15 @@ public class ReportManagerTest extends AbstractTransactionalJUnit4SpringContextT
 			Report rep = M_rm.getReport(r, false);
 			Assert.assertNotNull(rep);
 			Assert.assertEquals(6, rep.getReportData().size());
+			rp.setWho(ReportManager.WHO_CUSTOM);
+			rp.setWhoUserIds(listUserA);
+			rep = M_rm.getReport(r, false);
+			Assert.assertNotNull(rep);
+			Assert.assertEquals(1, rep.getReportData().size());
+			rp.setWhoUserIds(listNoUsers);
+			rep = M_rm.getReport(r, false);
+			Assert.assertNotNull(rep);
+			Assert.assertEquals(0, rep.getReportData().size());
 		}
 		
 		// MiniStatMostActiveUser
@@ -594,6 +722,15 @@ public class ReportManagerTest extends AbstractTransactionalJUnit4SpringContextT
 			Assert.assertNotNull(rep);
 			// updated to 2, since there were only 2 users in 'site-a-id' at the time with matching events
 			Assert.assertEquals(2, rep.getReportData().size());
+			rp.setWho(ReportManager.WHO_CUSTOM);
+			rp.setWhoUserIds(listUserA);
+			rep = M_rm.getReport(r, false);
+			Assert.assertNotNull(rep);
+			Assert.assertEquals(1, rep.getReportData().size());
+			rp.setWhoUserIds(listNoUsers);
+			rep = M_rm.getReport(r, false);
+			Assert.assertNotNull(rep);
+			Assert.assertEquals(0, rep.getReportData().size());
 		}
 		
 		// MiniStatFiles (files with new event)
@@ -626,6 +763,15 @@ public class ReportManagerTest extends AbstractTransactionalJUnit4SpringContextT
 			Report rep = M_rm.getReport(r, false);
 			Assert.assertNotNull(rep);
 			Assert.assertEquals(2, rep.getReportData().size());
+			rp.setWho(ReportManager.WHO_CUSTOM);
+			rp.setWhoUserIds(listUserA);
+			rep = M_rm.getReport(r, false);
+			Assert.assertNotNull(rep);
+			Assert.assertEquals(1, rep.getReportData().size());
+			rp.setWhoUserIds(listNoUsers);
+			rep = M_rm.getReport(r, false);
+			Assert.assertNotNull(rep);
+			Assert.assertEquals(0, rep.getReportData().size());
 		}
 		
 		// MiniStatOpenedFiles (files with read event)
@@ -658,6 +804,15 @@ public class ReportManagerTest extends AbstractTransactionalJUnit4SpringContextT
 			Report rep = M_rm.getReport(r, false);
 			Assert.assertNotNull(rep);
 			Assert.assertEquals(2, rep.getReportData().size());
+			rp.setWho(ReportManager.WHO_CUSTOM);
+			rp.setWhoUserIds(listUserA);
+			rep = M_rm.getReport(r, false);
+			Assert.assertNotNull(rep);
+			Assert.assertEquals(1, rep.getReportData().size());
+			rp.setWhoUserIds(listNoUsers);
+			rep = M_rm.getReport(r, false);
+			Assert.assertNotNull(rep);
+			Assert.assertEquals(0, rep.getReportData().size());
 		}
 		
 		// MiniStatUserThatOpenedMoreFiles
@@ -690,6 +845,15 @@ public class ReportManagerTest extends AbstractTransactionalJUnit4SpringContextT
 			Report rep = M_rm.getReport(r, false);
 			Assert.assertNotNull(rep);
 			Assert.assertEquals(2, rep.getReportData().size());
+			rp.setWho(ReportManager.WHO_CUSTOM);
+			rp.setWhoUserIds(listUserA);
+			rep = M_rm.getReport(r, false);
+			Assert.assertNotNull(rep);
+			rp.setWhoUserIds(listNoUsers);
+			Assert.assertEquals(1, rep.getReportData().size());
+			rep = M_rm.getReport(r, false);
+			Assert.assertNotNull(rep);
+			Assert.assertEquals(0, rep.getReportData().size());
 		}
 	}
 
@@ -778,6 +942,9 @@ public class ReportManagerTest extends AbstractTransactionalJUnit4SpringContextT
 		Report r = null;
 		ReportParams rp = null;
 		List<String> totalsBy = null;
+		List<String> listOneUser = new ArrayList<>();
+		List<String> listNoUsers = new ArrayList<>();
+		listOneUser.add(FakeData.USER_A_ID);
 		
 		siteId = FakeData.SITE_A_ID;
 		ReportDef rd = new ReportDef();
@@ -789,15 +956,22 @@ public class ReportManagerTest extends AbstractTransactionalJUnit4SpringContextT
 		rp = new ReportParams(siteId);
 		rp.setWhat(ReportManager.WHAT_RESOURCES);
 		rp.setWhen(ReportManager.WHEN_ALL);
-		rp.setWho(ReportManager.WHO_ALL);
+		rp.setWho(ReportManager.WHO_CUSTOM);
 		totalsBy = new ArrayList<String>();
 		totalsBy.add(StatsManager.T_SITE);
 		totalsBy.add(StatsManager.T_USER);
 		rp.setHowTotalsBy(totalsBy);
 		rp.setHowSort(false);
 		rp.setHowPresentationMode(ReportManager.HOW_PRESENTATION_TABLE);
+		rp.setWhoUserIds(listOneUser);
 		rd.setReportParams(rp);
 		Report report = M_rm.getReport(rd, false);
+		Assert.assertNotNull(report);
+		rp.setWhoUserIds(listNoUsers);
+		report = M_rm.getReport(rd, false);
+		Assert.assertNotNull(report);
+		rp.setWho(ReportManager.WHO_ALL);
+		report = M_rm.getReport(rd, false);
 		Assert.assertNotNull(report);
 		
 		// CSV

@@ -22,7 +22,6 @@
 package org.sakaiproject.tool.assessment.ui.listener.author;
 
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.Iterator;
 import java.util.List;
 
@@ -33,6 +32,7 @@ import javax.faces.event.ActionEvent;
 import javax.faces.event.ActionListener;
 
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 
 import org.sakaiproject.tool.assessment.api.SamigoApiFactory;
 import org.sakaiproject.tool.assessment.data.dao.assessment.AssessmentAccessControl;
@@ -103,13 +103,32 @@ public class SaveAssessmentSettingsListener
     	context.addMessage(null,new FacesMessage(dueDateErr));
     	error=true;
     }
+
+    // check if RetractDate needs to be nulled
+    if ("2".equals(assessmentSettings.getLateHandling())){
+        assessmentSettings.setRetractDateString(null);
+    }
+
+    if(assessmentSettings.getDueDate() == null && assessmentSettings.getRetractDate() != null && AssessmentAccessControlIfc.ACCEPT_LATE_SUBMISSION.toString().equals(assessmentSettings.getLateHandling())){
+        String dueDateErr = ContextUtil.getLocalizedString("org.sakaiproject.tool.assessment.bundle.AssessmentSettingsMessages", "due_null_with_retract_date");
+        context.addMessage(null,new FacesMessage(dueDateErr));
+        error = true;
+    }
+
     // check if late submission date is valid
     if(!assessmentSettings.getIsValidRetractDate()){
     	String retractDateErr = ContextUtil.getLocalizedString("org.sakaiproject.tool.assessment.bundle.GeneralMessages","invalid_retrack_date");
     	context.addMessage(null,new FacesMessage(retractDateErr));
     	error=true;
     }
-    
+
+    // check that retract is after due and due is not null
+    if (!assessmentSettings.getIsRetractAfterDue()) {
+    	String retractDateErr = ContextUtil.getLocalizedString("org.sakaiproject.tool.assessment.bundle.AssessmentSettingsMessages", "retract_earlier_than_due");
+    	context.addMessage(null, new FacesMessage(retractDateErr));
+    	error = true;
+    }
+
     if (assessmentSettings.getReleaseTo().equals(AssessmentAccessControl.RELEASE_TO_SELECTED_GROUPS)) {
     	String[] groupsAuthorized = assessmentSettings.getGroupsAuthorizedToSave(); //getGroupsAuthorized();
     	if (groupsAuthorized == null || groupsAuthorized.length == 0) {
@@ -145,7 +164,7 @@ public class SaveAssessmentSettingsListener
         error=true;
     }
     
-    String ipString = assessmentSettings.getIpAddresses().trim();  
+    String ipString = assessmentSettings.getIpAddresses().trim().replace(" ", "");
      String[]arraysIp=(ipString.split("\n"));
      boolean ipErr=false;
      for(int a=0;a<arraysIp.length;a++){
@@ -202,7 +221,7 @@ public class SaveAssessmentSettingsListener
 		
     //check feedback - if at specific time then time should be defined.
     if((assessmentSettings.getFeedbackDelivery()).equals("2")) {
-    	if (assessmentSettings.getFeedbackDateString()==null || assessmentSettings.getFeedbackDateString().equals("")) {
+    	if (StringUtils.isBlank(assessmentSettings.getFeedbackDateString())) {
     		error=true;
     		String  date_err=ContextUtil.getLocalizedString("org.sakaiproject.tool.assessment.bundle.AssessmentSettingsMessages","date_error");
     		context.addMessage(null,new FacesMessage(date_err));
@@ -212,6 +231,27 @@ public class SaveAssessmentSettingsListener
         	context.addMessage(null,new FacesMessage(feedbackDateErr));
         	error=true;
         }
+		boolean scoreThresholdEnabled = assessmentSettings.getFeedbackScoreThresholdEnabled();
+		//Check if the value is empty
+		boolean scoreThresholdError = StringUtils.isBlank(assessmentSettings.getFeedbackScoreThreshold());
+		//If the threshold value is not empty, check if is a valid percentage
+		if (!scoreThresholdError) {
+			String submittedScoreThreshold = StringUtils.replace(assessmentSettings.getFeedbackScoreThreshold(), ",", ".");
+			try {
+				Double doubleInput = new Double(submittedScoreThreshold);
+				if(doubleInput.compareTo(new Double("0.0")) == -1 || doubleInput.compareTo(new Double("100.0")) == 1){
+					throw new Exception();
+				}
+			} catch(Exception ex) {
+				scoreThresholdError = true;
+			}
+		}
+		//If the threshold is enabled and is not valid, display an error.
+		if(scoreThresholdEnabled && scoreThresholdError){
+			error = true;
+			String str_err = ContextUtil.getLocalizedString("org.sakaiproject.tool.assessment.bundle.AssessmentSettingsMessages","feedback_score_threshold_required");
+			context.addMessage(null,new FacesMessage(str_err));
+		}
     }
     
     // check secure delivery exit password

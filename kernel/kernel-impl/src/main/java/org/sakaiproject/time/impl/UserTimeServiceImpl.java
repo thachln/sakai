@@ -1,5 +1,15 @@
 package org.sakaiproject.time.impl;
 
+import java.text.DateFormat;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeFormatterBuilder;
+import java.time.format.FormatStyle;
+import java.time.format.TextStyle;
+import java.util.Date;
+import java.util.Locale;
 import java.util.TimeZone;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -12,9 +22,12 @@ import org.sakaiproject.tool.api.SessionManager;
 import org.sakaiproject.user.api.Preferences;
 import org.sakaiproject.user.api.PreferencesService;
 
+import lombok.extern.slf4j.Slf4j;
+
 /**
  * This just deals with the user specific part of what timezone they are in.
  */
+@Slf4j
 public class UserTimeServiceImpl implements UserTimeService {
     // Cache of userIds to Timezone
     private Cache<String, String> M_userTzCache;
@@ -46,9 +59,12 @@ public class UserTimeServiceImpl implements UserTimeService {
         M_userTzCache = memoryService.getCache("org.sakaiproject.time.impl.BasicTimeService.userTimezoneCache");
     }
 
-    protected String getUserTimezone() {
-        // Check if we already cached this user's timezone
+    private String getUserTimezone() {
         String userId = sessionManager.getCurrentSessionUserId();
+        return getUserTimezone(userId);
+    }
+
+    private String getUserTimezone(String userId) {
         if (userId == null) return defaultTimezone;
 
         String timeZoneLocale = M_userTzCache.get(userId);
@@ -69,9 +85,6 @@ public class UserTimeServiceImpl implements UserTimeService {
         return timeZoneLocale;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public TimeZone getLocalTimeZone() {
         String tz = getUserTimezone();
@@ -79,13 +92,70 @@ public class UserTimeServiceImpl implements UserTimeService {
         return tzCache.computeIfAbsent(tz, TimeZone::getTimeZone);
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    @Override
+    public TimeZone getLocalTimeZone(String userId) {
+        String tz = getUserTimezone(userId);
+        return tzCache.computeIfAbsent(tz, TimeZone::getTimeZone);
+    }
+
     @Override
     public boolean clearLocalTimeZone(String userId) {
         M_userTzCache.remove(userId);
         return true;
     }
+    
+    
+    @Override
+    public String  dateFormatLong(Date date, Locale locale) {
+        log.debug("dateFormat: " + date.toString() + ", " + locale.toString());
 
+        DateFormat dsf = DateFormat.getDateInstance(DateFormat.LONG, locale);
+        dsf.setTimeZone(getLocalTimeZone());
+        String d = dsf.format(date); 
+        return d;
+    }
+
+
+    @Override
+	public String  dateTimeFormatLong(Date date, Locale locale) {
+        log.debug("dateFormat: " + date.toString() + ", " + locale.toString());
+
+        DateFormat dsf = DateFormat.getDateTimeInstance(DateFormat.LONG, DateFormat.LONG, locale);
+        dsf.setTimeZone(getLocalTimeZone());
+        String d = dsf.format(date);
+        return d;
+    }
+
+    @Override
+    public String shortLocalizedTimestamp(Instant instant, TimeZone timezone, Locale locale) {
+        ZonedDateTime userDate = ZonedDateTime.ofInstant(instant, timezone.toZoneId());
+        return userDate.format(buildTimestampFormatter(FormatStyle.MEDIUM, FormatStyle.SHORT, TextStyle.SHORT, locale));
+    }
+
+    @Override
+    public String shortLocalizedTimestamp(Instant instant, Locale locale) {
+        return shortLocalizedTimestamp(instant, getLocalTimeZone(), locale);
+    }
+
+    @Override
+    public String shortPreciseLocalizedTimestamp(Instant instant, TimeZone timezone, Locale locale) {
+        ZonedDateTime userDate = ZonedDateTime.ofInstant(instant, timezone.toZoneId());
+        return userDate.format(buildTimestampFormatter(FormatStyle.MEDIUM, FormatStyle.MEDIUM, TextStyle.SHORT, locale));
+    }
+
+    @Override
+    public String shortPreciseLocalizedTimestamp(Instant instant, Locale locale) {
+        return shortPreciseLocalizedTimestamp(instant, getLocalTimeZone(), locale);
+    }
+
+    @Override
+    public String shortLocalizedDate(LocalDate date, Locale locale) {
+        DateTimeFormatter df = DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(locale);
+        return date.format(df);
+    }
+
+    private DateTimeFormatter buildTimestampFormatter(FormatStyle dateStyle, FormatStyle timeStyle, TextStyle zoneStyle, Locale locale) {
+        return new DateTimeFormatterBuilder().appendLocalized(dateStyle, timeStyle)
+                .appendLiteral(" ").appendZoneText(zoneStyle).toFormatter(locale);
+    }
 }

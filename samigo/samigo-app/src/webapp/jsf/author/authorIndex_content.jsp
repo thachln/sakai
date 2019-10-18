@@ -32,16 +32,15 @@
 <html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en">
 <head><%= request.getAttribute("html.head") %>
     <title><h:outputText value="#{authorFrontDoorMessages.auth_front_door}" /></title>
-    <link rel="stylesheet" type="text/css" href="/library/webjars/bootstrap-multiselect/0.9.15/css/bootstrap-multiselect.css">
 </head>
 <body onload="<%= request.getAttribute("html.body.onload") %>">
     <div class="portletBody container-fluid">
 
-    <script src="/library/webjars/datatables/1.10.16/js/jquery.dataTables.min.js"></script>
-    <script src="/library/webjars/bootstrap-multiselect/0.9.15/js/bootstrap-multiselect.js"></script>
-    <samigo:script path="/js/info.js"/>
-    <samigo:script path="/js/naturalSort.js"/>
-    <script type="text/JavaScript">
+    <script type="text/JavaScript">includeWebjarLibrary('datatables');</script>
+    <script type="text/JavaScript">includeWebjarLibrary('bootstrap-multiselect');</script>
+    <script type="text/javascript" src="/samigo-app/js/info.js"></script>
+    <script type="text/javascript" src="/samigo-app/js/naturalSort.js"></script>
+    <script type="text/javascript">
         $(document).ready(function() {
             jQuery.extend(jQuery.fn.dataTableExt.oSort, {
                 "span-asc": function (a, b) {
@@ -225,7 +224,7 @@
         <%@ include file="/jsf/author/assessmentHeadings.jsp" %>
 
         <p>
-            <h:messages styleClass="messageSamigo" rendered="#{! empty facesContext.maximumSeverity}" layout="table"/>
+            <h:messages styleClass="sak-banner-error" rendered="#{! empty facesContext.maximumSeverity}" layout="table"/>
         </p>
 
         <div class="samigo-container">
@@ -265,9 +264,7 @@
 
             <!-- CORE ASSESSMENTS-->
             <h:panelGroup rendered="#{author.allAssessments.size() == 0}">
-                <p class="instruction">
-                    <h:outputText value="#{authorFrontDoorMessages.datatables_zeroRecords}" />
-                </p>
+                <h:outputText value="#{authorFrontDoorMessages.datatables_zeroRecords}" styleClass="sak-banner-info" />
             </h:panelGroup>
             <t:dataTable cellpadding="0" cellspacing="0" rowClasses="list-row-even,list-row-odd" styleClass="table table-hover table-striped table-bordered table-assessments" id="coreAssessments" value="#{author.allAssessments}" var="assessment" rendered="#{author.allAssessments.size() > 0}" summary="#{authorFrontDoorMessages.sum_coreAssessment}">
                 <%/* Title */%>
@@ -332,7 +329,7 @@
                     </h:panelGroup>
 
                     <h:panelGroup rendered="#{assessment['class'].simpleName == 'PublishedAssessmentFacade'}" styleClass="btn-group pull-right">
-                        <h:panelGroup rendered="#{(author.isGradeable && assessment.submittedCount > 0) && (author.isEditable && (!author.editPubAssessmentRestricted || !assessment.hasAssessmentGradingData))}">
+                        <h:panelGroup rendered="#{(author.isGradeable && assessment.hasAssessmentGradingData) && (author.isEditable && (!author.editPubAssessmentRestricted || !assessment.hasAssessmentGradingData))}">
                             <f:verbatim><button class="btn btn-xs dropdown-toggle" aria-expanded="false" data-toggle="dropdown" title="</f:verbatim>
                                 <h:outputText value="#{authorMessages.actions_for} " />
                                 <h:outputText value="#{authorFrontDoorMessages.assessment_draft} - " rendered="#{assessment['class'].simpleName == 'AssessmentFacade'}" />
@@ -370,7 +367,7 @@
                             </t:dataList>
                         </h:panelGroup>
 
-                        <h:panelGroup rendered="#{(author.isGradeable && assessment.submittedCount > 0) && (author.isEditable && !(!author.editPubAssessmentRestricted || !assessment.hasAssessmentGradingData))}">
+                        <h:panelGroup rendered="#{(author.isGradeable && assessment.hasAssessmentGradingData) && (author.isEditable && !(!author.editPubAssessmentRestricted || !assessment.hasAssessmentGradingData))}">
                             <f:verbatim><button class="btn btn-xs dropdown-toggle" aria-expanded="false" data-toggle="dropdown" title="</f:verbatim>
                                 <h:outputText value="#{authorMessages.actions_for} " />
                                 <h:outputText value="#{authorFrontDoorMessages.assessment_draft} - " rendered="#{assessment['class'].simpleName == 'AssessmentFacade'}" />
@@ -401,7 +398,7 @@
                             </t:dataList>
                         </h:panelGroup>
 
-                        <h:panelGroup rendered="#{!(author.isGradeable && assessment.submittedCount > 0) && (author.isEditable && (!author.editPubAssessmentRestricted || !assessment.hasAssessmentGradingData))}">
+                        <h:panelGroup rendered="#{!(author.isGradeable && assessment.hasAssessmentGradingData) && (author.isEditable && (!author.editPubAssessmentRestricted || !assessment.hasAssessmentGradingData))}">
                             <f:verbatim><button class="btn btn-xs dropdown-toggle" aria-expanded="false" data-toggle="dropdown" title="</f:verbatim>
                                 <h:outputText value="#{authorMessages.actions_for} " />
                                 <h:outputText value="#{authorFrontDoorMessages.assessment_draft} - " rendered="#{assessment['class'].simpleName == 'AssessmentFacade'}" />
@@ -505,7 +502,7 @@
                     <f:facet name="header">
                         <h:panelGroup>
                             <f:verbatim><a href="#" onclick="return false;"></f:verbatim>
-                                <h:outputText value="For"/>
+                                <h:outputText value="#{authorFrontDoorMessages.assessment_release }"/>
                             <f:verbatim></a></f:verbatim>
                         </h:panelGroup>
                     </f:facet>
@@ -514,7 +511,7 @@
                     <h:outputText value="#{authorFrontDoorMessages.entire_site}" styleClass="releaseto_entire" rendered="#{assessment.releaseTo ne 'Anonymous Users' && assessment.releaseTo ne 'Selected Groups'}" />
 
                     <t:div rendered="#{assessment.releaseTo eq 'Selected Groups'}">
-                        <t:div id="groupsHeader" onclick="#{assessment.groupCount gt 0 ? 'toggleGroups( this );' : ''}" styleClass="#{assessment.groupCount ge 1 ? 'collapsed' : 'messageError'}">
+                        <t:div id="groupsHeader" onclick="#{assessment.groupCount gt 0 ? 'toggleGroups( this );' : ''}" styleClass="#{assessment.groupCount ge 1 ? 'collapsed' : 'sak-banner-error'}">
                             <h:outputText value="#{assessment.groupCount} " rendered ="#{assessment.releaseTo eq 'Selected Groups' and assessment.groupCount gt 0}" />
                             <h:outputText value="#{authorFrontDoorMessages.selected_groups} " rendered="#{assessment.releaseTo eq 'Selected Groups' and assessment.groupCount gt 1}"/>
                             <h:outputText value="#{authorFrontDoorMessages.selected_group} " rendered="#{assessment.releaseTo eq 'Selected Groups' and assessment.groupCount eq 1}"/>
@@ -534,7 +531,7 @@
                     <f:facet name="header">
                         <h:panelGroup>
                             <f:verbatim><a href="#" onclick="return false;"></f:verbatim>
-                                <h:outputText value="Open"/>
+                                <h:outputText value="#{authorFrontDoorMessages.assessment_date}"/>
                             <f:verbatim></a></f:verbatim>
                         </h:panelGroup>
                     </f:facet>
@@ -549,7 +546,7 @@
                     <f:facet name="header">
                         <h:panelGroup>
                             <f:verbatim><a href="#" onclick="return false;"></f:verbatim>
-                                <h:outputText value="Due"/>
+                                <h:outputText value="#{authorFrontDoorMessages.assessment_due}"/>
                             <f:verbatim></a></f:verbatim>
                         </h:panelGroup>
                     </f:facet>

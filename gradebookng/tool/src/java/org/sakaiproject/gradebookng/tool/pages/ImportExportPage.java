@@ -15,7 +15,6 @@
  */
 package org.sakaiproject.gradebookng.tool.pages;
 
-import org.apache.wicket.RestartResponseException;
 import org.apache.wicket.ajax.AjaxRequestTarget;
 import org.apache.wicket.feedback.ExactLevelFeedbackMessageFilter;
 import org.apache.wicket.feedback.FeedbackMessage;
@@ -24,12 +23,10 @@ import org.apache.wicket.markup.head.CssHeaderItem;
 import org.apache.wicket.markup.head.IHeaderResponse;
 import org.apache.wicket.markup.head.JavaScriptHeaderItem;
 import org.apache.wicket.markup.html.WebMarkupContainer;
-import org.apache.wicket.request.mapper.parameter.PageParameters;
 
-import org.sakaiproject.component.cover.ServerConfigurationService;
-import org.sakaiproject.gradebookng.business.GbRole;
 import org.sakaiproject.gradebookng.tool.component.GbFeedbackPanel;
 import org.sakaiproject.gradebookng.tool.panels.importExport.GradeImportUploadStep;
+import org.sakaiproject.portal.util.PortalUtils;
 
 /**
  * Import Export page
@@ -56,18 +53,10 @@ public class ImportExportPage extends BasePage {
 	public final GbFeedbackPanel errorFeedbackPanel = (GbFeedbackPanel) new GbFeedbackPanel("errorFeedbackPanel").setFilter(new ExactLevelFeedbackMessageFilter(FeedbackMessage.ERROR));
 
 	public ImportExportPage() {
+
+		defaultRoleChecksForInstructorOnlyPage();
+
 		disableLink(this.importExportPageLink);
-
-		if (role == GbRole.NONE) {
-			final PageParameters params = new PageParameters();
-			params.add("message", getString("role.none"));
-			throw new RestartResponseException(AccessDeniedPage.class, params);
-		}
-
-		// students cannot access this page; redirect to the StudentPage
-		if (this.role == GbRole.STUDENT) {
-			throw new RestartResponseException(StudentPage.class);
-		}
 
 		container = new WebMarkupContainer("gradebookImportExportContainer");
 		container.setOutputMarkupId(true);
@@ -84,14 +73,14 @@ public class ImportExportPage extends BasePage {
 	public void renderHead(final IHeaderResponse response) {
 		super.renderHead(response);
 
-		final String version = ServerConfigurationService.getString("portal.cdn.version", "");
+		final String version = PortalUtils.getCDNQuery();
 
 		// Include Sakai Date Picker
-		response.render(JavaScriptHeaderItem.forUrl(String.format("/library/webjars/jquery-ui/1.12.1/jquery-ui.min.js?version=%s", version)));
-		response.render(JavaScriptHeaderItem.forUrl(String.format("/library/js/lang-datepicker/lang-datepicker.js?version=%s", version)));
+		response.render(JavaScriptHeaderItem.forUrl(String.format("/library/webjars/jquery-ui/1.12.1/jquery-ui.min.js%s", version)));
+		response.render(JavaScriptHeaderItem.forUrl(String.format("/library/js/lang-datepicker/lang-datepicker.js%s", version)));
 
 		// Gradebook Import/Export styles
-		response.render(CssHeaderItem.forUrl(String.format("/gradebookng-tool/styles/gradebook-importexport.css?version=%s", version)));
+		response.render(CssHeaderItem.forUrl(String.format("/gradebookng-tool/styles/gradebook-importexport.css%s", version)));
 	}
 
 	@Override

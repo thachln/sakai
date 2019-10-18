@@ -4,7 +4,11 @@ import javax.persistence.spi.PersistenceUnitInfo;
 import javax.sql.DataSource;
 
 import lombok.Setter;
+
+import org.apache.commons.lang3.StringUtils;
+import org.hibernate.cfg.AvailableSettings;
 import org.sakaiproject.component.api.ServerConfigurationService;
+import org.sakaiproject.hibernate.AssignableUUIDGenerator;
 import org.springframework.orm.jpa.persistenceunit.DefaultPersistenceUnitManager;
 import org.springframework.orm.jpa.persistenceunit.MutablePersistenceUnitInfo;
 
@@ -32,11 +36,19 @@ public class SakaiPersistenceUnitManager extends DefaultPersistenceUnitManager {
             pui.setNonJtaDataSource(dataSource);
         }
 
-//        TODO register AssignableUUIDGenerator
-//        AssignableUUIDGenerator.setServerConfigurationService(serverConfigurationService);
-//        pui.getIdentifierGeneratorFactory().register("uuid2", AssignableUUIDGenerator.class);
+        // override default UUIDGenerator with AssignableUUIDGenerator
+        pui.addProperty(org.hibernate.jpa.AvailableSettings.IDENTIFIER_GENERATOR_STRATEGY_PROVIDER, SakaiIdentifierGeneratorProvider.class.getName());
+        AssignableUUIDGenerator.setServerConfigurationService(serverConfigurationService);
 
         postProcessPersistenceUnitInfo(pui);
+
+        Boolean autoddl = serverConfigurationService.getBoolean("auto.ddl", true);
+        String hbm2ddl = serverConfigurationService.getString(AvailableSettings.HBM2DDL_AUTO);
+        if (autoddl) {
+            // if sakai auto.ddl is on then this needs to be set to update
+            hbm2ddl = "update";
+        }
+        pui.getProperties().setProperty(AvailableSettings.HBM2DDL_AUTO, StringUtils.defaultString(hbm2ddl));
 
         defaultPersistenceUnitInfo = pui;
     }

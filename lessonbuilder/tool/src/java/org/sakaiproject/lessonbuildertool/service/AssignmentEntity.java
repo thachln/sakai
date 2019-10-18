@@ -25,7 +25,7 @@ package org.sakaiproject.lessonbuildertool.service;
 
 import java.io.IOException;
 import java.time.Instant;
-import java.time.temporal.ChronoUnit;
+import java.time.ZonedDateTime;
 import java.util.*;
 
 import lombok.Setter;
@@ -271,6 +271,10 @@ public class AssignmentEntity implements LessonEntity, AssignmentInterface {
 	return assignment.getTitle();
     }
 
+    public String getDescription(){
+        return "";
+    }
+
     public String getUrl() {
 	
 	if (simplePageBean != null) {
@@ -354,6 +358,8 @@ public class AssignmentEntity implements LessonEntity, AssignmentInterface {
 		}
 		
 	    groups.add(group.getId());
+
+		edit.setIsGroup(true);
 
 		assignmentService.updateAssignment(edit);
 		doCancel = false;
@@ -602,7 +608,6 @@ public class AssignmentEntity implements LessonEntity, AssignmentInterface {
 
 	String siteId = ToolManager.getCurrentPlacement().getContext();
 	Site site = null;
-	String ref = "/assignment/a/" + siteId + "/" + id;
 
 	try {
 	    site = SiteService.getSite(siteId);
@@ -611,35 +616,22 @@ public class AssignmentEntity implements LessonEntity, AssignmentInterface {
 	    return;
 	}
 
-	Assignment edit = null;
-	
-	try {
-	    edit = assignmentService.getAssignment(ref);
-	} catch (IdUnusedException e) {
-	    log.warn("ID unused ", e);
-	    return;
-	} catch (PermissionException e) {
-	    log.warn(e.getMessage());
-	    return;
-	}
-
+	Assignment edit = assignment;
 	boolean doCancel = true;
 
 	try {
 	    // need this to make sure we always unlock
-	    
 	    if (groups != null && groups.size() > 0) {
-		Set<String> groupObjs = new HashSet<>();
-		
-		for (String groupId : groups) {
-		    Group group = site.getGroup(groupId);
-		    if (group != null) groupObjs.add(group.getId());
-		}
-
-		edit.setGroups(groupObjs);
+			Set<String> groupRefs = new HashSet<>();
+			for (String groupId : groups) {
+				Group group = site.getGroup(groupId);
+				if (group != null) groupRefs.add(group.getReference());
+			}
+			edit.setGroups(groupRefs);
+			edit.setTypeOfAccess(Assignment.Access.GROUP);
 	    } else {
-		edit.setTypeOfAccess(Assignment.Access.SITE);
-		edit.setGroups(new HashSet<>());
+			edit.setTypeOfAccess(Assignment.Access.SITE);
+			edit.setGroups(new HashSet<>());
 	    }
 
 	    assignmentService.updateAssignment(edit);
@@ -717,7 +709,9 @@ public class AssignmentEntity implements LessonEntity, AssignmentInterface {
 	    a.setAttachments(attachments);
 	    a.setContext(context);
 	    a.setOpenDate(Instant.now());
-	    a.setDueDate(Instant.now().plus(1, ChronoUnit.YEARS));
+	    Instant dueDate = ZonedDateTime.now().plusYears(1).toInstant();
+	    a.setDueDate(dueDate);
+	    a.setCloseDate(dueDate);
 	    a.setDraft(hide);
 	    a.setTypeOfAccess(Assignment.Access.SITE);
 	    a.setGroups(new HashSet<>());
@@ -833,7 +827,9 @@ public class AssignmentEntity implements LessonEntity, AssignmentInterface {
 
 		a.setContext(context);
 	    a.setOpenDate(Instant.now());
-	    a.setDueDate(Instant.now().plus(1, ChronoUnit.YEARS));
+	    Instant dueDate = ZonedDateTime.now().plusYears(1).toInstant();
+	    a.setDueDate(dueDate);
+	    a.setCloseDate(dueDate);
 
 	    a.setDraft(hide);
 	    a.setTypeOfAccess(Assignment.Access.SITE);

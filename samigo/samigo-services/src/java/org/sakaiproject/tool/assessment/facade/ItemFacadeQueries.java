@@ -21,7 +21,8 @@
 
 package org.sakaiproject.tool.assessment.facade;
 
-import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -32,9 +33,7 @@ import java.util.Set;
 
 import lombok.extern.slf4j.Slf4j;
 import org.hibernate.Query;
-import org.sakaiproject.tool.assessment.data.dao.assessment.Answer;
-import org.sakaiproject.tool.assessment.data.dao.assessment.AnswerFeedback;
-import org.hibernate.Session;
+import org.sakaiproject.tool.assessment.data.dao.assessment.ItemAttachment;
 import org.sakaiproject.tool.assessment.data.dao.assessment.ItemData;
 import org.sakaiproject.tool.assessment.data.dao.assessment.ItemMetaData;
 import org.sakaiproject.tool.assessment.data.dao.shared.TypeD;
@@ -306,46 +305,100 @@ public class ItemFacadeQueries extends HibernateDaoSupport implements ItemFacade
 
 
  public ItemFacade saveItem(ItemFacade item) throws DataFacadeException {
-    try{
-      ItemDataIfc itemdata = (ItemDataIfc) item.getData();
-      itemdata.setLastModifiedDate(new Date());
-      itemdata.setLastModifiedBy(AgentFacade.getAgentString());
-      itemdata.setHash(itemHashUtil.hashItem(itemdata));
+    List<ItemFacade> list = new ArrayList<>(1);
+    list.add(item);
+    list = saveItems(list);
+    return list.isEmpty() ? null : list.get(0);
+ }
+
+  public void removeItemAttachment(Long itemAttachmentId) {
+    ItemAttachment itemAttachment = getHibernateTemplate().load(ItemAttachment.class, itemAttachmentId);
+    ItemDataIfc item = itemAttachment.getItem();
     int retryCount = PersistenceService.getInstance().getPersistenceHelper().getRetryCount();
-    while (retryCount > 0){
+    while (retryCount > 0) {
       try {
-        getHibernateTemplate().saveOrUpdate(itemdata);
-        item.setItemId(itemdata.getItemId());
-        retryCount = 0;
-      }
-      catch (Exception e) {
-        log.warn("problem save or update itemdata: "+e.getMessage());
+        if (item != null) {
+          Set set = item.getItemAttachmentSet();
+          set.remove(itemAttachment);
+          getHibernateTemplate().delete(getHibernateTemplate().merge(itemAttachment));
+          retryCount = 0;
+        }
+      } catch (Exception e) {
+        log.warn("Error while trying to delete itemAttachment: " + e.getMessage());
         retryCount = PersistenceService.getInstance().getPersistenceHelper().retryDeadlock(e, retryCount);
       }
     }
-    if ((item.getData()!= null) && (item.getData().getSection()!= null)) {
-    AssessmentIfc assessment = item.getData().getSection().getAssessment();
-    assessment.setLastModifiedBy(AgentFacade.getAgentString());
-    assessment.setLastModifiedDate(new Date());
-    retryCount = PersistenceService.getInstance().getPersistenceHelper().getRetryCount();
-    while (retryCount > 0){
-    	try {
-    		getHibernateTemplate().update(assessment);
-    		retryCount = 0;
-    	}
-    	catch (Exception e) {
-    		log.warn("problem updating asssessment: "+e.getMessage());
-    		retryCount = PersistenceService.getInstance().getPersistenceHelper().retryDeadlock(e, retryCount);
-    	}
+  }
+ 
+  /**
+   * Similar to saveItem(ItemFacade item), only we can process many items within a single transaction, thereby improving performance
+   * @param items
+   * @return
+   */
+  public List<ItemFacade> saveItems(List<ItemFacade> items) throws DataFacadeException {
+    try {
+      int retryCount;
+      // Track assessments associated with each item
+      List<AssessmentIfc> assessmentsToUpdate = new ArrayList<>();
+      Set<Long> assessmentIds = new HashSet<>();
+
+      for (ItemFacade item : items) {
+        ItemDataIfc itemdata = (ItemDataIfc) item.getData();
+        itemdata.setLastModifiedDate(new Date());
+        itemdata.setLastModifiedBy(AgentFacade.getAgentString());
+        itemdata.setHash(itemHashUtil.hashItem(itemdata));
+        retryCount = PersistenceService.getInstance().getPersistenceHelper().getRetryCount();
+
+        while (retryCount > 0) {
+          try {
+            getHibernateTemplate().saveOrUpdate(itemdata);
+            item.setItemId(itemdata.getItemId());
+            retryCount = 0;
+          } catch (Exception e) {
+            try{
+              itemdata = getHibernateTemplate().merge(itemdata);
+              item.setItemId(itemdata.getItemId());
+              retryCount = 0;
+            } catch (Exception e2) {
+              log.warn("saveitems - problem save or update itemdata: {}", e2.getMessage());
+              retryCount = PersistenceService.getInstance().getPersistenceHelper().retryDeadlock(e2, retryCount);
+            }
+          }
+        }
+
+        // Update the assessment once after all items are updated. So just track them here
+        if (item.getData() != null && item.getData().getSection() != null) {
+          AssessmentIfc assessment = item.getData().getSection().getAssessment();
+          if (!assessmentIds.contains(assessment.getAssessmentId())) {
+            assessmentIds.add(assessment.getAssessmentId());
+            assessmentsToUpdate.add(item.getData().getSection().getAssessment());
+          }
+        }
+      }
+
+      // All items are updated, now mark their associated assessments' "LastModified" properties
+      for (AssessmentIfc assessment : assessmentsToUpdate) {
+        assessment.setLastModifiedBy(AgentFacade.getAgentString());
+        assessment.setLastModifiedDate(new Date());
+        retryCount = PersistenceService.getInstance().getPersistenceHelper().getRetryCount();
+
+        while (retryCount > 0) {
+          try {
+            getHibernateTemplate().update(assessment);
+            retryCount = 0;
+          } catch (Exception e) {
+            log.warn("save items: problem updating assessment: {}", e.getMessage());
+            retryCount = PersistenceService.getInstance().getPersistenceHelper().retryDeadlock(e, retryCount);
+          }
+        }
+      }
+
+      return items;
+    } catch (Exception e) {
+      log.warn(e.getMessage(), e);
+      return Collections.emptyList();
     }
-    }
-    return item;
-    }
-    catch(Exception e){
-        log.error(e.getMessage(), e);
-        return null;
-    }
- }
+  }
 
     private static final Map<String,String> BACKFILL_HASHES_HQL = new HashMap<String,String>() {{
         this.put(TOTAL_ITEM_COUNT_HQL, "select count(*) from ItemData");

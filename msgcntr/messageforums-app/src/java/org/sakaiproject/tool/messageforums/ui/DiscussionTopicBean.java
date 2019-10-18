@@ -30,7 +30,7 @@ import java.util.List;
 import javax.faces.context.FacesContext;
 
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 
 import org.sakaiproject.api.app.messageforums.Attachment;
 import org.sakaiproject.api.app.messageforums.DiscussionForum;
@@ -39,6 +39,8 @@ import org.sakaiproject.api.app.messageforums.UserPreferencesManager;
 import org.sakaiproject.api.app.messageforums.ui.DiscussionForumManager;
 import org.sakaiproject.api.app.messageforums.ui.UIPermissionsManager;
 import org.sakaiproject.component.cover.ComponentManager;
+import org.sakaiproject.rubrics.logic.RubricsConstants;
+import org.sakaiproject.rubrics.logic.RubricsService;
 import org.sakaiproject.util.ResourceLoader;
 
 /**
@@ -87,6 +89,8 @@ public class DiscussionTopicBean
   private String postFirst = "";
   private String postAnonymous = "";
   private String revealIDsToRoles = "";
+  private Boolean allowEmailNotifications = null;
+  private Boolean includeContentsInEmails = null;
   private String mustRespondBeforeReading = "";
   private String parentForumId = "";
   
@@ -97,7 +101,9 @@ public class DiscussionTopicBean
   
   private static final String MESSAGECENTER_BUNDLE = "org.sakaiproject.api.app.messagecenter.bundle.Messages";
   private static final ResourceLoader rb = new ResourceLoader(MESSAGECENTER_BUNDLE);
-  
+
+  private static RubricsService rubricsService = ComponentManager.get(RubricsService.class);
+
   private List messages = new ArrayList();
 
   private SimpleDateFormat ourDateFormat() {
@@ -1275,5 +1281,74 @@ public class DiscussionTopicBean
 			return formattedOpenDate;
 		}
 	}
-	
+
+	/**
+	 * @return Returns boolean value of allowEmailNotifications
+	 */
+	public Boolean getTopicAllowEmailNotifications() {
+		log.debug("getTopicAllowEmailNotifications()");
+		if (allowEmailNotifications == null) {
+			if (topic == null || topic.getAllowEmailNotifications() == null) {
+				allowEmailNotifications = Boolean.FALSE;
+			} else {
+				allowEmailNotifications = topic.getAllowEmailNotifications();
+			}
+		}
+
+		return allowEmailNotifications;
+	}
+
+	/**
+	 * @param allowEmailNotifications
+	 * Set the allowEmailNotifications status.
+	 */
+	public void setTopicAllowEmailNotifications(Boolean allowEmailNotifications)
+	{
+		log.debug("setTopicAllowEmailNotifications(Boolean {}", allowEmailNotifications);
+		topic.setAllowEmailNotifications(allowEmailNotifications);
+	}
+
+	/**
+	 * @return Returns boolean value of includeContentsInEmails status.
+	 */
+	public Boolean getTopicIncludeContentsInEmails() {
+		log.debug("getTopicIncludeContentsInEmails()");
+		if (includeContentsInEmails == null) {
+			if (topic == null || topic.getIncludeContentsInEmails() == null) {
+				includeContentsInEmails = Boolean.FALSE;
+			} else {
+				includeContentsInEmails = topic.getIncludeContentsInEmails();
+			}
+		}
+
+		return includeContentsInEmails;
+	}
+
+	/**
+	 * @param includeContentsInEmails
+	 * Set the includeContentsInEmails status.
+	 */
+	public void setTopicIncludeContentsInEmails(Boolean includeContentsInEmails) {
+		log.debug("setTopicIncludeContentsInEmails(Boolean {})", includeContentsInEmails);
+		topic.setIncludeContentsInEmails(includeContentsInEmails);
+	}
+
+	/**
+	 * Return whether or not the topic will use specific group permissions.
+	 */
+	public String getRestrictPermissionsForGroups() {
+		log.debug("getRestrictPermissionsForGroups()");
+		return Boolean.toString(topic.getRestrictPermissionsForGroups());
+	}
+
+	/**
+	 * Set the restrictPermissionsForGroups setting for the topic.
+	 */
+	public void setRestrictPermissionsForGroups(String restrictPermissionsForGroups) {
+		log.debug("setRestrictPermissionsForGroups()");
+		topic.setRestrictPermissionsForGroups(Boolean.parseBoolean(restrictPermissionsForGroups));
+	}
+	public String getHasRubric(){
+		return rubricsService.hasAssociatedRubric(RubricsConstants.RBCS_TOOL_FORUMS, RubricsConstants.RBCS_TOPIC_ENTITY_PREFIX + topic.getId()) ? Boolean.TRUE.toString() : Boolean.FALSE.toString();
+	}
 }

@@ -2,7 +2,7 @@
 <%@ taglib uri="http://java.sun.com/jsf/html" prefix="h" %>
 <%@ taglib uri="http://java.sun.com/jsf/core" prefix="f" %>
 <%@ taglib uri="http://www.sakaiproject.org/samigo" prefix="samigo" %>
-<%@ taglib uri="http://sakaiproject.org/jsf/sakai" prefix="sakai" %>
+<%@ taglib uri="http://sakaiproject.org/jsf2/sakai" prefix="sakai" %>
 <!DOCTYPE html
      PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
      "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
@@ -32,7 +32,7 @@
     <html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en">
       <head><%= request.getAttribute("html.head") %>
       <title><h:outputText value="#{authorMessages.item_display_author}"/></title>
-      <samigo:script path="/js/authoring.js"/>
+      <script type="text/javascript" src="/samigo-app/js/authoring.js"></script>
       </head>
       <body onload="<%= request.getAttribute("html.body.onload") %>">
 
@@ -44,7 +44,7 @@
 <%@ include file="/jsf/author/item/itemHeadings.jsp" %>
 
 <%-- warning for editing FIB questions. SAM-2334 --%>
-<h:panelGroup rendered="#{!author.isEditPendingAssessmentFlow}" styleClass="messageSamigo2">
+<h:panelGroup rendered="#{!author.isEditPendingAssessmentFlow}" styleClass="sak-banner-warn">
 	<h:panelGrid  columns="1">
 		<h:outputText value="#{authorMessages.edit_fib_warning}" />
 	</h:panelGrid>
@@ -111,6 +111,9 @@
         </div>
     </f:subview>
 
+    <!-- Extra Credit -->
+    <%@ include file="/jsf/author/inc/extraCreditSetting.jspf" %>
+
     <%-- 2 QUESTION TEXT --%> 
     <h:outputLabel value="#{authorMessages.q_text}" /><br/>
     <h:outputText value="#{authorMessages.defining_answers}<br/>" escape="false"/>  
@@ -120,7 +123,7 @@
 
     <div class="mathjax-warning" style="display: none;">
       <h:outputText value="#{authorMessages.accepted_characters}" escape="false"/>
-      <div class="alert alert-warning">
+      <div class="sak-banner-warn">
           <h:outputText value="#{authorMessages.mathjax_usage_warning}" escape="false"/>
       </div>
     </div>

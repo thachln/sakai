@@ -24,8 +24,6 @@
 
 package org.sakaiproject.lessonbuildertool.tool.beans;
 
-import au.com.bytecode.opencsv.CSVParser;
-
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.File;
@@ -35,7 +33,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.Method;
 import java.math.BigDecimal;
-import java.net.URI;
 import java.net.URL;
 import java.net.URLConnection;
 import java.text.DateFormat;
@@ -53,23 +50,23 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Properties;
 import java.util.Set;
 import java.util.StringTokenizer;
 import java.util.TimeZone;
+import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+
 
 import javax.servlet.http.HttpServletResponse;
 
-import lombok.extern.slf4j.Slf4j;
-
-import org.apache.commons.lang.StringUtils;
-
+import org.apache.commons.lang3.StringUtils;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
-
 import org.sakaiproject.authz.api.AuthzGroup;
 import org.sakaiproject.authz.api.AuthzGroupService;
 import org.sakaiproject.authz.api.Member;
@@ -77,7 +74,13 @@ import org.sakaiproject.authz.api.SecurityAdvisor;
 import org.sakaiproject.authz.api.SecurityService;
 import org.sakaiproject.basiclti.util.SakaiBLTIUtil;
 import org.sakaiproject.component.cover.ServerConfigurationService;
-import org.sakaiproject.content.api.*;
+import org.sakaiproject.content.api.ContentCollection;
+import org.sakaiproject.content.api.ContentCollectionEdit;
+import org.sakaiproject.content.api.ContentEntity;
+import org.sakaiproject.content.api.ContentHostingService;
+import org.sakaiproject.content.api.ContentResource;
+import org.sakaiproject.content.api.ContentResourceEdit;
+import org.sakaiproject.content.api.FilePickerHelper;
 import org.sakaiproject.content.api.GroupAwareEntity.AccessMode;
 import org.sakaiproject.content.cover.ContentTypeImageService;
 import org.sakaiproject.db.cover.SqlService;
@@ -90,14 +93,33 @@ import org.sakaiproject.exception.IdUnusedException;
 import org.sakaiproject.exception.PermissionException;
 import org.sakaiproject.exception.TypeException;
 import org.sakaiproject.id.cover.IdManager;
-import org.sakaiproject.lessonbuildertool.*;
+import org.sakaiproject.lessonbuildertool.SimpleChecklistItem;
+import org.sakaiproject.lessonbuildertool.SimplePage;
+import org.sakaiproject.lessonbuildertool.SimplePageComment;
+import org.sakaiproject.lessonbuildertool.SimplePageGroup;
+import org.sakaiproject.lessonbuildertool.SimplePageItem;
+import org.sakaiproject.lessonbuildertool.SimplePageItemImpl;
+import org.sakaiproject.lessonbuildertool.SimplePageLogEntry;
+import org.sakaiproject.lessonbuildertool.SimplePagePeerEval;
+import org.sakaiproject.lessonbuildertool.SimplePagePeerEvalResult;
+import org.sakaiproject.lessonbuildertool.SimplePageQuestionAnswer;
+import org.sakaiproject.lessonbuildertool.SimplePageQuestionResponse;
+import org.sakaiproject.lessonbuildertool.SimpleStudentPage;
 import org.sakaiproject.lessonbuildertool.api.LessonBuilderEvents;
 import org.sakaiproject.lessonbuildertool.cc.CartridgeLoader;
 import org.sakaiproject.lessonbuildertool.cc.Parser;
 import org.sakaiproject.lessonbuildertool.cc.PrintHandler;
 import org.sakaiproject.lessonbuildertool.cc.ZipLoader;
 import org.sakaiproject.lessonbuildertool.model.SimplePageToolDao;
-import org.sakaiproject.lessonbuildertool.service.*;
+import org.sakaiproject.lessonbuildertool.service.AjaxServer;
+import org.sakaiproject.lessonbuildertool.service.BltiInterface;
+import org.sakaiproject.lessonbuildertool.service.GradebookIfc;
+import org.sakaiproject.lessonbuildertool.service.GroupPermissionsService;
+import org.sakaiproject.lessonbuildertool.service.LessonBuilderAccessService;
+import org.sakaiproject.lessonbuildertool.service.LessonBuilderEntityProducer;
+import org.sakaiproject.lessonbuildertool.service.LessonEntity;
+import org.sakaiproject.lessonbuildertool.service.LessonSubmission;
+import org.sakaiproject.lessonbuildertool.service.LessonsAccess;
 import org.sakaiproject.lessonbuildertool.tool.beans.helpers.ResourceHelper;
 import org.sakaiproject.lessonbuildertool.tool.producers.PagePickerProducer;
 import org.sakaiproject.lessonbuildertool.tool.producers.ShowItemProducer;
@@ -107,7 +129,12 @@ import org.sakaiproject.lti.api.LTIService;
 import org.sakaiproject.memory.api.Cache;
 import org.sakaiproject.memory.api.MemoryService;
 import org.sakaiproject.portal.util.ToolUtils;
-import org.sakaiproject.site.api.*;
+import org.sakaiproject.service.gradebook.shared.ConflictingAssignmentNameException;
+import org.sakaiproject.site.api.Group;
+import org.sakaiproject.site.api.Site;
+import org.sakaiproject.site.api.SitePage;
+import org.sakaiproject.site.api.SiteService;
+import org.sakaiproject.site.api.ToolConfiguration;
 import org.sakaiproject.time.cover.TimeService;
 import org.sakaiproject.tool.api.Placement;
 import org.sakaiproject.tool.api.SessionManager;
@@ -119,11 +146,12 @@ import org.sakaiproject.user.cover.UserDirectoryService;
 import org.sakaiproject.util.FormattedText;
 import org.sakaiproject.util.ResourceLoader;
 import org.sakaiproject.util.Validator;
-
 import org.springframework.web.multipart.MultipartFile;
+import org.tsugi.basiclti.ContentItem;
 
-import org.tsugi.lti2.ContentItem;
+import com.opencsv.CSVParser;
 
+import lombok.extern.slf4j.Slf4j;
 import uk.org.ponder.messageutil.MessageLocator;
 import uk.org.ponder.rsf.components.UIContainer;
 import uk.org.ponder.rsf.components.UIInternalLink;
@@ -346,6 +374,10 @@ public class SimplePageBean {
     //        SimpleDateFormat isoDateFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssZ");
 	SimpleDateFormat isoDateFormat = getIsoDateFormat();
 	
+        // SAK-41846 - Counters to adjust item sequences when multiple files are added simultaneously
+        private int totalMultimediaFilesToAdd = 0;
+        private int remainingMultimediaFilesToAdd = 0;
+
 	public void setPeerEval(boolean peerEval) {
 		this.peerEval = peerEval;
 	}
@@ -469,15 +501,17 @@ public class SimplePageBean {
 	public static class UrlItem {
 		public String Url;
 		public String label;
+		public String description;
 		public String fa_icon = null;
 		public Boolean search = Boolean.FALSE;
 		public UrlItem(String Url, String label) {
 			this.Url = Url;
 			this.label = label;
 		}
-		public UrlItem(String Url, String label, String fa_icon, Boolean search) {
+		public UrlItem(String Url, String label, String description, String fa_icon, Boolean search) {
 			this.Url = Url;
 			this.label = label;
+			this.description = description;
 			this.fa_icon = fa_icon;
 			this.search = search;
 		}
@@ -1725,16 +1759,24 @@ public class SimplePageBean {
 		    // have an item number specified, look for the item to insert before
 		    for (SimplePageItem item: items) {
 			if (item.getId() == before) {
-			    // found item to insert before
-			    // use its sequence and bump up it and all after
-			    nseq = item.getSequence();
-			    after = true;
-			    if (addAfter) {
-				nseq++;
-				continue;
-			    }
+				//if Comments Section item, find the biggest sequence
+				//and assign nseq to be after it for the new item
+				if(isCommentsItem(item)) {
+					nseq = findNextSequence(items);
+				}
+				//for all the other regular items
+				else {
+					// found item to insert before
+					// use its sequence and bump up it and all after
+					nseq = item.getSequence();
+					after = true;
+					if (addAfter) {
+						nseq++;
+						continue;
+					}
+				}
 			}
-			if (after) {
+			if (after && item.getPageId() >= 0) {
 			    item.setSequence(item.getSequence() + 1);
 			    simplePageToolDao.quickUpdate(item);
 			}
@@ -2776,7 +2818,11 @@ public class SimplePageBean {
 		if (makeNewPage) {
 		    subpage = simplePageToolDao.makePage(toolId, getCurrentSiteId(), title, parent, topParent);
 		    subpage.setOwner(owner);
-		    subpage.setOwned(owner!=null);
+		    if(isStudentPage(page)){
+		        subpage.setOwned(false);
+		    } else {
+		        subpage.setOwned(owner!=null);
+		    }
 		    subpage.setGroup(group);
 		    saveItem(subpage);
 		    selectedEntity = String.valueOf(subpage.getPageId());
@@ -3409,6 +3455,12 @@ public class SimplePageBean {
 			    } else {
 				// no, add new item
 				i = appendItem(selectedBlti, selectedObject.getTitle(), SimplePageItem.BLTI);
+
+				//Copy the LTI tool description to the item description.
+				if(StringUtils.isNotEmpty(description)){
+					i.setDescription(description);
+				}
+
 				BltiInterface blti = (BltiInterface)bltiEntity.getEntity(selectedBlti);
 				if (blti != null) {
 				    int height = blti.frameSize();
@@ -3478,6 +3530,31 @@ public class SimplePageBean {
 
 	    return ret;
 	}
+	
+	public String getSubPagePath(SimplePageItem item, boolean subPageTitleContinue) {
+		String subPageTitle = "";
+		List<SimplePageItem> items = simplePageToolDao.findItemsBySakaiId(String.valueOf(item.getPageId()));
+		while(items != null && items.size()>0)
+		{
+			if("".equals(subPageTitle) && subPageTitleContinue)
+			{
+				subPageTitle = items.get(0).getName() + " (" + messageLocator.getMessage("simplepage.printall.continuation") + ")";
+			}
+			else if("".equals(subPageTitle))
+			{
+				subPageTitle = items.get(0).getName();
+			}
+			else
+			{
+				subPageTitle = items.get(0).getName() +" > "+ subPageTitle;
+			}
+			items = simplePageToolDao.findItemsBySakaiId(String.valueOf(items.get(0).getPageId()));
+		}
+				
+		if("".equals(subPageTitle)) subPageTitle = null;
+			
+		return subPageTitle;
+	}
 
     // too much existing code to convert to throw at the moment
         public String getItemGroupString (SimplePageItem i, LessonEntity entity, boolean nocache) {
@@ -3526,11 +3603,16 @@ public class SimplePageBean {
 		     return messageLocator.getMessage("simplepage.hiddenpage");
 		 // for index of pages we need to show even out of date release dates
 		 if (page.getReleaseDate() != null) { // && page.getReleaseDate().after(new Date())) {
-		     DateFormat df = DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT, locale);
-		     TimeZone tz = TimeService.getLocalTimeZone();
-		     df.setTimeZone(tz);
-		     String releaseDate = df.format(page.getReleaseDate());
-		     return messageLocator.getMessage("simplepage.pagenotreleased").replace("{}", releaseDate);
+		     Date releaseDate = page.getReleaseDate();
+		     Date date = new Date();
+		     if (date.before(releaseDate)) {
+		        DateFormat df = DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT, locale);
+		        TimeZone tz = TimeService.getLocalTimeZone();
+		        String releaseDateStr = df.format(page.getReleaseDate());
+		        df.setTimeZone(tz);
+		        return messageLocator.getMessage("simplepage.pagenotreleased").replace("{}", releaseDateStr);
+		     }
+		     return null;
 		 }
 	     }
 	     return null;
@@ -3795,6 +3877,13 @@ public class SimplePageBean {
 	   if (isStudentPage(getCurrentPage())) {
 	       return null;
 	   }
+
+	   //Remove the existing groups from the item cache before assigning the new groups.
+	   if(i != null && StringUtils.isNotEmpty(i.getSakaiId())){
+	       log.info("Removing the item {} assigned groups from the cache.", i.getSakaiId());
+	       groupCache.remove(i.getSakaiId());
+	   }
+
 	   LessonEntity lessonEntity = null;
 	   switch (i.getType()) {
 	   case SimplePageItem.ASSIGNMENT:
@@ -4231,9 +4320,13 @@ public class SimplePageBean {
 			if (newPoints == null && currentPoints != null) {
 				add = gradebookIfc.removeExternalAssessment(site.getId(), "lesson-builder:" + page.getPageId());
 			} else if (newPoints != null && currentPoints == null) {
-				add = gradebookIfc.addExternalAssessment(site.getId(), "lesson-builder:" + page.getPageId(), null,
+				try {
+					add = gradebookIfc.addExternalAssessment(site.getId(), "lesson-builder:" + page.getPageId(), null,
 						       	pageTitle, newPoints, null, "Lesson Builder");
-				
+				} catch(ConflictingAssignmentNameException cane) {
+					add = false;
+					setErrMessage(messageLocator.getMessage("simplepage.existing-gradebook"));
+				}
 				if(!add) {
 					setErrMessage(messageLocator.getMessage("simplepage.no-gradebook"));
 				} else
@@ -4719,7 +4812,7 @@ public class SimplePageBean {
 		if (order == null) {
 			return "cancel";
 		}
-		
+
 		simplePageToolDao.setRefreshMode();
 
 		fixorder(); // order has to be contiguous or things will break
@@ -5085,11 +5178,11 @@ public class SimplePageBean {
 
 		Collection<String>itemGroups = null;
 		SecurityAdvisor advisor = null;
+		LessonEntity entity = null;
 		try {
 		    // need to do this before pushing the advisor, or we get bad results
 		    boolean canSeeAll = canSeeAll();
 		    advisor = pushAdvisorAlways();
-		    LessonEntity entity = null;
 		    if (!canSeeAll && !item.isRequired()) {
 			switch (item.getType()) {
 			case SimplePageItem.ASSIGNMENT:
@@ -5113,6 +5206,11 @@ public class SimplePageBean {
 				return false;
 			}
 		    }
+		} finally {
+			popAdvisor(advisor);
+		}
+
+		try {
 		    // entity can be null. passing the actual entity just avoids a second lookup
 		    itemGroups = getItemGroups(item, entity, false);
 		} catch (IdUnusedException exc) {
@@ -5121,9 +5219,8 @@ public class SimplePageBean {
 		    // basically you can't group restrict an item until it exists
 		    visibleCache.put(item.getId(), item.isRequired());
 		    return item.isRequired();
-		} finally {
-		    popAdvisor(advisor);
 		}
+
 		if (itemGroups == null || itemGroups.isEmpty()) {
 		    // this includes items for which for which visibility doesn't apply
 		    visibleCache.put(item.getId(), true);
@@ -5146,20 +5243,19 @@ public class SimplePageBean {
 		
     private boolean arePageItemsComplete(long pageId) {
 
-	int sequence = 1;
-	SimplePageItem i = simplePageToolDao.findNextItemOnPage(pageId, sequence);
+        int sequence = 0;
+        SimplePageItem i = simplePageToolDao.findNextItemOnPage(pageId, sequence);
 
-	while (i != null) {
-	    if (i.isRequired() && !isItemComplete(i) && isItemVisible(i)) 
-		return false; 
+        while (i != null) {
+            if (i.isRequired() && !isItemComplete(i) && isItemVisible(i)) {
+                return false;
+            }
+            sequence++;
+            i = simplePageToolDao.findNextItemOnPage(pageId, sequence);
+        }
 
-	    sequence++; 
-	    i = simplePageToolDao.findNextItemOnPage(pageId, sequence); 
-	}
-
-	return true;
+        return true;
     }
-
 
     // this is called in a loop to see whether items are available. Since computing it can require
     // database transactions, we cache the results
@@ -5450,7 +5546,6 @@ public class SimplePageBean {
 			return true;
 		}
 		
-		
 		List<SimplePageItem> items = getItemsOnPage(Long.valueOf(findItem(itemId).getSakaiId()));
 
 		for (SimplePageItem item : items) {
@@ -5525,17 +5620,15 @@ public class SimplePageBean {
 			return needed;
 		}
 
-	    // get dummy items for top level pages in site
-
-		List<SimplePageItem> items = simplePageToolDao.findItemsInSite(getCurrentSite().getId());
-		// sorted by SQL
+		final List<SimplePageItem> items = simplePageToolDao.getOrderedTopLevelPageItems(getCurrentSite().getId());
 
 		for (SimplePageItem i : items) {
 			if (i.getSakaiId().equals(currentPageId)) {
-				return needed;  // reached current page. we're done
+				return needed;	// reached current page. we're done
 			}
-			if (i.isRequired() && !isItemComplete(i) && isItemVisible(i))
+			if (i.isRequired() && !isItemComplete(i) && isItemVisible(i)) {
 				needed.add(i.getName());
+			}
 		}
 
 		return needed;
@@ -5577,6 +5670,20 @@ public class SimplePageBean {
 	    if (fixupType != 0)
 		lessonBuilderEntityProducer.fixupGroupRefs(getCurrentSiteId(), this, fixupType);
 
+	}
+
+	private boolean isCommentsItem(SimplePageItem item) {
+		return item.getType() == SimplePageItem.COMMENTS;
+	}
+
+	private int findNextSequence(List<SimplePageItem> items) {
+		int nseq = 0;
+		for (SimplePageItem item : items) {
+			if( item.getSequence() > nseq) {
+				nseq = item.getSequence();
+			}
+		}
+		return nseq++;
 	}
 
 	public boolean isItemAvailable(SimplePageItem item) {
@@ -5936,13 +6043,13 @@ public class SimplePageBean {
 		// doesn't seem to make sense to use ellipses for less than length of 8. better just to truncate
 		// if possible, truncate the base
 		if (base.length() > (overage + 8)) {
-		    ret[0] = org.apache.commons.lang.StringUtils.abbreviateMiddle(name, "_", maxname - extension.length());
+		    ret[0] = org.apache.commons.lang3.StringUtils.abbreviateMiddle(name, "_", maxname - extension.length());
 		    return ret;
 		}
 
 		// but what about b.eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee, or more likely, .xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 		if (extension.length() > (overage + 8)) {
-		    ret[1] = org.apache.commons.lang.StringUtils.abbreviateMiddle(extension, "_", maxname - base.length());
+		    ret[1] = org.apache.commons.lang3.StringUtils.abbreviateMiddle(extension, "_", maxname - base.length());
 		    return ret;
 		}
 
@@ -5954,7 +6061,7 @@ public class SimplePageBean {
 
 		// base has to be larger than maxname, so final length will be maxname
 		if (maxname > 8) {
-		    ret[0] = org.apache.commons.lang.StringUtils.abbreviateMiddle(base, "_", maxname);
+		    ret[0] = org.apache.commons.lang3.StringUtils.abbreviateMiddle(base, "_", maxname);
 		    return ret;
 		}
 
@@ -5977,7 +6084,7 @@ public class SimplePageBean {
 		// for owned pages, use the same kind of hierarchy. One exception: use site name as basedir
 		if (pageOwner != null) {
 		    String title = getCurrentSite().getTitle();
-		    baseDir = Validator.escapeResourceName(org.apache.commons.lang.StringUtils.abbreviateMiddle(title,"_",30));
+		    baseDir = Validator.escapeResourceName(org.apache.commons.lang3.StringUtils.abbreviateMiddle(title,"_",30));
 		}		    
 
 		// if (pageOwner == null) {
@@ -6024,7 +6131,7 @@ public class SimplePageBean {
 			    // 33 is a name of length 30 and -NN for duplicates
 			    // actual length is 255, but I worry about weird characters I don't understand
 			    if (title.length() > (250 - collectionId.length() - 33)) {
-				title = Validator.escapeResourceName(org.apache.commons.lang.StringUtils.abbreviateMiddle(getPageTitle(),"_",30)) + "/";
+				title = Validator.escapeResourceName(org.apache.commons.lang3.StringUtils.abbreviateMiddle(getPageTitle(),"_",30)) + "/";
 			    }
 			    
 			    // make sure folder names are unique
@@ -6113,7 +6220,7 @@ public class SimplePageBean {
 	    seen.add(page.getPageId());
 	    List<SimplePageItem> items = simplePageToolDao.findPageItemsBySakaiId(Long.toString(page.getPageId()));
 	    if (items == null || items.isEmpty()) {
-		return new Path(0, Validator.escapeResourceName(org.apache.commons.lang.StringUtils.abbreviateMiddle(page.getTitle(),"_",30)) + "/");
+		return new Path(0, Validator.escapeResourceName(org.apache.commons.lang3.StringUtils.abbreviateMiddle(page.getTitle(),"_",30)) + "/");
 	    }
 	    else {
 		int minlevel = 9999;
@@ -6135,8 +6242,8 @@ public class SimplePageBean {
 		    }
 		}
 		if (bestPath.equals(""))
-		    return new Path(0, Validator.escapeResourceName(org.apache.commons.lang.StringUtils.abbreviateMiddle(page.getTitle(),"_",30)) + "/");
-		return new Path(minlevel + 1, bestPath + Validator.escapeResourceName(org.apache.commons.lang.StringUtils.abbreviateMiddle(page.getTitle(),"_",30)) + "/");
+		    return new Path(0, Validator.escapeResourceName(org.apache.commons.lang3.StringUtils.abbreviateMiddle(page.getTitle(),"_",30)) + "/");
+		return new Path(minlevel + 1, bestPath + Validator.escapeResourceName(org.apache.commons.lang3.StringUtils.abbreviateMiddle(page.getTitle(),"_",30)) + "/");
 	    }
 	}
 
@@ -6200,9 +6307,12 @@ public class SimplePageBean {
 			if (!checkCsrf())
 			    return;
 
+			// SAK-41846 - Initialize counters to keep track of files to add and the item sequence values to adjust
+			totalMultimediaFilesToAdd = multipartMap.size();
+			remainingMultimediaFilesToAdd = totalMultimediaFilesToAdd;
+
 			if (multipartMap.size() > 0) {
 				// 	user specified a file, create it
-				boolean first = true;
 				String[] fnames = new String[0];
 				// names always gets sent. Only use it if there is something there
 				if (names.length() > 0)
@@ -6216,8 +6326,7 @@ public class SimplePageBean {
 					if (fnames.length > fileindex)
 					    fname = fnames[fileindex].trim();
 					name = null;  // don't reuse name
-					addMultimediaFile(file, first, fname);
-					first = false;
+					addMultimediaFile(file, fname);
 					fileindex++;
 				}
 			}
@@ -6225,11 +6334,15 @@ public class SimplePageBean {
 			log.error(exception.getMessage(), exception);
 		} finally {
 			popAdvisor(advisor);
+
+			// Reset these counters
+			totalMultimediaFilesToAdd = 0;
+			remainingMultimediaFilesToAdd = 0;
 		}
 		
 	}
 
-	public void addMultimediaFile(MultipartFile file, boolean first, String name){
+	public void addMultimediaFile(MultipartFile file, String name){
 		try{
 			
 			String sakaiId = null;
@@ -6321,26 +6434,16 @@ public class SimplePageBean {
 				// if user supplied name use it, else the filename
 				// if multiple files, the user supplied name is for first only, or we'd
 				// have several links with the same name
-				if (name == null || name.trim().equals(""))
+				if (StringUtils.isBlank(name)) {
 				    name = fname;
+				}
 			} else if (mmUrl != null && !mmUrl.trim().equals("") && multimediaDisplayType != 1 && multimediaDisplayType != 3) {
 				// 	user specified a URL, create the item
 				String url = normUrl(mmUrl);
 				
 				// generate name if user didn't supply one
-				if (!first || name == null || name.trim().equals("")) {
-				    URI uri = new URI(url);
-				    String host = uri.getHost();
-
-				    if (host != null && !host.equals(""))
-					name = host;
-				    String path = uri.getPath();
-				    if (path != null && !path.equals("")) {
-					if (name == null)
-					    name = path;
-					else
-					    name = name + path;
-				    }
+				if (StringUtils.isBlank(name)) {
+				    name = url;
 				}
 
 				// default name should be "web page". But this is late enough that I don't
@@ -6438,8 +6541,18 @@ public class SimplePageBean {
 			// 	otherwise initialize to false
 			if (isMultimedia || itemId == -1)
 				item.setSameWindow(false);
-			
+
 			clearImageSize(item);
+
+			// SAK-41846 - Adjust the sequence if mutliple files are being added simultaneously
+			if (totalMultimediaFilesToAdd > 0) {
+			    int diff = totalMultimediaFilesToAdd - remainingMultimediaFilesToAdd;
+			    if (diff > 0) {
+				item.setSequence(item.getSequence() + diff);
+			    }
+			    remainingMultimediaFilesToAdd--;
+			}
+
 			try {
 			    //		if (itemId == -1)
 			    //		saveItem(item);
@@ -6955,15 +7068,21 @@ public class SimplePageBean {
 						pageTitle = getPage(comment.getPageId()).getTitle();
 						gradebookId = "lesson-builder:comment:" + comment.getId();
 						
-						if(comment.getGradebookId() != null && !comment.getGradebookPoints().equals(points))
+						if(comment.getGradebookId() != null && !comment.getGradebookPoints().equals(points)) {
 						    add = gradebookIfc.updateExternalAssessment(getCurrentSiteId(), "lesson-builder:comment:" + comment.getId(), null,
 							      pageTitle + " Comments (item:" + comment.getId() + ")", Integer.valueOf(maxPoints), null);
-						else
-						    add = gradebookIfc.addExternalAssessment(getCurrentSiteId(), "lesson-builder:comment:" + comment.getId(), null,
-								pageTitle + " Comments (item:" + comment.getId() + ")", Integer.valueOf(maxPoints), null, "Lesson Builder");
+						} else {
+							try {
+								add = gradebookIfc.addExternalAssessment(getCurrentSiteId(), "lesson-builder:comment:" + comment.getId(), null,
+									pageTitle + " Comments (item:" + comment.getId() + ")", Integer.valueOf(maxPoints), null, "Lesson Builder");
+							} catch(ConflictingAssignmentNameException cane) {
+								add = false;
+								setErrMessage(messageLocator.getMessage("simplepage.existing-gradebook"));
+							}
+						}
 						if(!add) {
 							setErrMessage(messageLocator.getMessage("simplepage.no-gradebook"));
-						}else {
+						} else {
 							comment.setGradebookTitle(pageTitle + " Comments (item:" + comment.getId() + ")");
 						}
 					}else {
@@ -7358,14 +7477,17 @@ public class SimplePageBean {
 			if(title == null || title.equals("")) {
 				title = questionText;
 			}	
-			
-			boolean add = gradebookIfc.addExternalAssessment(getCurrentSiteId(), gradebookId, null, title, pointsInt, null, "Lesson Builder");
-			
-			if(!add) {
-				setErrMessage(messageLocator.getMessage("simplepage.no-gradebook"));
-			}else {
-				item.setGradebookId(gradebookId);
-				item.setGradebookTitle(title);
+
+			try {
+				boolean add = gradebookIfc.addExternalAssessment(getCurrentSiteId(), gradebookId, null, title, pointsInt, null, "Lesson Builder");				
+				if(!add) {
+					setErrMessage(messageLocator.getMessage("simplepage.no-gradebook"));
+				}else {
+					item.setGradebookId(gradebookId);
+					item.setGradebookTitle(title);
+				}
+			} catch(ConflictingAssignmentNameException cane) {
+				setErrMessage(messageLocator.getMessage("simplepage.existing-gradebook"));
 			}
 		}else if(gradebookTitle != null) {
 			// Updating an old gradebook entry
@@ -7631,11 +7753,16 @@ public class SimplePageBean {
 				
 				if(page.getGradebookId() == null || !page.getGradebookPoints().equals(points)) {
 				 	boolean add;
-					if (page.getGradebookId() != null && !page.getGradebookPoints().equals(points))
+					if (page.getGradebookId() != null && !page.getGradebookPoints().equals(points)) {
 					    add = gradebookIfc.updateExternalAssessment(getCurrentSiteId(), "lesson-builder:page:" + page.getId(), null, getPage(page.getPageId()).getTitle() + " Student Pages (item:" + page.getId() + ")", Integer.valueOf(maxPoints), null);
-					else 
-					    add = gradebookIfc.addExternalAssessment(getCurrentSiteId(), "lesson-builder:page:" + page.getId(), null, getPage(page.getPageId()).getTitle() + " Student Pages (item:" + page.getId() + ")", Integer.valueOf(maxPoints), null, "Lesson Builder");
-					
+					} else {
+					    try {
+							add = gradebookIfc.addExternalAssessment(getCurrentSiteId(), "lesson-builder:page:" + page.getId(), null, getPage(page.getPageId()).getTitle() + " Student Pages (item:" + page.getId() + ")", Integer.valueOf(maxPoints), null, "Lesson Builder");
+					    } catch(ConflictingAssignmentNameException cane) {
+							add = false;
+							setErrMessage(messageLocator.getMessage("simplepage.existing-gradebook"));
+					    }
+					}
 					if(!add) {
 						setErrMessage(messageLocator.getMessage("simplepage.no-gradebook"));
 					}else {
@@ -7664,12 +7791,18 @@ public class SimplePageBean {
 				if(page.getAltGradebook() == null || !page.getAltPoints().equals(points)) {
 					String title = getPage(page.getPageId()).getTitle() + " Student Page Comments (item:" + page.getId() + ")";
 					boolean add;
-					if(page.getAltGradebook() != null && !page.getAltPoints().equals(points))
-					    add = gradebookIfc.updateExternalAssessment(getCurrentSiteId(), "lesson-builder:page-comment:" + page.getId(), null,
+					if(page.getAltGradebook() != null && !page.getAltPoints().equals(points)) {
+						add = gradebookIfc.updateExternalAssessment(getCurrentSiteId(), "lesson-builder:page-comment:" + page.getId(), null,
 											title, points, null);
-					else
-					    add = gradebookIfc.addExternalAssessment(getCurrentSiteId(), "lesson-builder:page-comment:" + page.getId(), null,
-							title, points, null, "Lesson Builder");
+					} else {
+					    try {
+							add = gradebookIfc.addExternalAssessment(getCurrentSiteId(), "lesson-builder:page-comment:" + page.getId(), null,
+								title, points, null, "Lesson Builder");
+					    } catch(ConflictingAssignmentNameException cane) {
+							add = false;
+							setErrMessage(messageLocator.getMessage("simplepage.existing-gradebook"));
+					    }
+					}
 					// The assessment couldn't be added
 					if(!add) {
 						setErrMessage(messageLocator.getMessage("simplepage.no-gradebook"));
@@ -8514,6 +8647,10 @@ public class SimplePageBean {
 		    log.info("unable to get members of group {}", group);
 		}
 	    }
+		if (groupMembers == null) {
+			return new ArrayList<String>();
+		}
+		        
 	    return groupMembers;
 	}	    
 

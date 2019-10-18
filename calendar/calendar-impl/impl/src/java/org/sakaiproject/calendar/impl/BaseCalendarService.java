@@ -26,6 +26,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.time.Duration;
 import java.util.*;
 import java.util.Map.Entry;
 
@@ -45,7 +46,7 @@ import net.fortuna.ical4j.model.component.VEvent;
 import net.fortuna.ical4j.model.parameter.Value;
 import net.fortuna.ical4j.model.property.*;
 
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
@@ -97,7 +98,7 @@ import org.sakaiproject.util.cover.LinkMigrationHelper;
  * </p>
  */
 @Slf4j
-public abstract class BaseCalendarService implements CalendarService, DoubleStorageUser, ContextObserver, EntityTransferrer, SAXEntityReader, EntityTransferrerRefMigrator, Observer
+public abstract class BaseCalendarService implements CalendarService, DoubleStorageUser, ContextObserver, EntityTransferrer, SAXEntityReader, Observer
 {
 	/** The initial portion of a relative access point URL. */
 	protected String m_relativeAccessPoint = null;
@@ -213,13 +214,14 @@ public abstract class BaseCalendarService implements CalendarService, DoubleStor
 	 * @inheritDoc
 	 */
 	public String calendarPdfReference(String context, String id, int scheduleType, String timeRangeString,
-			String userName, TimeRange dailyTimeRange)
+			String userName, TimeRange dailyTimeRange, boolean reverseOrder)
 	{
 		return getAccessPoint(true) + Entity.SEPARATOR + REF_TYPE_CALENDAR_PDF + Entity.SEPARATOR + context + Entity.SEPARATOR + id
 				+ "?" + SCHEDULE_TYPE_PARAMETER_NAME + "=" + Validator.escapeHtml(Integer.valueOf(scheduleType).toString()) + "&"
 				+ TIME_RANGE_PARAMETER_NAME + "=" + timeRangeString + "&"
 				+ Validator.escapeHtml(USER_NAME_PARAMETER_NAME) + "=" + Validator.escapeUrl(userName) + "&"
-				+ DAILY_START_TIME_PARAMETER_NAME + "=" + Validator.escapeHtml(dailyTimeRange.toString());
+				+ DAILY_START_TIME_PARAMETER_NAME + "=" + Validator.escapeHtml(dailyTimeRange.toString()) + "&"
+				+ ORDER_EVENTS_PARAMETER_NAME + "=" + reverseOrder;
 	}
 
    
@@ -330,10 +332,11 @@ public abstract class BaseCalendarService implements CalendarService, DoubleStor
 	 *        The List of calendar References.
 	 * @param range
 	 *        The time period to use to select events.
+	 * @param reverseOrder
+	 * 		  CalendarEventVector object will be ordered reverse.       
 	 * @return CalendarEventVector object with the union of all events from the list of calendars in the given time range.
 	 */
-	public CalendarEventVector getEvents(List references, TimeRange range)
-	{
+	public CalendarEventVector getEvents(List references, TimeRange range, boolean reverseOrder) {
 		CalendarEventVector calendarEventVector = null;
 
 		if (references != null && range != null)
@@ -383,12 +386,29 @@ public abstract class BaseCalendarService implements CalendarService, DoubleStor
 
 			// Do a sort since each of the events implements the Comparable interface.
 			Collections.sort(allEvents);
+			if (reverseOrder) {
+				Collections.reverse(allEvents);
+			}
 
 			// Build up a CalendarEventVector and return it.
 			calendarEventVector = new CalendarEventVector(allEvents.iterator());
 		}
 
 		return calendarEventVector;
+	}
+	
+	/**
+	 * Takes several calendar References and merges their events from within a given time range.
+	 * 
+	 * @param references
+	 *        The List of calendar References.
+	 * @param range
+	 *        The time period to use to select events.
+	 * @return CalendarEventVector object with the union of all events from the list of calendars in the given time range.
+	 */
+	public CalendarEventVector getEvents(List references, TimeRange range)
+	{
+		return this.getEvents(references, range, false);
 	}
 
 	/**
@@ -1845,18 +1865,10 @@ public abstract class BaseCalendarService implements CalendarService, DoubleStor
 		return results.toString();
 	}
 
-	/**
-	 * {@inheritDoc}
-	 */
-        public void transferCopyEntities(String fromContext, String toContext, List resourceIds)
-        {
-                transferCopyEntitiesRefMigrator(fromContext, toContext, resourceIds); 
-        }
+	public Map<String, String> transferCopyEntities(String fromContext, String toContext, List<String> resourceIds, List<String> options) {
 
-        public Map<String, String> transferCopyEntitiesRefMigrator(String fromContext, String toContext, List resourceIds)
-	{
 		Map<String, String> transversalMap = new HashMap<String, String>();
-		
+
 		// get the channel associated with this site
 		String oCalendarRef = calendarReference(fromContext, SiteService.MAIN_CONTAINER);
 
@@ -5157,6 +5169,8 @@ public abstract class BaseCalendarService implements CalendarService, DoubleStor
 	protected final static String CALENDAR_PARAMETER_BASE_NAME = "calendar";
 
 	protected final static String SCHEDULE_TYPE_PARAMETER_NAME = "scheduleType";
+	
+	protected final static String ORDER_EVENTS_PARAMETER_NAME = "order";
 
 
 
@@ -5204,10 +5218,7 @@ public abstract class BaseCalendarService implements CalendarService, DoubleStor
 			DateTime icalStartDate = new DateTime(event.getRange().firstTime().getTime());
 			
 			long seconds = event.getRange().duration() / 1000;
-			String timeString = "PT" + String.valueOf(seconds) + "S";
-			net.fortuna.ical4j.model.Dur duration = new net.fortuna.ical4j.model.Dur( timeString );
-			
-			VEvent icalEvent = new VEvent(icalStartDate, duration, event.getDisplayName() );
+			VEvent icalEvent = new VEvent(icalStartDate, Duration.ofSeconds(seconds), event.getDisplayName() );
 			
 			net.fortuna.ical4j.model.parameter.TzId tzId = new net.fortuna.ical4j.model.parameter.TzId( m_timeService.getLocalTimeZone().getID() );
 			icalEvent.getProperty(Property.DTSTART).getParameters().add(tzId);
@@ -5431,11 +5442,14 @@ public abstract class BaseCalendarService implements CalendarService, DoubleStor
 
 		// Now get the time range.
 		TimeRange timeRange = getTimeRangeFromParameters(parameters);
+		
+		// Now get the order
+		boolean reverseOrder = Boolean.parseBoolean( (String) parameters.get(ORDER_EVENTS_PARAMETER_NAME) );
 
 		Document document = docBuilder.newDocument();
 
 		pdfExportService.generateXMLDocument(scheduleType, document, timeRange, getDailyStartTimeFromParameters(parameters),
-				calendarReferenceList, userName, this);
+				calendarReferenceList, userName, this, reverseOrder);
 
 		pdfExportService.generatePDF(document, pdfExportService.getXSLFileNameForScheduleType(scheduleType), os);
 	}
@@ -5510,13 +5524,8 @@ public abstract class BaseCalendarService implements CalendarService, DoubleStor
 		m_services = services;
 	}
 
-        public void transferCopyEntities(String fromContext, String toContext, List ids, boolean cleanup)
-        {
-                transferCopyEntitiesRefMigrator(fromContext, toContext, ids, cleanup);
-        }
-
-        public Map<String, String> transferCopyEntitiesRefMigrator(String fromContext, String toContext, List ids, boolean cleanup)
-	{	
+	public Map<String, String> transferCopyEntities(String fromContext, String toContext, List<String> ids, List<String> options, boolean cleanup)
+	{
 		Map<String, String> transversalMap = new HashMap<String, String>();
 		try
 		{
@@ -5552,7 +5561,7 @@ public abstract class BaseCalendarService implements CalendarService, DoubleStor
 				}
 				
 			}
-			transversalMap.putAll(transferCopyEntitiesRefMigrator(fromContext, toContext, ids));	
+			transversalMap.putAll(transferCopyEntities(fromContext, toContext, ids, null));
 		}
 		catch (Exception e)
 		{
@@ -5696,15 +5705,7 @@ public abstract class BaseCalendarService implements CalendarService, DoubleStor
 	
 	protected void handleAccessIcalCommon(HttpServletRequest req, HttpServletResponse res, Reference ref, String calRef)
 			throws EntityPermissionException, PermissionException, IOException {
-		
-		// Extract the alias name to use for the filename.
-		List alias =  m_aliasService.getAliases(calRef);
-		String aliasName = "schedule.ics";
-		if ( ! alias.isEmpty() )
-			aliasName =  ((Alias)alias.get(0)).getId();
-		
-		List<String> referenceList = getCalendarReferences(ref.getContext());
-		Time modDate = m_timeService.newTime(0);
+
 		// Ok so we need to check to see if we've handled this reference before.
 		// This is to prevent loops when including calendars
 		// that currently includes other calendars we only do the check in here.
@@ -5713,6 +5714,16 @@ public abstract class BaseCalendarService implements CalendarService, DoubleStor
 			log.warn("Reject internal request for: "+ calRef);
 			return;
 		}
+
+		// Extract the alias name to use for the filename.
+		List<Alias> alias =  m_aliasService.getAliases(calRef);
+		String aliasName = "schedule.ics";
+		if ( ! alias.isEmpty() )
+			aliasName =  alias.get(0).getId();
+		
+		List<String> referenceList = getCalendarReferences(ref.getContext());
+		Time modDate = m_timeService.newTime(0);
+
 		// update date/time reference
 		for (String curCalRef: referenceList)
 		{

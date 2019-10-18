@@ -23,21 +23,35 @@ import java.io.IOException;
 import java.io.Serializable;
 import java.nio.file.Files;
 import java.text.SimpleDateFormat;
-import java.util.*;
+import java.util.Arrays;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.List;
+import java.util.ResourceBundle;
+import java.util.Set;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import javax.faces.application.FacesMessage;
+import javax.faces.bean.ManagedBean;
+import javax.faces.bean.SessionScoped;
 import javax.faces.context.ExternalContext;
 import javax.faces.context.FacesContext;
 import javax.servlet.ServletContext;
 import javax.servlet.http.HttpServletRequest;
 
+import lombok.Getter;
+import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.sakaiproject.component.cover.ServerConfigurationService;
 import org.sakaiproject.event.cover.EventTrackingService;
 import org.sakaiproject.event.cover.NotificationService;
 import org.sakaiproject.exception.IdUnusedException;
+import org.sakaiproject.portal.util.PortalUtils;
 import org.sakaiproject.samigo.util.SamigoConstants;
 import org.sakaiproject.site.api.Site;
 import org.sakaiproject.site.api.SitePage;
@@ -64,6 +78,7 @@ import org.sakaiproject.tool.assessment.facade.EventLogFacade;
 import org.sakaiproject.tool.assessment.facade.PublishedAssessmentFacade;
 import org.sakaiproject.tool.assessment.services.FinFormatException;
 import org.sakaiproject.tool.assessment.services.GradingService;
+import org.sakaiproject.tool.assessment.services.PersistenceService;
 import org.sakaiproject.tool.assessment.services.SaLengthException;
 import org.sakaiproject.tool.assessment.services.assessment.EventLogService;
 import org.sakaiproject.tool.assessment.services.assessment.PublishedAssessmentService;
@@ -89,23 +104,15 @@ import org.sakaiproject.tool.cover.SessionManager;
 import org.sakaiproject.tool.cover.ToolManager;
 import org.sakaiproject.util.ResourceLoader;
 
-/**
- *
- * @author casong
- * @author esmiley@stanford.edu added agentState
- * $Id$
- *
- * Used to be org.navigoproject.ui.web.asi.delivery.XmlDeliveryForm.java
- */
+/* For delivery: Delivery backing bean */
 @Slf4j
-public class DeliveryBean
-  implements Serializable
-{
+@ManagedBean(name="delivery")
+@SessionScoped
+public class DeliveryBean implements Serializable {
 
   //SAM-2517
   private ServerConfigurationService serverConfigurationService;
   
-  private static final String MATHJAX_ENABLED = "mathJaxEnabled";
   private static final String MATHJAX_SRC_PATH_SAKAI_PROP = "portal.mathjax.src.path";
   private static final String MATHJAX_SRC_PATH = ServerConfigurationService.getString(MATHJAX_SRC_PATH_SAKAI_PROP);
   
@@ -157,6 +164,8 @@ public class DeliveryBean
   private java.util.Date retractDate;
   private boolean statsAvailable;
   private boolean submitted;
+  // True if the assessment was completely submitted
+  private boolean assessmentSubmitted = false;
   private boolean graded;
   private String graderComment;
   private List<AssessmentGradingAttachment> assessmentGradingAttachmentList;
@@ -181,10 +190,17 @@ public class DeliveryBean
   private int submissionsRemaining;
   private int totalSubmissions;  
   private boolean forGrade;
+
   private String password;
   private int numberRetake;
+  private boolean lastSave;
   private int actualNumberRetake;
   private Map itemContentsMap;
+
+  @Getter @Setter
+  private String minutesLeft;
+  @Getter @Setter
+  private String secondsLeft;
   
   // For paging
   private int partIndex;
@@ -202,6 +218,7 @@ public class DeliveryBean
   private AssessmentGradingData adata;
   private PublishedAssessmentFacade publishedAssessment;
   private java.util.Date feedbackDate;
+  @Getter @Setter private Date feedbackEndDate;
   private String feedbackDelivery;
   private String showScore;
   private boolean hasTimeLimit;
@@ -273,6 +290,7 @@ public class DeliveryBean
   private ExtendedTimeDeliveryService extendedTimeDeliveryService = null;
 
   private boolean showTimeWarning;
+  private boolean showTimer = true;
   private boolean hasShowTimeWarning;
   private boolean turnIntoTimedAssessment;
   private boolean submitFromTimeoutPopup;
@@ -281,7 +299,10 @@ public class DeliveryBean
   
   private boolean  firstTimeTaking;
   boolean timeExpired = false;
-  
+
+  // Rubrics
+  private String rbcsToken;
+
   private static String ACCESSBASE = ServerConfigurationService.getAccessUrl();
   private static String RECPATH = ServerConfigurationService.getString("samigo.recommendations.path"); 
 
@@ -602,6 +623,11 @@ public class DeliveryBean
    */
   public String getTimeElapse()
   {
+    return timeElapse;
+  }
+
+  public String getCurrentTimeElapse() {
+    syncTimeElapsedWithServer();
     return timeElapse;
   }
 
@@ -1187,9 +1213,19 @@ public class DeliveryBean
     return submitted;
   }
 
+  public boolean isAssessmentSubmitted()
+  {
+    return assessmentSubmitted;
+  }
+
   public void setSubmitted(boolean submitted)
   {
     this.submitted = submitted;
+  }
+
+  public void setAssessmentSubmitted(boolean assessmentSubmitted)
+  {
+    this.assessmentSubmitted = assessmentSubmitted;
   }
 
   public boolean isGraded()
@@ -1500,8 +1536,29 @@ public class DeliveryBean
     this.submissionMessage = submissionMessage;
   }
 
+  public void syncSubmissionsRemaining() {
+    if (adata != null) {
+      Long publishedAssessmentId = adata.getPublishedAssessmentId();
+      AssessmentAccessControlIfc control = publishedAssessment.getAssessmentAccessControl();
+      PublishedAssessmentService service = new PublishedAssessmentService();
+      GradingService gradingService = new GradingService();
+      int totalSubmissions =
+          (service.getTotalSubmission(
+                  AgentFacade.getAgentString(), publishedAssessmentId.toString()))
+              .intValue();
+      setTotalSubmissions(totalSubmissions);
+      if (!(Boolean.TRUE).equals(control.getUnlimitedSubmissions())) {
+        int submissionsRemaining = control.getSubmissionsAllowed().intValue() - totalSubmissions;
+        setNumberRetake(
+            gradingService.getNumberRetake(publishedAssessmentId, AgentFacade.getAgentString()));
+        setSubmissionsRemaining(submissionsRemaining);
+      }
+    }
+  }
+
   public int getSubmissionsRemaining()
   {
+    syncSubmissionsRemaining();
     return submissionsRemaining;
   }
 
@@ -1542,7 +1599,7 @@ public class DeliveryBean
 
   public String submitForGradeFromTimer()
   {
-	    return submitForGrade(true, false);
+    return submitForGrade(true, false);
   }
   
   public String submitForGrade()
@@ -1611,6 +1668,8 @@ public class DeliveryBean
 	  PublishedAssessmentService publishedAssessmentService = new PublishedAssessmentService();
 	  String siteId = publishedAssessmentService.getPublishedAssessmentOwner(adata.getPublishedAssessmentId());
 	  String resource = "siteId=" + AgentFacade.getCurrentSiteId() + ", submissionId=" + local_assessmentGradingID;
+
+	  setAssessmentSubmitted(true);
 
 	  if (!isFromTimer) {
 		  if (this.actionMode == TAKE_ASSESSMENT_VIA_URL) // this is for accessing via published url
@@ -1821,10 +1880,6 @@ public class DeliveryBean
 	  return saveAndExit(true);
   }
   
-  public String saveNoCheck() {
-	  return saveAndExit(false);
-  }
-  
   public String saveAndExit(boolean needToCheck)
   {
 	  if (needToCheck) {  
@@ -1999,37 +2054,52 @@ public class DeliveryBean
 	  return save_work();
   }
   
-  public String save_work()
-  {
+  public String save_work() {
 
-	  String nextAction = checkBeforeProceed();
-	  log.debug("***** next Action={}", nextAction);
-	  if (!("safeToProceed").equals(nextAction)){
-		  return nextAction;
-	  }
-	  
-	  forGrade = false;
-
-	  if (this.actionMode == TAKE_ASSESSMENT
-			  || this.actionMode == TAKE_ASSESSMENT_VIA_URL)
-	  {
-		  syncTimeElapsedWithServer();
-		  SubmitToGradingActionListener listener =
-			  new SubmitToGradingActionListener();
-		  try {
-			  listener.processAction(null);
-		  }
-		  catch (FinFormatException | SaLengthException e) {
-			  log.debug(e.getMessage());
-			  return "takeAssessment";
-		  }
-	  }
-	  
-	  DeliveryActionListener l2 = new DeliveryActionListener();
-	  l2.processAction(null);
-
-	  reload = false;
-	  return "takeAssessment";
+      String nextAction = checkBeforeProceed();
+      log.debug("***** next Action={}", nextAction);
+      if (!("safeToProceed").equals(nextAction)) {
+          return nextAction;
+      }
+      forGrade = false;
+      if (this.actionMode == TAKE_ASSESSMENT ||
+          this.actionMode == TAKE_ASSESSMENT_VIA_URL) {
+          syncTimeElapsedWithServer();
+          SubmitToGradingActionListener listener =
+              new SubmitToGradingActionListener();
+          TimedAssessmentQueue queue = TimedAssessmentQueue.getInstance();
+          TimedAssessmentGradingModel timedAG = queue.get(adata.getAssessmentGradingId());
+          if (timedAG != null) {
+              if (Integer.parseInt(timeElapse) >= timedAG.getTimeLimit()) {
+                  // This is a final save after thread timer expiration
+                  // remove the buffers to speed up the submit.
+                  // setup the confirmation for AJAX request
+                  timedAG.setLatencyBuffer(0);
+                  timedAG.setTransactionBuffer(0);
+                  timedAG.setBufferedExpirationDate(timedAG.getExpirationDate());
+                  String confirmation =
+                      adata.getAssessmentGradingId() +
+                      "-" +
+                      publishedAssessment.getPublishedAssessmentId() +
+                      "-" +
+                      adata.getAgentId() +
+                      "-" +
+                      timedAG.getExpirationDate().toString();
+                  setConfirmation(confirmation);
+                  lastSave = true;
+              }
+          }
+          try {
+              listener.processAction(null);
+          } catch (FinFormatException | SaLengthException e) {
+              log.debug(e.getMessage());
+              return "takeAssessment";
+          }
+      }
+      DeliveryActionListener l2 = new DeliveryActionListener();
+      l2.processAction(null);
+      reload = false;
+      return "takeAssessment";
   }
 
   public String previous()
@@ -2297,6 +2367,39 @@ public class DeliveryBean
     }
   }
 
+  // Used for AJAX update of timer submission status
+  //
+  public int getSubmissionStatus() {
+    // 0 - non-timer submission state
+    // 1 - timer thread finished, assessment submitted
+    // 2 - timer thread running, time is up, final saved.
+    // 3 - timer thread running, time not up.
+    // 4 - timer thread running, time is up, not final saved.
+    if (adata != null) {
+      TimedAssessmentQueue queue = TimedAssessmentQueue.getInstance();
+      TimedAssessmentGradingModel timedAG = queue.get(adata.getAssessmentGradingId());
+      if (timedAG != null) {
+        if (Integer.parseInt(getTimeElapse()) >= timedAG.getTimeLimit()) {
+          if (lastSave) {
+            return 2;
+          } else {
+            return 4;
+          }
+        } else {
+          return 3;
+        }
+      } else {
+        if (lastSave) {
+          return 1;
+        } else {
+          return 0;
+        }
+      }
+    } else {
+      return 0;
+    }
+  }
+
   public void updatEventLog(String errorMsg)
   {
 	  EventLogService eventService = new EventLogService();
@@ -2453,21 +2556,25 @@ public class DeliveryBean
 
     // 2. format of the media location is: assessmentXXX/questionXXX/agentId/myfile
     // 3. get the questionId (which is the PublishedItemData.itemId)
-    //int assessmentIndex = mediaLocation.indexOf("assessment");
-    int questionIndex = mediaLocation.indexOf("question");
-    int agentIndex = mediaLocation.indexOf("/", questionIndex + 8);
-    int myfileIndex = mediaLocation.lastIndexOf("/");
-    //cwen
-    if(agentIndex < 0 )
-    {
-      agentIndex = mediaLocation.indexOf("\\", questionIndex + 8);
+    String fileMediaLocation = mediaLocation.replace(File.separator.equals("/") ? "\\" : "/" , File.separator);
+    String[] mediaLocationParts = fileMediaLocation.split(Pattern.quote(File.separator));
+    int numberOfMediaLocationParts = mediaLocationParts.length;
+
+    if (numberOfMediaLocationParts < 4) {
+        reload = true;
+        return "takeAssessment";
     }
-    //String pubAssessmentId = mediaLocation.substring(assessmentIndex + 10, questionIndex - 1);
-    String questionId = mediaLocation.substring(questionIndex + 8, agentIndex);
+
+    String fileName = mediaLocationParts[numberOfMediaLocationParts- 1];
+    String agentId = mediaLocationParts[numberOfMediaLocationParts - 2];
+    String questionId = mediaLocationParts[numberOfMediaLocationParts - 3];
+    String assessmentId = mediaLocationParts[numberOfMediaLocationParts - 4];
+    questionId = StringUtils.remove(questionId, "question");
+    assessmentId = StringUtils.remove(assessmentId, "assessment");
+
     log.debug("***3a. addMediaToItemGrading, questionId ={}", questionId);
     log.debug("***3b. addMediaToItemGrading, assessmentId ={}", assessmentId);
     if (agent == null){
-      String agentId = mediaLocation.substring(agentIndex, myfileIndex -1);
       log.debug("**** agentId={}", agentId);
       agent = agentId;
     }
@@ -2594,7 +2701,7 @@ public class DeliveryBean
     FacesContext context = FacesContext.getCurrentInstance();
     ExternalContext external = context.getExternalContext();
     Long fileSize = (Long)((ServletContext)external.getContext()).getAttribute("TEMP_FILEUPLOAD_SIZE");
-    Long maxSize = (Long)((ServletContext)external.getContext()).getAttribute("FILEUPLOAD_SIZE_MAX");
+    Long maxSize = Long.valueOf(ServerConfigurationService.getInt("samigo.sizeMax", 40960));
 
     ((ServletContext)external.getContext()).removeAttribute("TEMP_FILEUPLOAD_SIZE");
     if (fileSize!=null){
@@ -2708,6 +2815,24 @@ public class DeliveryBean
   public void setFeedbackDate(java.util.Date feedbackDate)
   {
     this.feedbackDate = feedbackDate;
+  }
+
+  public String getFeedbackEndDateString()
+  {
+    String dateString = "";
+    if (feedbackEndDate== null) {
+      return dateString;
+    }
+
+    try {
+      TimeUtil tu = new TimeUtil();
+      dateString = tu.getDisplayDateTime(displayFormat, feedbackEndDate, true);
+    }
+    catch (Exception ex) {
+      // we will leave it as an empty string
+      log.warn("Unable to format date.", ex);
+    }
+    return dateString;
   }
 
   public String getFeedbackDelivery()
@@ -2882,14 +3007,11 @@ public class DeliveryBean
   }
 
   public boolean getSaveToDb(){
-    FacesContext context = FacesContext.getCurrentInstance();
-    ExternalContext external = context.getExternalContext();
-    String saveToDb = (String)((ServletContext)external.getContext()).getAttribute("FILEUPLOAD_SAVE_MEDIA_TO_DB");
-    return ("true").equals(saveToDb);
+    return ServerConfigurationService.getBoolean("samigo.saveMediaToDb", true);
   }
 
   public void attachToItemContentBean(ItemGradingData itemGradingData, String questionId){
-    List list = new ArrayList();
+    List<ItemGradingData> list = new ArrayList<>();
     list.add(itemGradingData);
     //find out sectionId from questionId
     log.debug("**** attachToItemContentBean, questionId={}", questionId);
@@ -2905,23 +3027,21 @@ public class DeliveryBean
     SectionContentsBean partSelected = null;
 
     //get all partContents
-    List parts = getPageContents().getPartsContents();
-    for (int i=0; i<parts.size(); i++){
-      SectionContentsBean part = (SectionContentsBean)parts.get(i);
+    List<SectionContentsBean> parts = getPageContents().getPartsContents();
+    for (SectionContentsBean part : parts) {
       log.debug("**** question's sectionId{}", sectionId);
       log.debug("**** partId{}", part.getSectionId());
-      if (sectionId.equals(part.getSectionId())){
+      if (sectionId.equals(part.getSectionId())) {
         partSelected = part;
         break;
       }
     }
     //locate the itemContentBean - the hard way, sigh...
-    List items = new ArrayList();
+    List<ItemContentsBean> items = new ArrayList<>();
     if (partSelected!=null)
       items = partSelected.getItemContents();
-    for (int j=0; j<items.size(); j++){
-      ItemContentsBean item = (ItemContentsBean)items.get(j);
-      if ((publishedItem.getItemId()).equals(item.getItemData().getItemId())){ // comparing itemId not object
+    for (ItemContentsBean item : items) {
+      if ((publishedItem.getItemId()).equals(item.getItemData().getItemId())) { // comparing itemId not object
         item.setItemGradingDataArray(list);
         break;
       }
@@ -3035,9 +3155,7 @@ public class DeliveryBean
 	      if (timedAG != null){
 	        int timeElapsed  = Math.round((new Date().getTime() - adata.getAttemptDate().getTime())/1000.0f);
 	        log.debug("***setTimeElapsed={}", timeElapsed);
-		    adata.setTimeElapsed(timeElapsed);
-	        GradingService gradingService = new GradingService();
-	        gradingService.saveOrUpdateAssessmentGrading(adata);
+		adata.setTimeElapsed(timeElapsed);
 	        setTimeElapse(adata.getTimeElapsed().toString());
 	      }
 	    }
@@ -3223,7 +3341,11 @@ public class DeliveryBean
     if (adata!=null){
       assessmentGrading = service.load(adata.getAssessmentGradingId().toString(), false);
     }
-    
+
+    if (!canAccess(isViaUrlLogin)) {
+      return "accessDenied";
+    }
+
     if (isRemoved()){
         return "isRemoved";
     }
@@ -3359,7 +3481,11 @@ public class DeliveryBean
   }
   
   public String checkBeforeProceed(boolean isSubmitForGrade, boolean isFromTimer){
-	  return checkBeforeProceed(isSubmitForGrade, isFromTimer, false);
+	  boolean isViaUrlLogin = false;
+	  if(AgentFacade.getCurrentSiteId() == null){
+	    isViaUrlLogin = true;
+	  }
+	  return checkBeforeProceed(isSubmitForGrade, isFromTimer, isViaUrlLogin);
   }
 
   private boolean getHasSubmissionLeft(int numberRetake){
@@ -3367,12 +3493,12 @@ public class DeliveryBean
     int maxSubmissionsAllowed = 9999;
     if ( (Boolean.FALSE).equals(publishedAssessment.getAssessmentAccessControl().getUnlimitedSubmissions())){
       maxSubmissionsAllowed = publishedAssessment.getAssessmentAccessControl().getSubmissionsAllowed();
-      if ("takeAssessmentViaUrl".equals(actionString) && !anonymousLogin && settings == null) {
-    	  SettingsDeliveryBean settingsDeliveryBean = new SettingsDeliveryBean();
-    	  settingsDeliveryBean.setAssessmentAccessControl(publishedAssessment);
-    	  settingsDeliveryBean.setMaxAttempts(maxSubmissionsAllowed);
-    	  settings = settingsDeliveryBean; 
-      }
+    }
+    if ("takeAssessmentViaUrl".equals(actionString) && !anonymousLogin && settings == null) {
+      SettingsDeliveryBean settingsDeliveryBean = new SettingsDeliveryBean();
+      settingsDeliveryBean.setAssessmentAccessControl(publishedAssessment);
+      settingsDeliveryBean.setMaxAttempts(maxSubmissionsAllowed);
+      settings = settingsDeliveryBean;
     }
     if (totalSubmissions < maxSubmissionsAllowed + numberRetake){
       hasSubmissionLeft = true;
@@ -3396,18 +3522,23 @@ public class DeliveryBean
   }
   
   public boolean pastDueDate(){
-    boolean pastDue = true;
+    boolean pastDueDate = true;
     Date currentDate = new Date();
-		Date dueDate;
-		if (extendedTimeDeliveryService.hasExtendedTime()) {
-			dueDate = extendedTimeDeliveryService.getDueDate();
-		} else {
-			dueDate = publishedAssessment.getAssessmentAccessControl().getDueDate();
-		}
-    if (dueDate == null || dueDate.after(currentDate)){
-        pastDue = false;
+    Date due = extendedTimeDeliveryService.hasExtendedTime() ? extendedTimeDeliveryService.getDueDate() : publishedAssessment.getAssessmentAccessControl().getDueDate();
+
+    if (due == null) {
+      if (AssessmentAccessControlIfc.ACCEPT_LATE_SUBMISSION.equals(publishedAssessment.getAssessmentAccessControl().getLateHandling())) {
+        Date retract = extendedTimeDeliveryService.hasExtendedTime() ? extendedTimeDeliveryService.getRetractDate() : publishedAssessment.getAssessmentAccessControl().getRetractDate();
+        if (due == null && retract != null) {
+          due = retract;
+        }
+      }
     }
-    return pastDue;
+
+    if (due == null || due.after(currentDate)) {
+      pastDueDate = false;
+    }
+    return pastDueDate;
   }
 
   public boolean isAcceptLateSubmission() {
@@ -3435,6 +3566,17 @@ public class DeliveryBean
         isRetracted = false;
     }
     return isRetracted;
+  }
+
+  private boolean canAccess(boolean fromUrl) {
+    if (getAnonymousLogin()) {
+      return true;
+    }
+
+    String siteId = fromUrl ? publishedAssessment.getOwnerSiteId() : AgentFacade.getCurrentSiteId();
+    return PersistenceService.getInstance()
+        .getAuthzQueriesFacade()
+        .hasPrivilege(SamigoConstants.AUTHZ_TAKE_ASSESSMENT, siteId);
   }
 
   private boolean isRemoved(){
@@ -3511,8 +3653,11 @@ public class DeliveryBean
 	      return returnUrl;
 	  StringBuilder url = new StringBuilder(ServerConfigurationService.getString("portalPath"));
 	  url.append("/site/");
-	  PublishedAssessmentService publishedAssessmentService = new PublishedAssessmentService();
-	  String currentSiteId = publishedAssessmentService.getPublishedAssessmentSiteId(getAssessmentId());
+	  String currentSiteId = AgentFacade.getCurrentSiteId();
+	  if(currentSiteId == null){
+	      PublishedAssessmentService publishedAssessmentService = new PublishedAssessmentService();
+	      currentSiteId = publishedAssessmentService.getPublishedAssessmentSiteId(getAssessmentId());
+	  }
 	  url.append(currentSiteId);
 	  url.append("/page/");
 	  url.append(getCurrentPageId(currentSiteId));
@@ -3757,68 +3902,60 @@ public class DeliveryBean
 		  String radioId = (String) FacesContext.getCurrentInstance().getExternalContext().getRequestParameterMap().get("radioId");
 		  StringBuilder redrawAnchorName = new StringBuilder("p");
 		  String tmpAnchorName = "";
-		  List parts = this.pageContents.getPartsContents();
+		  List<SectionContentsBean> parts = this.pageContents.getPartsContents();
 
-		  for (int i=0; i<parts.size(); i++) {
-			  SectionContentsBean sectionContentsBean = (SectionContentsBean) parts.get(i);
-			  String partSeq = sectionContentsBean.getNumber();
-			  
-			  List items = sectionContentsBean.getItemContents();
-			  for (int j=0; j<items.size(); j++) {
-				  ItemContentsBean item = (ItemContentsBean)items.get(j);
-				  
-				  //Just delete the checkbox of the current question
-				  if (!item.getItemData().getItemId().toString().equals(radioId)) continue;
+        for (SectionContentsBean part : parts) {
+          String partSeq = part.getNumber();
 
-				  String itemSeq = item.getItemData().getSequence().toString();
-				  redrawAnchorName.append(partSeq);
-				  redrawAnchorName.append("q");
-				  redrawAnchorName.append(itemSeq);
-				  if (tmpAnchorName.equals("") || tmpAnchorName.compareToIgnoreCase(redrawAnchorName.toString()) > 0) {
-					  tmpAnchorName = redrawAnchorName.toString();
-				  }
-				  
-				  if (item.getItemData().getTypeId().longValue() == TypeIfc.MULTIPLE_CHOICE.longValue() || 
-						  item.getItemData().getTypeId().longValue() == TypeIfc.MULTIPLE_CORRECT_SINGLE_SELECTION.longValue() ||
-						  item.getItemData().getTypeId().longValue() == TypeIfc.MULTIPLE_CHOICE_SURVEY.longValue() ||
-						  item.getItemData().getTypeId().longValue() == TypeIfc.MATRIX_CHOICES_SURVEY.longValue()) {
-					  item.setUnanswered(true);
-					  if(item.getItemData().getTypeId().longValue() == TypeIfc.MATRIX_CHOICES_SURVEY.longValue()){
-						  for (int k=0; k<item.getMatrixArray().size(); k++) {
-							  MatrixSurveyBean selection = (MatrixSurveyBean)item.getMatrixArray().get(k);
-							  selection.setResponseFromCleanRadioButton();
-						  }
-					  }else{
-						  for (int k=0; k<item.getSelectionArray().size(); k++) {
-							  SelectionBean selection = (SelectionBean)item.getSelectionArray().get(k);
-							  //selection.setResponse(false);
-							  selection.setResponseFromCleanRadioButton();
-						  }
-					  }
-					  
-					  List itemGradingData = new ArrayList();
-					  for( ItemGradingData itemgrading : item.getItemGradingDataArray() ){
-						  if (itemgrading.getItemGradingId() != null && itemgrading.getItemGradingId().intValue() > 0) {
-							  itemGradingData.add(itemgrading);
-							  itemgrading.setPublishedAnswerId(null);
-						  }
-					  }
-					  item.setItemGradingDataArray(itemGradingData);
-				  }
+          List<ItemContentsBean> items = part.getItemContents();
+          for (ItemContentsBean item : items) {
+            //Just delete the checkbox of the current question
+            if (!item.getItemData().getItemId().toString().equals(radioId)) continue;
 
-				  if (item.getItemData().getTypeId().longValue() == TypeIfc.TRUE_FALSE.longValue()) {
-					  item.setResponseId(null);
-					  Iterator iter = item.getItemGradingDataArray().iterator();
-					  if (iter.hasNext())
-					  {
-						  ItemGradingData data = (ItemGradingData) iter.next();
-						  data.setPublishedAnswerId(null);
-					  }
-				  }
-				  item.setReview(false);
-				  item.setRationale("");
-			  }
-		  }
+            String itemSeq = item.getItemData().getSequence().toString();
+            redrawAnchorName.append(partSeq);
+            redrawAnchorName.append("q");
+            redrawAnchorName.append(itemSeq);
+            if (tmpAnchorName.equals("") || tmpAnchorName.compareToIgnoreCase(redrawAnchorName.toString()) > 0) {
+              tmpAnchorName = redrawAnchorName.toString();
+            }
+
+            if (item.getItemData().getTypeId().longValue() == TypeIfc.MULTIPLE_CHOICE.longValue() ||
+                    item.getItemData().getTypeId().longValue() == TypeIfc.MULTIPLE_CORRECT_SINGLE_SELECTION.longValue() ||
+                    item.getItemData().getTypeId().longValue() == TypeIfc.MULTIPLE_CHOICE_SURVEY.longValue() ||
+                    item.getItemData().getTypeId().longValue() == TypeIfc.MATRIX_CHOICES_SURVEY.longValue()) {
+              item.setUnanswered(true);
+              if (item.getItemData().getTypeId().longValue() == TypeIfc.MATRIX_CHOICES_SURVEY.longValue()) {
+                for (int k = 0; k < item.getMatrixArray().size(); k++) {
+                  MatrixSurveyBean selection = (MatrixSurveyBean) item.getMatrixArray().get(k);
+                  selection.setResponseFromCleanRadioButton();
+                }
+              } else {
+                for (int k = 0; k < item.getSelectionArray().size(); k++) {
+                  SelectionBean selection = (SelectionBean) item.getSelectionArray().get(k);
+                  //selection.setResponse(false);
+                  selection.setResponseFromCleanRadioButton();
+                }
+              }
+
+              List<ItemGradingData> itemGradingData = new ArrayList<>();
+              for (ItemGradingData itemgrading : item.getItemGradingDataArray()) {
+                if (itemgrading.getItemGradingId() != null && itemgrading.getItemGradingId().intValue() > 0) {
+                  itemGradingData.add(itemgrading);
+                  itemgrading.setPublishedAnswerId(null);
+                }
+              }
+              item.setItemGradingDataArray(itemGradingData);
+            }
+
+            if (item.getItemData().getTypeId().longValue() == TypeIfc.TRUE_FALSE.longValue()) {
+              item.setResponseId(null);
+              item.getItemGradingDataArray().stream().findAny().ifPresent(d -> d.setPublishedAnswerId(null));
+            }
+            item.setReview(false);
+            item.setRationale("");
+          }
+        }
 
 		  syncTimeElapsedWithServer();
 		  
@@ -4025,6 +4162,14 @@ public class DeliveryBean
 	  {
 	    this.showTimeWarning = showTimeWarning;
 	  }
+
+          public boolean getShowTimer() {
+            return showTimer;
+          }
+
+          public void setShowTimer(boolean showTimer) {
+            this.showTimer = showTimer;
+          }
 	  
 	  public boolean getHasShowTimeWarning()
 	  {
@@ -4073,13 +4218,12 @@ public class DeliveryBean
 	  public boolean getIsMathJaxEnabled(){ 
 		  PublishedAssessmentService publishedAssessmentService = new PublishedAssessmentService();
 		  String siteId = publishedAssessmentService.getPublishedAssessmentOwner(Long.parseLong(getAssessmentId()));
-		  String strMathJaxEnabled = getCurrentSite(siteId).getProperties().getProperty(MATHJAX_ENABLED); 
-		  return StringUtils.contains(strMathJaxEnabled, "sakai.samigo");
+		  return Boolean.parseBoolean(getCurrentSite(siteId).getProperties().getProperty(Site.PROP_SITE_MATHJAX_ALLOWED));
 	  }
 	  public String getMathJaxHeader(){
 		  StringBuilder headMJ = new StringBuilder();
-		  headMJ.append("<script type=\"text/x-mathjax-config\">\nMathJax.Hub.Config({\ntex2jax: { inlineMath: [['$$','$$'],['\\\\(','\\\\)']] }, TeX: { equationNumbers: { autoNumber: 'AMS' } }\n});\n</script>\n");
-		  headMJ.append("<script src=\"").append(MATHJAX_SRC_PATH).append("\"  language=\"JavaScript\" type=\"text/javascript\"></script>\n");
+		  headMJ.append("<script type=\"text/x-mathjax-config\">\nMathJax.Hub.Config({\nmessageStyle: \"none\",\ntex2jax: { inlineMath: [['$$','$$'],['\\\\(','\\\\)']] }, TeX: { equationNumbers: { autoNumber: 'AMS' } }\n});\n</script>\n");
+		  headMJ.append("<script src=\"").append(MATHJAX_SRC_PATH).append("\" type=\"text/javascript\"></script>\n");
 		  return headMJ.toString();
 	  }
 
@@ -4093,5 +4237,31 @@ public class DeliveryBean
 
     public String getQuestionProgressMardPath () {
       return questionProgressMardPath;
+    }
+
+    public String getRbcsToken() {
+      return this.rbcsToken;
+    }
+
+    public void setRbcsToken(String rbcsToken) {
+      this.rbcsToken = rbcsToken;
+    }
+
+    public String getMinReqScale() {
+      return ServerConfigurationService.getString("samigo.ajaxTimerMinReqScale","5000");
+    }
+
+    public void calculateMinutesAndSecondsLeft() {
+        String ms = getAutoSaveRepeatMilliseconds();
+        int milliseconds = Integer.parseInt(ms);
+        if (milliseconds != -1) {
+            Date d = new Date(milliseconds);
+            this.setMinutesLeft(String.valueOf(d.getMinutes()));
+            this.setSecondsLeft(String.valueOf(d.getSeconds()));
+        }
+    }
+
+    public String getCDNQuery() {
+        return PortalUtils.getCDNQuery();
     }
 }

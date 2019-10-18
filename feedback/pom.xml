@@ -13,15 +13,11 @@
 	<parent>
         <groupId>org.sakaiproject</groupId>
         <artifactId>master</artifactId>
-        <version>13-SNAPSHOT</version>
+        <version>20-SNAPSHOT</version>
         <relativePath>../master/pom.xml</relativePath>
     </parent>
 
-  	<organization>
-    	<name>University of Oxford</name>
-    	<url>http://www.ox.ax.uk</url>
-  	</organization>
-    <inceptionYear>2005</inceptionYear>
+
 
   	<developers>
     	<developer>
@@ -40,12 +36,11 @@
   	<dependencies>
 		<dependency>
 			<groupId>javax.servlet</groupId>
-			<artifactId>servlet-api</artifactId>
+			<artifactId>javax.servlet-api</artifactId>
 		</dependency>
 		<dependency>
 			<groupId>javax.servlet</groupId>
             <artifactId>jstl</artifactId>
-            <scope>compile</scope>
         </dependency>
         <dependency>
             <groupId>taglibs</groupId>
@@ -94,16 +89,20 @@
             <artifactId>commons-fileupload</artifactId>
         </dependency>
         <dependency>
-            <groupId>commons-lang</groupId>
-            <artifactId>commons-lang</artifactId>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-lang3</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-text</artifactId>
         </dependency>
         <dependency>
             <groupId>javax.activation</groupId>
-            <artifactId>activation</artifactId>
+            <artifactId>javax.activation-api</artifactId>
         </dependency>
         <dependency>
             <groupId>com.sun.mail</groupId>
-            <artifactId>javax.mail</artifactId>
+            <artifactId>jakarta.mail</artifactId>
         </dependency>
         <dependency>
             <groupId>net.tanesha.recaptcha4j</groupId>

@@ -29,6 +29,7 @@ import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.wicket.AttributeModifier;
 import org.apache.wicket.Component;
+import org.apache.wicket.Session;
 import org.apache.wicket.request.mapper.parameter.PageParameters;
 import org.apache.wicket.request.cycle.RequestCycle;
 import org.apache.wicket.extensions.markup.html.repeater.data.table.IColumn;
@@ -50,6 +51,7 @@ import org.apache.wicket.model.StringResourceModel;
 import org.apache.wicket.request.http.WebResponse;
 import org.apache.wicket.request.handler.EmptyRequestHandler;
 
+import org.sakaiproject.event.api.EventTrackingService;
 import org.sakaiproject.exception.IdUnusedException;
 import org.sakaiproject.site.api.Site;
 import org.sakaiproject.sitestats.api.EventStat;
@@ -73,6 +75,7 @@ import org.sakaiproject.sitestats.tool.wicket.components.Menus;
 import org.sakaiproject.sitestats.tool.wicket.components.SakaiDataTable;
 import org.sakaiproject.sitestats.tool.wicket.models.ReportDefModel;
 import org.sakaiproject.sitestats.tool.wicket.providers.ReportsDataProvider;
+import org.sakaiproject.time.api.UserTimeService;
 import org.sakaiproject.user.api.UserNotDefinedException;
 
 /**
@@ -255,7 +258,7 @@ public class ReportDataPage extends BasePage {
 		trReportUserSelection.add(new Label("reportUserSelection"));
 		add(trReportUserSelection);
 		
-		add(new Label("report.localizedReportGenerationDate"));
+		add(new Label("reportGenerationDate"));
 		
 		
 		// buttons
@@ -330,7 +333,7 @@ public class ReportDataPage extends BasePage {
 					final String userId = ((Stat) model.getObject()).getUserId();
 					String name = null;
 					if (userId != null) {
-						if(("-").equals(userId) || ("?").equals(userId)) {
+						if(("-").equals(userId) || EventTrackingService.UNKNOWN_USER.equals(userId)) {
 							name = "-";
 						}else{
 							try{
@@ -353,7 +356,7 @@ public class ReportDataPage extends BasePage {
 					if (userId != null) {
 						if(("-").equals(userId)) {
 							name = (String) new ResourceModel("user_anonymous").getObject();
-						}else if(("?").equals(userId)) {
+						}else if(EventTrackingService.UNKNOWN_USER.equals(userId)) {
 							name = (String) new ResourceModel("user_anonymous_access").getObject();
 						}else{
 							name= Locator.getFacade().getStatsManager().getUserNameForDisplay(userId);
@@ -483,7 +486,12 @@ public class ReportDataPage extends BasePage {
 			});
 		}
 		if(Locator.getFacade().getReportManager().isReportColumnAvailable(reportParams, StatsManager.T_DATE)) {
-			columns.add(new PropertyColumn(new ResourceModel("th_date"), columnsSortable ? ReportsDataProvider.COL_DATE : null, ReportsDataProvider.COL_DATE));
+			columns.add(new PropertyColumn(new ResourceModel("th_date"), columnsSortable ? ReportsDataProvider.COL_DATE : null, ReportsDataProvider.COL_DATE) {
+				@Override
+				public void populateItem(Item item, String componentId, IModel model) {
+					item.add(new Label(componentId, getLocalizedDate((Stat) model.getObject())));
+				}
+			});
 		}
 		if(Locator.getFacade().getReportManager().isReportColumnAvailable(reportParams, StatsManager.T_DATEMONTH)) {
 			columns.add(new PropertyColumn(new ResourceModel("th_date"), columnsSortable ? ReportsDataProvider.COL_DATE : null, ReportsDataProvider.COL_DATE) {
@@ -506,7 +514,12 @@ public class ReportDataPage extends BasePage {
 			});
 		}
 		if(Locator.getFacade().getReportManager().isReportColumnAvailable(reportParams, StatsManager.T_LASTDATE)) {
-			columns.add(new PropertyColumn(new ResourceModel("th_lastdate"), columnsSortable ? ReportsDataProvider.COL_DATE : null, ReportsDataProvider.COL_DATE));
+			columns.add(new PropertyColumn(new ResourceModel("th_lastdate"), columnsSortable ? ReportsDataProvider.COL_DATE : null, ReportsDataProvider.COL_DATE) {
+				@Override
+				public void populateItem(Item item, String componentId, IModel model) {
+					item.add(new Label(componentId, getLocalizedDate((Stat) model.getObject())));
+				}
+			});
 		}
 		if(Locator.getFacade().getReportManager().isReportColumnAvailable(reportParams, StatsManager.T_TOTAL)) {
 			columns.add(new PropertyColumn(new ResourceModel("th_total"), columnsSortable ? ReportsDataProvider.COL_TOTAL : null, "count"));
@@ -531,6 +544,12 @@ public class ReportDataPage extends BasePage {
 			});
 		}
 		return columns;
+	}
+
+	private static String getLocalizedDate(Stat stat) {
+		java.sql.Date sqlDate = (java.sql.Date) stat.getDate();
+		UserTimeService timeServ = Locator.getFacade().getUserTimeService();
+		return timeServ.shortLocalizedDate(sqlDate.toLocalDate(), Session.get().getLocale());
 	}
 	
 	private byte[] getChartImage() {

@@ -1,13 +1,14 @@
 ##<!-- $Header: /cvs/sakai2/legacy/tools/src/webapp/vm/sitesetup/chef_site-siteInfo-editInfoConfirm.vm,v 1.2 2005/05/23 04:04:12 ggolden.umich.edu Exp $ -->
 ## Edit Site Information Confirmation page
 <div class="portletBody container-fluid">
+	#if($menu)#toolbar($menu)#end
 	<h3>
 		$tlang.getString("sitediconf.con") <span class="highlight">$validator.escapeHtml($!title)</span>
 	</h3>
 	<p class="instruction">
 		$tlang.getString("sitediconf.cli")
 	</p>
-	#if ($alertMessage)<div class="alertMessage">$tlang.getString("sitediinf.alert") $alertMessage</div><div class="clear"></div>#end
+	#if ($alertMessage)<div class="sak-banner-error">$tlang.getString("sitediinf.alert") $alertMessage</div>#end
 	<form name="classInformationForm" method="post" action="#toolForm("SiteAction")">		
 			<div class="form-group row">
 				<label class="col-sm-2 form-control-label">

@@ -27,6 +27,7 @@ import org.apache.wicket.extensions.markup.html.tabs.AbstractTab;
 import org.apache.wicket.markup.html.panel.Panel;
 import org.apache.wicket.model.ResourceModel;
 
+import org.sakaiproject.event.api.EventTrackingService;
 import org.sakaiproject.exception.IdUnusedException;
 import org.sakaiproject.exception.PermissionException;
 import org.sakaiproject.exception.TypeException;
@@ -98,7 +99,7 @@ public class ResourcesWidget extends Panel {
 		// Final Widget object		
 		String icon = StatsManager.SILK_ICONS_DIR + "folder_page.png";
 		String title = (String) new ResourceModel("overview_title_resources").getObject();
-		Widget widget = new Widget("widget", icon, title, widgetMiniStats, tabs);
+		Widget widget = new Widget("widget", icon, title, widgetMiniStats, tabs, siteId);
 		add(widget);
 	}
 
@@ -384,7 +385,7 @@ public class ResourcesWidget extends Panel {
 				String val = null;
 				if(user != null) {
 					String id = null;
-					if(("-").equals(user) || ("?").equals(user)){
+					if(("-").equals(user) || EventTrackingService.UNKNOWN_USER.equals(user)){
 						id = "-";
 					}else{
 						try{
@@ -412,7 +413,7 @@ public class ResourcesWidget extends Panel {
 					String name = null;
 					if(("-").equals(user)) {
 						name = (String) new ResourceModel("user_anonymous").getObject();
-					}else if(("?").equals(user)) {
+					}else if(EventTrackingService.UNKNOWN_USER.equals(user)) {
 						name = (String) new ResourceModel("user_anonymous_access").getObject();
 					}else{
 						name = Locator.getFacade().getStatsManager().getUserNameForDisplay(user);

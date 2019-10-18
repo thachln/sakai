@@ -16,8 +16,7 @@
 
  	.searchNav{
  		.button_search{
- 			margin: 0 0.5em;
- 			padding: 5px 10px 5px 12px;
+ 			margin: 0 0 0 $standard-space;
  		}
  	}
 
@@ -81,9 +80,10 @@
  	}
  	
  	#prefs_pvt_form{
- 		&\:pvtmsgs{
- 			max-width: 1200px;
- 			
+ 		&\:pvtmsgs, &\:threaded_pvtmsgs{
+ 			th{
+ 				min-width: 32px;
+ 			}
  			td.check{
  				width: 10%;
  			} 		
@@ -165,6 +165,38 @@
 	    		display: block;
 	    	}
 	    }
+	}
+
+	.dataTable {
+		thead {
+			.sorting_asc, .sorting_desc {
+				a {
+					position: relative;
+					margin-right: 11px;
+
+					&::after {
+						content: " ";
+						width: 11px;
+						height: 11px;
+						position: absolute;
+						bottom: 2px;
+						right: -14px;
+					}
+				}
+			}
+
+			.sorting_asc {
+				a::after {
+					background: url(/library/image/sakai/sortascending.gif?panel=Main);
+				}
+			}
+
+			.sorting_desc {
+				a::after {
+					background: url(/library/image/sakai/sortdescending.gif?panel=Main);
+				}
+			}
+		}
 	}
 
 }

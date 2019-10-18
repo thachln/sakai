@@ -13,10 +13,12 @@
     <body>
         <div class="portletBody">
             <form rsf:id="groups-form">
-                <h3 rsf:id="prompt"></h3>
+                <div class="page-header">
+                    <h1 rsf:id="prompt"></h1>
+                </div>
                 <p rsf:id="instructions" class="instruction"></p>
                 <div rsf:id="error-row:">
-                    <div class="alertMessage" rsf:id="error">
+                    <div class="sak-banner-error" rsf:id="error">
                         We Have Errors!
                     </div>
                 </div>
@@ -88,7 +90,7 @@
                             <label rsf:id="allowViewMembership-label">Allow members to see the other members of this group after joining</label>
                         </div>
                         <div rsf:id="generate-row:">
-                            <input accesskey="g" rsf:id="generate" class="active" value="Generate" type="submit" id="generate" onclick="SPNR.disableControlsAndSpin( this, null );" />
+                            <input accesskey="g" rsf:id="generate" class="active" value="Generate" type="submit" id="generate" />
                         </div>
                     </div>
                     
@@ -102,7 +104,7 @@
                             <p class="shortext">
                                 <label rsf:id="pending-groups-title" class="form-control-label">Pending Groups:</label>
                             </p>
-                            <label rsf:id="pending-groups-disclaimer" class="messageInstruction">Pending groups disclaimer</label>
+                            <label rsf:id="pending-groups-disclaimer" class="sak-banner-info">Pending groups disclaimer</label>
                         </div>
                         <div id="pendingGroupsContainer" class="col-sm-6">
                             <div rsf:id="pending-groups-row:">

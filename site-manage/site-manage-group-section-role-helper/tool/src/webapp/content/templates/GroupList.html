@@ -22,11 +22,12 @@
 				<li><span><a href="#" rsf:id="auto_add" class="item_control" title="Automatically Create New Group" onclick="">Auto Groups</a></span></li>
 				<li><span><a href="#" rsf:id="import_add" class="item_control" title="Automatically Create New Group" onclick="">Auto Groups</a></span></li>
 			</ul>
-
-			<h3 rsf:id="group-list-title">Groups</h3>
+			<div class="page-header">
+				<h1 rsf:id="group-list-title">Groups</h1>
+			</div>
 			<!-- alert message -->
 			<div rsf:id="error-row:">
-				<div class="alertMessage" rsf:id="error">We Have Errors!</div>
+				<div class="sak-banner-error" rsf:id="error">We Have Errors!</div>
 			</div>
 			<form rsf:id="delete-group-form">
 				<p rsf:id="no-group" class="instruction">No group</p>
@@ -50,7 +51,7 @@
 					</thead>
 					<tbody id="tasks:grouplist:tbody_element">
 						<tr rsf:id="group-row:">
-							<td><span class="itemAction"><span rsf:id="group-icon" class="fa fa-fw" aria-hidden="true"></span><a href="GroupEdit.html" rsf:id="group-title">Edit</a></span></td>
+							<td><span class="itemAction"><span rsf:id="group-for-deletion-icon" class="fa fa-fw" aria-hidden="true"></span><span rsf:id="group-icon" class="fa fa-fw" aria-hidden="true"></span><a href="GroupEdit.html" rsf:id="group-title">Edit</a></span></td>
 							<td>
 								<span class="itemAction"><a rsf:id="group-joinable-set" href="CreateJoinableGroups.html">Joinable Set</a></span>
 								<span rsf:id="group-no-joinable-set">---</span>

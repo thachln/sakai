@@ -69,7 +69,7 @@ import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.lang.ArrayUtils;
+import org.apache.commons.lang3.ArrayUtils;
 import org.apache.tika.io.TikaInputStream;
 import org.apache.tika.metadata.Metadata;
 import org.apache.tika.detect.DefaultDetector;
@@ -123,7 +123,6 @@ import org.sakaiproject.entity.api.EntityPermissionException;
 import org.sakaiproject.entity.api.EntityPropertyNotDefinedException;
 import org.sakaiproject.entity.api.EntityPropertyTypeException;
 import org.sakaiproject.entity.api.EntityTransferrer;
-import org.sakaiproject.entity.api.EntityTransferrerRefMigrator;
 import org.sakaiproject.entity.api.HardDeleteAware;
 import org.sakaiproject.entity.api.HttpAccess;
 import org.sakaiproject.entity.api.Reference;
@@ -180,6 +179,9 @@ import org.sakaiproject.util.Web;
 import org.sakaiproject.util.Xml;
 import org.sakaiproject.util.api.LinkMigrationHelper;
 
+import static org.sakaiproject.content.util.IdUtil.isolateContainingId;
+import static org.sakaiproject.content.util.IdUtil.isolateName;
+
 /**
  * <p>
  * BaseContentService is an abstract base implementation of the Sakai ContentHostingService.
@@ -187,7 +189,7 @@ import org.sakaiproject.util.api.LinkMigrationHelper;
  */
 @Slf4j
 public abstract class BaseContentService implements ContentHostingService, CacheRefresher, ContextObserver, EntityTransferrer, 
-SiteContentAdvisorProvider, SiteContentAdvisorTypeRegistry, EntityTransferrerRefMigrator, HardDeleteAware
+SiteContentAdvisorProvider, SiteContentAdvisorTypeRegistry, HardDeleteAware
 {
 	protected static final long END_OF_TIME = 8000L * 365L * 24L * 60L * 60L * 1000L;
 	protected static final long START_OF_TIME = 365L * 24L * 60L * 60L * 1000L;
@@ -1904,25 +1906,6 @@ SiteContentAdvisorProvider, SiteContentAdvisorTypeRegistry, EntityTransferrerRef
 		p.addProperty(ResourceProperties.PROP_CONTENT_TYPE, r.getContentType());
 
 		p.addProperty(ResourceProperties.PROP_IS_COLLECTION, "false");
-
-		if (StringUtils.isBlank(p.getProperty(ResourceProperties.PROP_COPYRIGHT_CHOICE))) {
-			String copyright = m_serverConfigurationService.getString("copyright.type.default", "not_determined");
-			// if copyright is null don't set a default copyright
-			if (copyright != null) {
-				String[] copyrightTypes = m_serverConfigurationService.getStrings("copyright.types");
-				if (copyrightTypes != null && copyrightTypes.length > 0) {
-					List<String> l = Arrays.asList(copyrightTypes);
-					if (l.contains(copyright)) {
-						p.addProperty(ResourceProperties.PROP_COPYRIGHT_CHOICE, copyright);
-					} else {
-						log.warn("Cannot set the default copyright " + copyright + " on " + r.getId() + " does not match any copyright types");
-					}
-				} else {
-					log.warn("Cannot set the default copyright " + copyright + " on " + r.getId() + " no copyright types are defined");
-				}
-			}
-		}
-
 	} // addLiveResourceProperties
 
 	/**
@@ -2501,7 +2484,11 @@ SiteContentAdvisorProvider, SiteContentAdvisorTypeRegistry, EntityTransferrerRef
 	{
 		List<ContentResource> rv = new ArrayList<ContentResource>();
 
-		if (isRootCollection(id))
+		if (StringUtils.isBlank(id))
+		{
+			return rv;
+		}
+		else if (isRootCollection(id))
 		{
 			// There are performance issues with returning every single resources in one collection as well
 			// as issues in Sakai where actions incorrectly happen for the whole of the content service
@@ -5917,7 +5904,7 @@ SiteContentAdvisorProvider, SiteContentAdvisorTypeRegistry, EntityTransferrerRef
 					throw new IdUniquenessException(new_folder_id);
 				}
 			}
-			String containerId = this.isolateContainingId(new_folder_id);
+			String containerId = isolateContainingId(new_folder_id);
 			ContentCollection containingCollection = findCollection(containerId);
 			SortedSet<String> siblings = new TreeSet<String>();
 			siblings.addAll(containingCollection.getMembers());
@@ -6361,6 +6348,12 @@ SiteContentAdvisorProvider, SiteContentAdvisorTypeRegistry, EntityTransferrerRef
 
 		// Post an available event for now or later
 		postAvailableEvent(edit, ref, priority);
+
+		//Post an event when a new version of the file is uploaded
+		if(contentUpdated){
+			// post EVENT_RESOURCE_UPD_NEW_VERSION event
+			this.eventTrackingService.post(this.eventTrackingService.newEvent(EVENT_RESOURCE_UPD_NEW_VERSION, edit.getReference(), true, priority));
+		}
 
 		if(titleUpdated) {
 			// post EVENT_RESOURCE_UPD_TITLE event
@@ -8098,6 +8091,8 @@ SiteContentAdvisorProvider, SiteContentAdvisorTypeRegistry, EntityTransferrerRef
 	public void updateEntityReferences(String toContext, Map transversalMap){
 		//TODO: is there any content that needs reference updates?
 		String fromContext = (String) transversalMap.get("/fromContext");
+		if (StringUtils.isBlank(fromContext)) return;
+
 		String thisKey = null;
 		try {
 			List thisTargetResourceList = getAllResources(fromContext);
@@ -8185,14 +8180,8 @@ SiteContentAdvisorProvider, SiteContentAdvisorTypeRegistry, EntityTransferrerRef
 	/**
 	 * {@inheritDoc}
 	 */
-	public void transferCopyEntities(String fromContext, String toContext, List resourceIds){
-		transferCopyEntitiesRefMigrator(fromContext, toContext, resourceIds);
-	}
+	public Map<String, String> transferCopyEntities(String fromContext, String toContext, List<String> resourceIds, List<String> options) {
 
-
-	public Map<String, String> transferCopyEntitiesRefMigrator(String fromContext, String toContext, List resourceIds)
-
-	{
 		Map transversalMap = new HashMap();
 		// default to import all resources
 		boolean toBeImported = true;
@@ -8270,6 +8259,7 @@ SiteContentAdvisorProvider, SiteContentAdvisorTypeRegistry, EntityTransferrerRef
 				ContentCollection oCollection = getCollection(fromContext);
 
 				// Copy the Resource Properties from Root Collection to New Root Collection
+				// TODO: Shouldn't this only happen on a data replace, but not on a merge?
 				ResourceProperties oCollectionProperties = oCollection.getProperties();
 				ContentCollectionEdit toCollectionEdit = (ContentCollectionEdit) toCollection;
 				ResourcePropertiesEdit toColPropEdit = toCollectionEdit.getPropertiesEdit();
@@ -8326,19 +8316,14 @@ SiteContentAdvisorProvider, SiteContentAdvisorTypeRegistry, EntityTransferrerRef
 
 						ResourceProperties oProperties = oResource.getProperties();
 						boolean isCollection = false;
-						try
-						{
+						try {
 							isCollection = oProperties.getBooleanProperty(ResourceProperties.PROP_IS_COLLECTION);
-						}
-						catch (Exception e)
-						{
+						} catch (Exception e) {
 						}
 
-						if (isCollection)
-						{
+						if (isCollection) {
 							// add collection
-							try
-							{
+							try {
 								ContentCollectionEdit edit = addCollection(nId);
 								// import properties
 								ResourcePropertiesEdit p = edit.getPropertiesEdit();
@@ -8351,27 +8336,13 @@ SiteContentAdvisorProvider, SiteContentAdvisorTypeRegistry, EntityTransferrerRef
 								m_storage.commitCollection(edit);
 								((BaseCollectionEdit) edit).closeEdit();
 								nUrl = edit.getUrl();
-							}
-							catch (IdUsedException e)
-							{
-							}
-							catch (IdInvalidException e)
-							{
-							}
-							catch (PermissionException e)
-							{
-							}
-							catch (InconsistentException e)
-							{
+							} catch (IdUsedException|IdInvalidException|PermissionException|InconsistentException e) {
 							}
 							transversalMap.put(oResource.getId(), nId);
 							transversalMap.put(oResource.getUrl(), nUrl);
-							transversalMap.putAll(transferCopyEntitiesRefMigrator(oResource.getId(), nId, resourceIds));
-						}
-						else
-						{
-							try
-							{
+							transversalMap.putAll(transferCopyEntities(oResource.getId(), nId, resourceIds, null));
+						} else {
+							try {
 								// add resource
 								ContentResourceEdit edit = addResource(nId);
 								edit.setContentType(((ContentResource) oResource).getContentType());
@@ -8385,6 +8356,12 @@ SiteContentAdvisorProvider, SiteContentAdvisorTypeRegistry, EntityTransferrerRef
 								p.addAll(oProperties);
 								// SAK-23305
 								hideImportedContent(edit);
+								//Register the events
+								this.eventTrackingService.post(this.eventTrackingService.newEvent(EVENT_RESOURCE_ADD, edit.getReference(), true, NotificationService.NOTI_NONE));
+								boolean contentUpdated = ((BaseResourceEdit) edit).m_body != null || ((BaseResourceEdit) edit).m_contentStream != null;
+								if (contentUpdated){
+									this.eventTrackingService.post(this.eventTrackingService.newEvent(EVENT_RESOURCE_UPD_NEW_VERSION, edit.getReference(), true, NotificationService.NOTI_NONE));
+								}
 								// complete the edit
 								m_storage.commitResource(edit);
 								((BaseResourceEdit) edit).closeEdit();
@@ -8393,37 +8370,15 @@ SiteContentAdvisorProvider, SiteContentAdvisorTypeRegistry, EntityTransferrerRef
 								transversalMap.put(oResource.getUrl(), nUrl);
 
 								ContentChangeHandler cch = m_resourceTypeRegistry.getContentChangeHandler(((ContentResource) oResource).getResourceType());
-								if (cch!=null){
+								if (cch != null) {
 									cch.copy(((ContentResource) oResource));
 								}
-							}
-							catch (PermissionException e)
-							{
-							}
-							catch (IdUsedException e)
-							{
-							}
-							catch (IdInvalidException e)
-							{
-							}
-							catch (InconsistentException e)
-							{
-							}
-							catch (ServerOverloadException e)
-							{
+							} catch (PermissionException|IdUsedException|IdInvalidException|InconsistentException|ServerOverloadException e) {
 							}
 						} // if
 					} // if
 				} // for
-			}
-			catch (IdUnusedException e)
-			{
-			}
-			catch (TypeException e)
-			{
-			}
-			catch (PermissionException e)
-			{
+			} catch (IdUnusedException|TypeException|PermissionException e) {
 			}
 		}
 		transversalMap.put("/fromContext", fromContext);
@@ -8456,10 +8411,10 @@ SiteContentAdvisorProvider, SiteContentAdvisorTypeRegistry, EntityTransferrerRef
 				/*
 				 * If this is "reuse content" during worksite setup, the site collection at this time is
 				 * /group/!admin/ for all content including ones in the folders, so count how many "/" in
-				 * the collection ID. If <= 3, then it's a top-level item and needs to be hidden.
+				 * the collection ID. If == 3, then it's a top-level item and needs to be hidden.
 				 */
 				int slashcount = StringUtils.countMatches(containingCollectionId, "/");
-				if (slashcount <= 3)
+				if (slashcount == 3)
 				{
 					if (resource != null)
 					{
@@ -9183,38 +9138,6 @@ SiteContentAdvisorProvider, SiteContentAdvisorTypeRegistry, EntityTransferrerRef
 		return edit;
 
 	} // mergeResource
-
-	/**
-	 * Find the containing collection id of a given resource id.
-	 * 
-	 * @param id
-	 *        The resource id.
-	 * @return the containing collection id.
-	 */
-	protected String isolateContainingId(String id)
-	{
-		// take up to including the last resource path separator, not counting one at the very end if there
-		return id.substring(0, id.lastIndexOf('/', id.length() - 2) + 1);
-
-	} // isolateContainingId
-
-	/**
-	 * Find the resource name of a given resource id.
-	 * 
-	 * @param id
-	 *        The resource id.
-	 * @return the resource name.
-	 */
-	protected String isolateName(String id)
-	{
-		if (id == null) return null;
-		if (id.length() == 0) return null;
-
-		// take after the last resource path separator, not counting one at the very end if there
-		boolean lastIsSeparator = id.charAt(id.length() - 1) == '/';
-		return id.substring(id.lastIndexOf('/', id.length() - 2) + 1, (lastIsSeparator ? id.length() - 1 : id.length()));
-
-	} // isolateName
 
 	/**
 	 * Check the fixed type and id infomation: The same or better content type based on the known type for this id's extension, if any. The same or added extension id based on the know MIME type, if any Only if the type is the unknown type already.
@@ -13933,13 +13856,8 @@ SiteContentAdvisorProvider, SiteContentAdvisorTypeRegistry, EntityTransferrerRef
 		return 0;
 	}
 
-	public void transferCopyEntities(String fromContext, String toContext, List ids, boolean cleanup)
-	{
-		transferCopyEntitiesRefMigrator(fromContext, toContext, ids, cleanup);
-	}
+	public Map<String, String> transferCopyEntities(String fromContext, String toContext, List<String> ids, List<String> options, boolean cleanup) {
 
-	public Map<String,String> transferCopyEntitiesRefMigrator(String fromContext, String toContext, List ids, boolean cleanup)
-	{	
 		Map transversalMap = new HashMap();
 		try
 		{
@@ -13949,7 +13867,7 @@ SiteContentAdvisorProvider, SiteContentAdvisorTypeRegistry, EntityTransferrerRef
 				ContentCollection oCollection = getCollection(toContext);
 
 				if (!isSiteLevelCollection(oCollection.getId())) {
-					throw new IllegalArgumentException("transferCopyEntitiesRefMigrator operation rejected on non site collection: " + oCollection.getId());
+					throw new IllegalArgumentException("transferCopyEntities operation rejected on non site collection: " + oCollection.getId());
 				}
 
 				if(oCollection != null)
@@ -14008,11 +13926,10 @@ SiteContentAdvisorProvider, SiteContentAdvisorTypeRegistry, EntityTransferrerRef
 				}
 			}
 		}
-		catch (Exception e)
-		{
+		catch (Exception e) {
 			log.debug("BaseContentService Resources transferCopyEntities Error" + e);
 		}
-		transversalMap.putAll(transferCopyEntitiesRefMigrator(fromContext, toContext, ids));
+		transversalMap.putAll(transferCopyEntities(fromContext, toContext, ids, null));
 		
 		return transversalMap;
 	}

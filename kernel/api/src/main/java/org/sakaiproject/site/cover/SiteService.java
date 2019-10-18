@@ -25,6 +25,7 @@ import java.util.List;
 
 import org.sakaiproject.component.cover.ComponentManager;
 import org.sakaiproject.site.api.Site;
+import org.sakaiproject.site.api.SiteService.SiteTitleValidationStatus;
 
 /**
  * <p>
@@ -287,6 +288,14 @@ public class SiteService
 		if (service == null) return;
 
 		service.removeSite(param0);
+	}
+
+	public static void removeSite(org.sakaiproject.site.api.Site param0, boolean param1) throws org.sakaiproject.exception.PermissionException, org.sakaiproject.exception.IdUnusedException
+	{
+		org.sakaiproject.site.api.SiteService service = getInstance();
+		if (service == null) return;
+
+		service.removeSite(param0, param1);
 	}
 	
 	public static java.lang.String siteReference(java.lang.String param0)
@@ -584,5 +593,19 @@ public class SiteService
 		if (service == null) return null;
 
 		return service.getUserSpecificSiteTitle(site, userId, siteProviders);
+	}
+
+	/**
+	 * Given the original and stripped site titles, determine that validation status of the stripped string.
+	 * @param orig the original, unaltered text as input by the user
+	 * @param stripped the HTML stripped text
+	 * @return {@link SiteTitleValidationStatus}
+	 */
+	public static SiteTitleValidationStatus validateSiteTitle(String orig, String stripped)
+	{
+		org.sakaiproject.site.api.SiteService service = getInstance();
+		if (service == null) { return null; }
+
+		return service.validateSiteTitle(orig, stripped);
 	}
 }

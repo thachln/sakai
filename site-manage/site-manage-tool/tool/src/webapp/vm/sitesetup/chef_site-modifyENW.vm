@@ -6,12 +6,12 @@
 #javascript("/library/js/fontIconPicker/2.0.1-cs/jquery.fonticonpicker.min.js")
 #css("/library/js/fontIconPicker/2.0.1-cs/css/jquery.fonticonpicker.css")
 #css("/library/js/fontIconPicker/2.0.1-cs/themes/grey-theme/jquery.fonticonpicker.grey.min.css")
+	#if($menu)#toolbar($menu)#end
 	<h3>
 		$tlang.getString("multipleTools.custom")
 	</h3>           
 	#if ($alertMessage)
-		<div class="alertMessage">$tlang.getString("gen.alert") $alertMessage</div>
-		<div class="clear"></div>
+		<div class="sak-banner-error">$tlang.getString("gen.alert") $alertMessage</div>
 	#end
 	
 	<form name = "toolForm" method = "post" action="#toolForm("SiteAction")">
@@ -32,11 +32,13 @@
 				#end
 				#set($ltiToolValues=$ltiTool.getValue())
 				#set($ltiToolFormInput=$ltiToolValues.get("formInput"))
-				<h4>
-					$ltiToolValues.get("title")
-				</h4>
-				$ltiToolFormInput<br/>
-<script type="text/javascript">jQuery(document).ready(function () { fontawesome_icon_picker('#${ltiToolId}_fa_icon'); });</script>
+				#if ($ltiToolValues.get("hasConfiguration"))
+					<h4>
+						$ltiToolValues.get("title")
+					</h4>
+					$!ltiToolFormInput<br/>
+					<script type="text/javascript">jQuery(document).ready(function () { fontawesome_icon_picker('#${ltiToolId}_fa_icon'); });</script>
+				#end
 
 			#end
 		#end

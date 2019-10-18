@@ -24,6 +24,12 @@
     overflow: hidden;
     text-overflow: ellipsis;
   }
+  .popover-content {
+    text-indent: 0;
+  }
+  .whiteSpacePreLine {
+    white-space: pre-line;
+  }
 </style>
 
 #javascript("/sakai-content-tool/js/content.js")
@@ -46,11 +52,6 @@
 <div class="portletBody specialLink">
 	#set($itemsOnLine = 0)
 		<ul class="navIntraTool actionToolBar">
-            #if("$!dropboxMode" == "true")
-			<li class="firstToolBarItem"><span class="current">$clang.getString("list.site.dropbox")</span></li>
-            #else
-			<li class="firstToolBarItem"><span class="current">$clang.getString("list.site")</span></li>
-            #end
 			#if($canDeleteResource)
 				## view restore deleted resources area if the user has revise permission
 				<li><span><a href="#toolLinkParam("ResourcesAction" "doViewTrash" "siteId=$validator.escapeUrl(${site.id})")" title="$clang.getString('trash')">$clang.getString("trash")</a></span></li>
@@ -93,16 +94,23 @@
 			#end
 		</ul>
 		</ul>
+	<div class="page-header">
+		#if("$!dropboxMode" == "true")
+			<h1>$clang.getString("list.site.dropbox")</h1>
+		#else
+			<h1>$clang.getString("list.site")</h1>
+		#end
+	</div>
 	#if ($alertMessage)
-                 <br /><div class="messageValidation">$alertMessage</div><div class="clear"></div>
+		<br /><div class="sak-banner-warn">$alertMessage</div>
 	#end
 	## display print success message
 	#if ($content_print_status_success)
-		<br /><div id="messageSuccessHolder" class="messageSuccess" style="display:block">$!content_print_message</div>
+		<br /><div id="messageSuccessHolder" class="sak-banner-success" style="display:block">$!content_print_message</div>
 	#end
 	## display print failure message
 	#if ($content_print_status_failure)
-		<br /><div id="messageSuccessHolder" class="messageError" style="display:block">$!content_print_message</div>
+		<br /><div id="messageSuccessHolder" class="sak-banner-error">$!content_print_message</div>
 	#end
 	<form name="showForm" id="showForm" action="#toolForm("ResourcesAction")" method="post">
 		## hidden fields for print url
@@ -196,7 +204,7 @@
     <div class="container-fluid">
       <div class="row">
             #if($listActions || $showHotDropboxWidget)
-                    <div class="col-lg-6 col-md-8 col-sm-8 col-xs-12 btn-group btn-group-sm" role="group" style="padding-left:0;">
+                    <div class="col-lg-6 col-md-8 col-sm-8 col-xs-12 btn-group btn-group-sm act" role="group" style="padding-left:0;">
                         #if($listActions)
                                 #set ($itemsOnLine = 0)
                                 #foreach($key in $listActions.keySet())
@@ -238,11 +246,15 @@
               <label for="dropboxHighlight">
                   <small>$clang.getString("dropbox_highlight")</small>
               </label>
-              <select class="form-control " name="dropboxHighlight" id="dropboxHighlight" onchange="document.getElementById('sakai_action').value='doSetHotDropbox';document.getElementById('showForm').submit();">
+              <select name="dropboxHighlight" id="dropboxHighlight" onchange="document.getElementById('sakai_action').value='doSetHotDropbox';document.getElementById('showForm').submit();">
                   <option value="1"#if("$!dropboxHighlight" == "1") selected="selected"#end>$clang.getString("sh.1day")</option>
                   <option value="2"#if("$!dropboxHighlight" == "2") selected="selected"#end>$clang.getString("sh.2day")</option>
                   <option value="3"#if("$!dropboxHighlight" == "3") selected="selected"#end>$clang.getString("sh.3day")</option>
                   <option value="7"#if("$!dropboxHighlight" == "7") selected="selected"#end>$clang.getString("sh.1week")</option>
+                  <option value="14"#if("$!dropboxHighlight" == "14") selected="selected"#end>$clang.getString("sh.2week")</option>
+                  <option value="21"#if("$!dropboxHighlight" == "21") selected="selected"#end>$clang.getString("sh.3week")</option>
+                  <option value="28"#if("$!dropboxHighlight" == "28") selected="selected"#end>$clang.getString("sh.4week")</option>
+                  <option value="35"#if("$!dropboxHighlight" == "35") selected="selected"#end>$clang.getString("sh.5week")</option>
               </select>
             #end
             #if (!$dropboxMode)
@@ -260,7 +272,7 @@
                   <li class="dropdown-header"><span id="creatorTog"><input type="checkbox" id="creatorCol" checked="checked" /><label for ="creatorCol">&nbsp;&nbsp;$clang.getString("gen.created")</label></span></li>
                   <li class="dropdown-header"><span id="modifiedTog"><input type="checkbox" id="modifiedCol" checked="checked"/><label for="modifiedCol">&nbsp;&nbsp;$clang.getString("gen.last1")</label></span></li>
                   <li class="dropdown-header"><span id="sizeTog"><input type="checkbox" id="sizeCol" checked="checked"/><label for="sizeCol">&nbsp;&nbsp;$clang.getString("gen.size")</label></span></li>
-                  <li class="dropdown-header"><button class="btn btn-primary  btn-sm btn-block" id="saveCols">$clang.getString("gen.save")</button></li>
+                  <li class="dropdown-header act"><button class="active" id="saveCols">$clang.getString("gen.save")</button></li>
                 </ul>
               </span>
             #end
@@ -447,24 +459,24 @@
 									&#169;
 								#elseif($item.isCollection())
     								#if($item.isTooBigNav())
-                      <span class="visible-sm-inline-block visible-xs-inline-block truncate">$validator.escapeHtml($item.name)</span>
-                      <span class="hidden-sm hidden-xs">$validator.escapeHtml($item.name)</span>
+                      <span class="resource-name visible-sm-inline-block visible-xs-inline-block truncate">$validator.escapeHtml($item.name)</span>
+                      <span class="resource-name hidden-sm hidden-xs">$validator.escapeHtml($item.name)</span>
 									#else
 										<a href="#"
     										onclick="document.getElementById('sakai_action').value='doNavigate';document.getElementById('collectionId').value='$qid';document.getElementById('navRoot').value='$validator.escapeUrl($item.root)';document.getElementById('showForm').submit();"
     										title= "$item.hoverText">
-                        <span class="visible-sm-inline-block visible-xs-inline-block truncate">$validator.escapeHtml($item.name)</span>
-                        <span class="hidden-sm hidden-xs">$validator.escapeHtml($item.name)</span>
+                        <span class="resource-name visible-sm-inline-block visible-xs-inline-block truncate">$validator.escapeHtml($item.name)</span>
+                        <span class="resource-name hidden-sm hidden-xs">$validator.escapeHtml($item.name)</span>
     									</a>
 									#end	
 								#else
 									#if($item.isTooBigNav())
-                        <span class="visible-sm-inline-block visible-xs-inline-block truncate">$validator.escapeHtml($item.name)</span>
-                        <span class="hidden-sm hidden-xs">$validator.escapeHtml($item.name)</span>
+                        <span class="resource-name visible-sm-inline-block visible-xs-inline-block truncate">$validator.escapeHtml($item.name)</span>
+                        <span class="resource-name hidden-sm hidden-xs">$validator.escapeHtml($item.name)</span>
 									#else
 										<a href="$item.accessUrl" target="$item.target" title="$item.hoverText">
-                        <span class="visible-sm-inline-block visible-xs-inline-block truncate">$validator.escapeHtml($item.name)</span>
-                        <span class="hidden-sm hidden-xs">$validator.escapeHtml($item.name)</span>
+                        <span class="resource-name visible-sm-inline-block visible-xs-inline-block truncate">$validator.escapeHtml($item.name)</span>
+                        <span class="resource-name hidden-sm hidden-xs">$validator.escapeHtml($item.name)</span>
     									</a>
 									#end
 								#end
@@ -482,7 +494,10 @@
 								#end
 							#end 
 							#if ($item.description !="" && $item.description)
-								<a class="fa fa-info-circle" tabindex="0" data-placement="bottom" role="button" data-toggle="popover" data-trigger="focus" data-content="$validator.escapeHtmlTextarea($item.description)"></a>
+								<a class="fa fa-info-circle" tabindex="0" data-placement="bottom" role="button" data-toggle="popover" data-trigger="focus" data-html="true" data-content="<div class='whiteSpacePreLine'>$item.description</div>"></a>
+							#end
+							#if(!$item.isAvailable())
+								<span class="not-available fa fa-eye-slash" aria-hidden="true" title="$clang.getString('resource.is.hidden')"></span>
 							#end
 					</td>
 					<td headers="actions1"  style="white-space:nowrap;vertical-align:middle"  class="attach">
@@ -490,7 +505,12 @@
 							#set ($itemsOnLine = 0)
 							#foreach($action in $item.pasteActions)
 								#if($itemsOnLine > 0)|#end
-								<a href="#" class=" highlightlink" title="$labeler.getLabel($action) $tlang.getString("paste.here")" onclick="document.getElementById('selectedItemId').value='$qid';document.getElementById('rt_action').value='${action.typeId}${ACTION_DELIMITER}$action.id';document.getElementById('sakai_action').value='doDispatchAction';submitform('showForm');"><span class="fa fa-clipboard" aria-hidden="true"></span><span class="sr-only">$labeler.getLabel($action)</span></a> 
+								<a href="#" class="highlightlink" title="$labeler.getLabel($action) $tlang.getString("paste.here")"
+										onclick="document.getElementById('selectedItemId').value='$qid';document.getElementById('rt_action').value='${action.typeId}${ACTION_DELIMITER}$action.id';document.getElementById('sakai_action').value='doDispatchAction';submitform('showForm');">
+									<span class="iconText" aria-hidden="true">$tlang.getString("action.paste")</span>
+									<span class="fa fa-clipboard" aria-hidden="true"></span>
+									<span class="sr-only">$labeler.getLabel($action)</span>
+								</a>
 								#set ($itemsOnLine = $itemsOnLine + 1)
 							#end
 						#end
@@ -533,20 +553,21 @@
                         </div>
 					</td>
 					#if($item.depth > 0)
-						<td headers="access" class="hidden-sm hidden-xs access" title="$item.getLongAccessLabel()">
-							$item.getShortAccessLabel()
+						<td headers="access" class="hidden-sm hidden-xs access" title="$item.getLongAccessLabel()#if(!$item.isAvailable()) $clang.getString('access.hidden')#end">
+							<span class="resource-access">$item.getShortAccessLabel()#if(!$item.isAvailable()) $clang.getString('access.hidden')#end</span>
 						</td>
 						<td headers="creator" class="creator hidden-sm hidden-xs">
-							$validator.escapeHtml($item.createdBy)
+							<span class="resource-creator">$validator.escapeHtml($item.createdBy)</span>
 						</td>
 						<td headers="modified" class="modified hidden-sm hidden-xs">
-							$item.ModifiedTime
+							<span class="resource-modified">$item.ModifiedTime</span>
 						</td>
 						<td headers="size" class="size hidden-sm hidden-xs">
-							$item.size
+							<span class="resource-size">$item.size</span>
 						</td>
 					#else
-                        <td class="access hidden-sm hidden-xs">
+                        <td class="access hidden-sm hidden-xs" title="#if(!$item.isAvailable()) $clang.getString('access.hidden')#end">
+                          <span class="resource-access">#if(!$item.isAvailable()) $clang.getString('access.hidden')#end</span>
                         </td>
                         <td class="creator hidden-sm hidden-xs">
                         </td>
@@ -582,8 +603,8 @@
 						<tr class="exclude">
 							<td colspan="9" class="container-fluid">
                 <div class="row">
-							    <div class="col-lg-3 col-md-3 col-sm-3 col-xs-3">
-                    <button class="btn btn-default btn-sm" id="copy-button-other" type="button"
+							    <div class="col-lg-3 col-md-3 col-sm-3 col-xs-3 act">
+                    <button class="btn btn-default" id="copy-button-other" type="button"
                         onclick="document.getElementById('sakai_action').value='doMultiItemDispatch';document.getElementById('rt_action').value='copy-other';document.getElementById('showForm').submit();"
                         disabled="disabled">$tlang.getString('action.copy')
                     </button>
@@ -742,7 +763,7 @@
 										#end
 									#end
 									#if ($item.description !="" && $item.description)
-										<a class="fa fa-info-circle" tabindex="0" data-placement="bottom" role="button" data-toggle="popover" data-trigger="focus" data-content="$validator.escapeHtml($item.description)"></a>
+										<a class="fa fa-info-circle" tabindex="0" data-placement="bottom" role="button" data-toggle="popover" data-trigger="focus" data-html="true" data-content="<div class='whiteSpacePreLine'>$item.description</div>"></a>
 									#end
 							</th>
 							
@@ -752,19 +773,21 @@
 							<td headers="actions3" class="attach"></td>
 							#if($item.depth > 0)
 								<td class="access hidden-sm hidden-xs" headers="access" title="$item.getShortAccessLabel()">
-									$item.getShortAccessLabel()
+									<span class="resource-access">$item.getShortAccessLabel()#if(!$item.isAvailable()) $clang.getString('access.hidden')#end</span>
 								</td>
 								<td class="creator hidden-sm hidden-xs" headers="creator">
-									$validator.escapeHtml($item.createdBy)
+									<span class="resource-creator">$validator.escapeHtml($item.createdBy)</span>
 								</td>
 								<td class="modified hidden-sm hidden-xs" headers="modified">
-									$item.ModifiedTime
+									<span class="resource-modified">$item.ModifiedTime</span>
 								</td>
 								<td class="size hidden-sm hidden-xs" headers="size">
-									$item.size
+									<span class="resource-size">$item.size</span>
 								</td>
 							#else
-                                <td class="access hidden-sm hidden-xs" headers="access"></td>
+                                <td class="access hidden-sm hidden-xs" headers="access">
+                                  <span class="resource-access">#if(!$item.isAvailable()) $clang.getString('access.hidden')#end</span>
+                                </td>
                                 <td class="creator hidden-sm hidden-xs" headers="creator">
                                 </td>
                                 <td class="modified hidden-sm hidden-xs" headers="modified">
@@ -794,7 +817,6 @@
 			############################################# end of "Other sites" section 
 		
 		</table>
-		<div id="bottompadding" style="height:35em"> </div> 
 		
 		#foreach($key in $listActions.keySet())
 			<input type="hidden" id="${key}-count" value="$counter.getValue("${key}selected")" />

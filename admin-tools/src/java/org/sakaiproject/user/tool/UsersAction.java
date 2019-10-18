@@ -34,7 +34,7 @@ import java.util.Map;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import org.apache.commons.lang.ArrayUtils;
+import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.validator.routines.EmailValidator;
 import org.sakaiproject.accountvalidator.logic.ValidationLogic;
@@ -87,12 +87,13 @@ import org.sakaiproject.user.api.UserPermissionException;
 import org.sakaiproject.user.tool.PasswordPolicyHelper.TempUser;
 import org.sakaiproject.util.BaseResourcePropertiesEdit;
 import org.sakaiproject.util.ExternalTrustedEvidence;
-import org.sakaiproject.util.PasswordCheck;
 import org.sakaiproject.util.RequestFilter;
 import org.sakaiproject.util.ResourceLoader;
 import org.sakaiproject.util.StringUtil;
+import org.sakaiproject.util.api.PasswordFactory;
 
-import au.com.bytecode.opencsv.CSVReader;
+import com.opencsv.CSVReader;
+
 import lombok.extern.slf4j.Slf4j;
 import net.tanesha.recaptcha.ReCaptcha;
 import net.tanesha.recaptcha.ReCaptchaFactory;
@@ -157,6 +158,7 @@ public class UsersAction extends PagedResourceActionII
 	
 	private ThreadLocalManager threadLocalManager;
 	private UserTimeService userTimeService;
+	private PasswordFactory passwordFactory;
 	
 	public UsersAction() {
 		super();
@@ -169,7 +171,7 @@ public class UsersAction extends PagedResourceActionII
 		sessionManager =  ComponentManager.get(SessionManager.class);
 		threadLocalManager = ComponentManager.get(ThreadLocalManager.class);
 		userTimeService = (UserTimeService)ComponentManager.get(UserTimeService.class);
-		
+		passwordFactory = ComponentManager.get(PasswordFactory.class);
 	}
 
 	/**
@@ -278,6 +280,7 @@ public class UsersAction extends PagedResourceActionII
 	public String buildMainPanelContext(VelocityPortlet portlet, Context context, RunData rundata, SessionState state)
 	{
 		context.put("tlang", rb);
+		context.put("userTimeService", userTimeService);
 		context.put("includeLatestJQuery", PortalUtils.includeLatestJQuery("UsersAction"));
 		boolean singleUser = ((Boolean) state.getAttribute("single-user")).booleanValue();
 		boolean createUser = ((Boolean) state.getAttribute("create-user")).booleanValue();
@@ -1490,7 +1493,7 @@ public class UsersAction extends PagedResourceActionII
 				if (validateWithAccountValidator)
 				{
 					// the eid is their email address. The password is random
-					newUser = userDirectoryService.addUser(id, eid, firstName, lastName, email, PasswordCheck.generatePassword(), type, properties);
+					newUser = userDirectoryService.addUser(id, eid, firstName, lastName, email, passwordFactory.generatePassword(), type, properties);
 					// Invoke AccountValidator to send an email to the user containing a link to a form on which they can set their name and password
 					ValidationLogic validationLogic = (ValidationLogic) ComponentManager.get(ValidationLogic.class);
 					validationLogic.createValidationAccount(newUser.getId(), ValidationAccount.ACCOUNT_STATUS_REQUEST_ACCOUNT);

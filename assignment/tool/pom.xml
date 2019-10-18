@@ -6,23 +6,18 @@
     <parent>
         <groupId>org.sakaiproject.assignment</groupId>
         <artifactId>assignment</artifactId>
-        <version>13-SNAPSHOT</version>
+        <version>20-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
 
     <name>sakai-assignment-tool</name>
     <groupId>org.sakaiproject.assignment</groupId>
     <artifactId>sakai-assignment-tool</artifactId>
-    <organization>
-        <name>The Sakai Foundation</name>
-        <url>http://sakaiproject.org/</url>
-    </organization>
-    <inceptionYear>2003</inceptionYear>
     <packaging>war</packaging>
 
     <dependencies>
         <dependency>
-            <groupId>net.sf.opencsv</groupId>
+            <groupId>com.opencsv</groupId>
             <artifactId>opencsv</artifactId>
         </dependency>
         <dependency>
@@ -60,6 +55,10 @@
         <dependency>
             <groupId>org.sakaiproject.edu-services.gradebook</groupId>
             <artifactId>gradebook-service-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.sakaiproject.rubrics</groupId>
+            <artifactId>rubrics-service-api</artifactId>
         </dependency>
         <!-- ScoringService integration -->
         <dependency>
@@ -107,7 +106,17 @@
         </dependency>
         <dependency>
             <groupId>javax.servlet</groupId>
-            <artifactId>servlet-api</artifactId>
+            <artifactId>javax.servlet-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.httpcomponents</groupId>
+            <artifactId>httpclient</artifactId>
+            <version>${sakai.httpclient.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.json</groupId>
+            <artifactId>json</artifactId>
+            <version>${sakai.org.json.version}</version>
         </dependency>
         <dependency>
             <groupId>org.springframework</groupId>

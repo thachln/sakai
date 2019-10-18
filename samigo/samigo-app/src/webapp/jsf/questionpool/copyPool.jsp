@@ -54,13 +54,13 @@
               }
               window.onload = initPage;
 </script>
-<samigo:script path="/../library/js/spinner.js"/>
+<script type="text/javascript" src="/library/js/spinner.js"></script>
 </head>
 <body onload="collapseAllRowsForSelectList();flagRows();;<%= request.getAttribute("html.body.onload") %>">
 <!-- content... -->
  <div class="portletBody">
 <h:form id="copyPool">
-<h:messages styleClass="messageSamigo" rendered="#{! empty facesContext.maximumSeverity}" layout="table"/>
+<h:messages styleClass="sak-banner-error" rendered="#{! empty facesContext.maximumSeverity}" layout="table"/>
  
 <h3>
 <h:outputText rendered="#{questionpool.actionType == 'pool'}" value="#{questionPoolMessages.copy_p}"/>

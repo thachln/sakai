@@ -28,6 +28,8 @@ import org.sakaiproject.commons.api.CommonsConstants;
 import org.sakaiproject.commons.api.CommonsManager;
 import org.sakaiproject.commons.api.SakaiProxy;
 import org.sakaiproject.component.api.ComponentManager;
+import org.sakaiproject.component.api.ServerConfigurationService;
+import org.sakaiproject.portal.util.PortalUtils;
 import org.sakaiproject.tool.api.Session;
 import org.sakaiproject.util.RequestFilter;
 import org.sakaiproject.util.ResourceLoader;
@@ -42,6 +44,7 @@ public class CommonsTool extends HttpServlet {
 
     private CommonsManager commonsManager;
     private SakaiProxy sakaiProxy;
+    private ServerConfigurationService serverConfigurationService;
 
     public void init(ServletConfig config) throws ServletException {
 
@@ -53,6 +56,7 @@ public class CommonsTool extends HttpServlet {
             ComponentManager componentManager = org.sakaiproject.component.cover.ComponentManager.getInstance();
             sakaiProxy = (SakaiProxy) componentManager.get(SakaiProxy.class);
             commonsManager = (CommonsManager) componentManager.get(CommonsManager.class);
+            serverConfigurationService = (ServerConfigurationService) componentManager.get(ServerConfigurationService.class);
         } catch (Throwable t) {
             throw new ServletException("Failed to initialise CommonsTool servlet.", t);
         }
@@ -84,10 +88,10 @@ public class CommonsTool extends HttpServlet {
             } else if (parts.length == 3) {
                 locale = new Locale(parts[0], parts[1], parts[2]);
             }
-            rl = new ResourceLoader("org.sakaiproject.commons");
+            rl = new ResourceLoader("commons");
             rl.setContextLocale(locale);
         } else {
-            rl = new ResourceLoader(userId, "org.sakaiproject.commons");
+            rl = new ResourceLoader(userId, "commons");
             locale = rl.getLocale();
         }
 
@@ -111,6 +115,9 @@ public class CommonsTool extends HttpServlet {
         request.setAttribute("isUserSite", isUserSite);
         request.setAttribute("embedder", isUserSite ? CommonsConstants.SOCIAL : CommonsConstants.SITE);
         request.setAttribute("commonsId", isUserSite ? CommonsConstants.SOCIAL : siteId);
+        String maxUploadSize = serverConfigurationService.getString("content.upload.max", "20");
+        request.setAttribute("maxUploadSize", maxUploadSize);
+        request.setAttribute("portalCDNQuery", PortalUtils.getCDNQuery());
 
         String pathInfo = request.getPathInfo();
 

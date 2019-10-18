@@ -10,7 +10,7 @@
 	<parent>
 		<artifactId>content-review-impl</artifactId>
 		<groupId>org.sakaiproject.contentreview</groupId>
-		<version>13-SNAPSHOT</version>
+		<version>20-SNAPSHOT</version>
 	</parent>
 
 	<dependencies>
@@ -92,6 +92,10 @@
 			<groupId>commons-validator</groupId>
 			<artifactId>commons-validator</artifactId>
 		</dependency>
+		<dependency>
+	        <groupId>javax.servlet</groupId>
+	        <artifactId>javax.servlet-api</artifactId>
+	    </dependency>
 
 		<!-- Spring and Hibernate dependencies. -->
 		<dependency>
@@ -127,8 +131,8 @@
 		</dependency>
 		<dependency>
 			<groupId>org.mockito</groupId>
-			<artifactId>mockito-all</artifactId>
-			<version>1.9.0</version>
+			<artifactId>mockito-core</artifactId>
+			<version>${sakai.mockito.version}</version>
 			<scope>test</scope>
 		</dependency>
 		<dependency>

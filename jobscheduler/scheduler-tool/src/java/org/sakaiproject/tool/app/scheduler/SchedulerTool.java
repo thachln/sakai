@@ -34,7 +34,6 @@ import javax.faces.validator.ValidatorException;
 import lombok.extern.slf4j.Slf4j;
 
 import org.quartz.CronScheduleBuilder;
-import org.quartz.CronTrigger;
 import org.quartz.InterruptableJob;
 import org.quartz.Job;
 import org.quartz.JobBuilder;
@@ -65,8 +64,6 @@ import org.sakaiproject.util.ResourceLoader;
 @Slf4j
 public class SchedulerTool
 {
-  private static final String CRON_CHECK_ASTERISK = "**";
-  private static final String CRON_CHECK_QUESTION_MARK = "??";
   /** The maximum length of a trigger name. */
   private static final int TRIGGER_NAME_LENGTH_LIMIT = 80;
   /** The maximum length of a job name. */
@@ -176,7 +173,7 @@ public class SchedulerTool
 
       if (configurableJobResources == null)
       {
-          log.error ("no resource bundle provided for jobs of type: " + job.getJobType() + ". Labels will not be rendered correctly in the scheduler UI");
+          log.error ("No resource bundle provided for jobs of type: {}. Labels will not be rendered correctly in the scheduler UI", job.getJobName());
       }
 
 
@@ -217,20 +214,20 @@ public class SchedulerTool
 
                   if (labelKey == null)
                   {
-                      log.error ("no resource key provided for property label - NullPointerExceptions may occur in scheduler when processing jobs of type " + job.getJobType());
+                      log.error ("No resource key provided for property label - NullPointerExceptions may occur in scheduler when processing jobs {}", job.getJobName());
                   }
                   else if (configurableJobResources.get(labelKey) == null)
                   {
-                      log.warn("no resource string provided for the property label key '" + labelKey + "' for the job type " + job.getJobType());
+                      log.warn("No resource string provided for the property label key '{}' for the job {}", labelKey, job.getJobName());
                   }
 
                   if (descKey == null)
                   {
-                      log.warn ("no resource key provided for property description in job type " + job.getJobType());
+                      log.warn ("No resource key provided for property description in job {}", job.getJobName());
                   }
                   else if (configurableJobResources.get(descKey) == null)
                   {
-                      log.warn("no resource string provided for the property description key '" + descKey + "' for the job type " + job.getJobType());
+                      log.warn("No resource string provided for the property description key '{}' for the job {}", descKey, job.getJobName());
                   }
               }
           }
@@ -570,7 +567,7 @@ public class SchedulerTool
           map = jd.getJobDataMap();
 
       map.put(JobBeanWrapper.SPRING_BEAN_NAME, job.getBeanId());
-      map.put(JobBeanWrapper.JOB_TYPE, job.getJobType());
+      map.put(JobBeanWrapper.JOB_NAME, job.getJobName());
 
       return jd;
   }
@@ -1395,11 +1392,8 @@ public class SchedulerTool
       try
       {
         String expression = (String) value;
-        CronTrigger trigger = TriggerBuilder.newTrigger()
-                .withSchedule(CronScheduleBuilder.cronSchedule(expression))
-                .build();
 
-        // additional checks 
+        // additional check
         // quartz does not check for more than 7 tokens in expression
         String[] arr = expression.split("\\s");
         if (arr.length > 7)
@@ -1407,19 +1401,21 @@ public class SchedulerTool
           throw new RuntimeException(new ParseException("Expression has more than 7 tokens", 7));
         }
 
-        //(check that last 2 entries are not both * or ? 
-        String trimmed_expression = expression.replaceAll("\\s", ""); // remove whitespace
-        if (trimmed_expression.endsWith(CRON_CHECK_ASTERISK)
-            || trimmed_expression.endsWith(CRON_CHECK_QUESTION_MARK))
-        {
-          throw new RuntimeException(new ParseException("Cannot End in * * or ? ?", 1));
-        }
+        TriggerBuilder.newTrigger()
+                .withSchedule(CronScheduleBuilder.cronSchedule(expression))
+                .build();
+
       }
       catch (RuntimeException e)
       {
-        // not giving a detailed message to prevent line wraps
-        FacesMessage message = new FacesMessage(rb.getString("parse_exception"));
-        message.setSeverity(FacesMessage.SEVERITY_WARN);
+        Throwable cause = e.getCause();
+        String error = e.getMessage();
+        if (cause != null)
+        {
+            error = cause.getMessage();
+        }
+        FacesMessage message = new FacesMessage(rb.getFormattedMessage("parse_exception", error));
+        message.setSeverity(FacesMessage.SEVERITY_ERROR);
         throw new ValidatorException(message);
       }
     }

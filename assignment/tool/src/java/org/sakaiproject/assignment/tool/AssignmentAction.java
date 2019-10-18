@@ -38,14 +38,21 @@ import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
-import au.com.bytecode.opencsv.CSVReader;
+import com.opencsv.CSVParser;
+import com.opencsv.CSVParserBuilder;
+import com.opencsv.CSVReader;
+import com.opencsv.CSVReaderBuilder;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.collections.CollectionUtils;
+import org.apache.commons.collections4.CollectionUtils;
+import org.apache.commons.lang3.ArrayUtils;
+import org.apache.commons.lang3.BooleanUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.math.NumberUtils;
 import org.apache.poi.hssf.usermodel.HSSFRow;
 import org.apache.poi.hssf.usermodel.HSSFSheet;
 import org.apache.poi.hssf.usermodel.HSSFWorkbook;
@@ -54,6 +61,7 @@ import org.sakaiproject.announcement.api.*;
 import org.sakaiproject.assignment.api.*;
 import org.sakaiproject.assignment.api.model.Assignment;
 import org.sakaiproject.assignment.api.model.*;
+import org.sakaiproject.assignment.api.reminder.AssignmentDueReminderService;
 import org.sakaiproject.assignment.api.taggable.AssignmentActivityProducer;
 import org.sakaiproject.assignment.taggable.tool.DecoratedTaggingProvider;
 import org.sakaiproject.assignment.taggable.tool.DecoratedTaggingProvider.Pager;
@@ -79,6 +87,8 @@ import org.sakaiproject.event.api.LearningResourceStoreService.LRS_Verb.SAKAI_VE
 import org.sakaiproject.exception.*;
 import org.sakaiproject.javax.PagingPosition;
 import org.sakaiproject.message.api.MessageHeader;
+import org.sakaiproject.rubrics.logic.RubricsConstants;
+import org.sakaiproject.rubrics.logic.RubricsService;
 import org.sakaiproject.scoringservice.api.ScoringAgent;
 import org.sakaiproject.scoringservice.api.ScoringComponent;
 import org.sakaiproject.scoringservice.api.ScoringService;
@@ -111,12 +121,13 @@ import org.sakaiproject.util.api.FormattedText;
 @Slf4j
 public class AssignmentAction extends PagedResourceActionII {
     private static final String ASSIGNMENT_TOOL_ID = "sakai.assignment.grades";
-    /**
-     * Is the review service available?
-     */
+
+    // Grading
+    private static final String NEW_ASSIGNMENT_GRADE_ASSIGNMENT = "new_assignment_grade_assignment";
+    private static final String NEW_ASSIGNMENT_SEND_TO_GRADEBOOK = "new_assignment_send_to_gradebook";
+
     //Peer Assessment
     private static final String NEW_ASSIGNMENT_USE_PEER_ASSESSMENT = "new_assignment_use_peer_assessment";
-    private static final String NEW_ASSIGNMENT_ADDITIONAL_OPTIONS = "new_assignment_additional_options";
     private static final String NEW_ASSIGNMENT_PEERPERIODMONTH = "new_assignment_peerperiodmonth";
     private static final String NEW_ASSIGNMENT_PEERPERIODDAY = "new_assignment_peerperiodday";
     private static final String NEW_ASSIGNMENT_PEERPERIODYEAR = "new_assignment_peerperiodyear";
@@ -126,6 +137,10 @@ public class AssignmentAction extends PagedResourceActionII {
     private static final String NEW_ASSIGNMENT_PEER_ASSESSMENT_STUDENT_VIEW_REVIEWS = "new_assignment_peer_assessment_student_view_review";
     private static final String NEW_ASSIGNMENT_PEER_ASSESSMENT_NUM_REVIEWS = "new_assignment_peer_assessment_num_reviews";
     private static final String NEW_ASSIGNMENT_PEER_ASSESSMENT_INSTRUCTIONS = "new_assignment_peer_assessment_instructions";
+
+    /**
+     * Is the review service available?
+     */
     private static final String NEW_ASSIGNMENT_USE_REVIEW_SERVICE = "new_assignment_use_review_service";
     private static final String NEW_ASSIGNMENT_ALLOW_STUDENT_VIEW = "new_assignment_allow_student_view";
     private static final String NEW_ASSIGNMENT_REVIEW_SERVICE_SUBMIT_RADIO = "submit_papers_to";
@@ -138,6 +153,7 @@ public class AssignmentAction extends PagedResourceActionII {
     // or 2 - On Due Date
     private static final String NEW_ASSIGNMENT_REVIEW_SERVICE_REPORT_RADIO = "report_gen_speed";
     private static final String NEW_ASSIGNMENT_REVIEW_SERVICE_REPORT_IMMEDIATELY = "0";
+    private static final String NEW_ASSIGNMENT_REVIEW_SERVICE_REPORT_IMMEDIATELY_AND_DUE = "1";
     private static final String NEW_ASSIGNMENT_REVIEW_SERVICE_REPORT_DUE = "2";
     private static final String NEW_ASSIGNMENT_REVIEW_SERVICE_CHECK_TURNITIN = "s_paper_check";
     private static final String NEW_ASSIGNMENT_REVIEW_SERVICE_CHECK_INTERNET = "internet_check";
@@ -151,6 +167,10 @@ public class AssignmentAction extends PagedResourceActionII {
     private static final String NEW_ASSIGNMENT_REVIEW_SERVICE_EXCLUDE_SMALL_MATCHES = "exclude_smallmatches";
     private static final String NEW_ASSIGNMENT_REVIEW_SERVICE_EXCLUDE_TYPE = "exclude_type";
     private static final String NEW_ASSIGNMENT_REVIEW_SERVICE_EXCLUDE_VALUE = "exclude_value";
+    private static final String SUBMISSION_REVIEW_SERVICE_EULA_AGREEMENT = "review_service_eula_agreement";
+    private static final String SUBMISSION_REVIEW_CHECK_SERVICE_EULA_AGREEMENT = "review_check_service_eula_agreement";
+    private static final String SUBMISSION_REVIEW_EULA_AGREEMENT_LINK = "review_service_eula_agreement_link";
+    
     /**
      * Peer Review Attachments
      **/
@@ -214,13 +234,13 @@ public class AssignmentAction extends PagedResourceActionII {
     /**
      * state sort *
      */
-    private static final String SORTED_BY = "Assignment.sorted_by";
+    static final String SORTED_BY = "Assignment.sorted_by";
 
     /* **************************** sort assignment ********************** */
     /**
      * state sort ascendingly *
      */
-    private static final String SORTED_ASC = "Assignment.sorted_asc";
+    static final String SORTED_ASC = "Assignment.sorted_asc";
     /**
      * default sorting
      */
@@ -272,11 +292,11 @@ public class AssignmentAction extends PagedResourceActionII {
     /**
      * sort by group title
      */
-    private static final String SORTED_BY_GROUP_TITLE = "group_title";
+    static final String SORTED_BY_GROUP_TITLE = "group_title";
     /**
      * sort by group description
      */
-    private static final String SORTED_BY_GROUP_DESCRIPTION = "group_description";
+    static final String SORTED_BY_GROUP_DESCRIPTION = "group_description";
     /**
      * state sort submission*
      */
@@ -370,10 +390,6 @@ public class AssignmentAction extends PagedResourceActionII {
      */
     private static final String VIEW_SUBMISSION_TEXT = "Assignment.view_submission_text";
     /**
-     * the submission answer to Honor Pledge *
-     */
-    private static final String VIEW_SUBMISSION_HONOR_PLEDGE_YES = "Assignment.view_submission_honor_pledge_yes";
-    /**
      * the assignment id *
      */
     private static final String PREVIEW_SUBMISSION_ASSIGNMENT_REFERENCE = "preview_submission_assignment_reference";
@@ -383,10 +399,6 @@ public class AssignmentAction extends PagedResourceActionII {
      * the submission text *
      */
     private static final String PREVIEW_SUBMISSION_TEXT = "preview_submission_text";
-    /**
-     * the submission honor pledge answer *
-     */
-    private static final String PREVIEW_SUBMISSION_HONOR_PLEDGE_YES = "preview_submission_honor_pledge_yes";
     /**
      * the submission attachments *
      */
@@ -434,7 +446,6 @@ public class AssignmentAction extends PagedResourceActionII {
      */
     private static final String GRADE_ASSIGNMENT_EXPAND_FLAG = "grade_assignment_expand_flag";
     private static final String GRADE_SUBMISSION_EXPAND_FLAG = "grade_submission_expand_flag";
-    private static final String GRADE_NO_SUBMISSION_DEFAULT_GRADE = "grade_no_submission_default_grade";
     /**
      * ****************** instructor's grade submission *****************************
      */
@@ -449,6 +460,7 @@ public class AssignmentAction extends PagedResourceActionII {
     private static final String GRADE_SUBMISSION_DONE = "grade_submission_done";
     private static final String GRADE_SUBMISSION_SUBMIT = "grade_submission_submit";
     private static final String GRADE_SUBMISSION_SHOW_STUDENT_DETAILS = "grade_showStudentDetails";
+    private static final String GRADE_SUBMISSION_SUBMITTERS_NAMES = "grade_ssubmission_submitters_names";
     /**
      * ****************** instructor's export assignment *****************************
      */
@@ -464,7 +476,6 @@ public class AssignmentAction extends PagedResourceActionII {
     private static final String NEW_ASSIGNMENT_TITLE = "new_assignment_title";
     // assignment order for default view
     private static final String NEW_ASSIGNMENT_ORDER = "new_assignment_order";
-    private static final String NEW_ASSIGNMENT_GROUP_SUBMIT = "new_assignment_group_submit";
     // open date
     private static final String NEW_ASSIGNMENT_OPENMONTH = "new_assignment_openmonth";
     private static final String NEW_ASSIGNMENT_OPENDAY = "new_assignment_openday";
@@ -487,6 +498,7 @@ public class AssignmentAction extends PagedResourceActionII {
     private static final String NEW_ASSIGNMENT_PAST_DUE_DATE = "new_assignment_past_due_date";
     // close date
     private static final String NEW_ASSIGNMENT_ENABLECLOSEDATE = "new_assignment_enableclosedate";
+    private static final String NEW_ASSIGNMENT_REMINDER_EMAIL = "student_reminder_email";
     private static final String NEW_ASSIGNMENT_CLOSEMONTH = "new_assignment_closemonth";
     private static final String NEW_ASSIGNMENT_CLOSEDAY = "new_assignment_closeday";
     private static final String NEW_ASSIGNMENT_CLOSEYEAR = "new_assignment_closeyear";
@@ -506,10 +518,8 @@ public class AssignmentAction extends PagedResourceActionII {
     private static final String NEW_ASSIGNMENT_FOCUS = "new_assignment_focus";
     private static final String NEW_ASSIGNMENT_DESCRIPTION_EMPTY = "new_assignment_description_empty";
     private static final String NEW_ASSIGNMENT_ADD_TO_GRADEBOOK = "new_assignment_add_to_gradebook";
-    private static final String NEW_ASSIGNMENT_RANGE = "new_assignment_range";
-    private static final String NEW_ASSIGNMENT_GROUPS = "new_assignment_groups";
-    private static final String VIEW_SUBMISSION_GROUP = "view_submission_group";
-    private static final String VIEW_SUBMISSION_ORIGINAL_GROUP = "view_submission_original_group";
+    static final String VIEW_SUBMISSION_GROUP = "view_submission_group";
+    static final String VIEW_SUBMISSION_ORIGINAL_GROUP = "view_submission_original_group";
     private static final String NEW_ASSIGNMENT_PAST_CLOSE_DATE = "new_assignment_past_close_date";
     /*************************** assignment model answer attributes *************************/
     private static final String NEW_ASSIGNMENT_MODEL_ANSWER = "new_assignment_model_answer";
@@ -526,6 +536,7 @@ public class AssignmentAction extends PagedResourceActionII {
     private static final String ALLOW_RESUBMIT_CLOSEHOUR = "allow_resubmit_closeHour";
     private static final String ALLOW_RESUBMIT_CLOSEMIN = "allow_resubmit_closeMin";
     private static final String ATTACHMENTS_MODIFIED = "attachments_modified";
+    private static final String NEW_ASSIGNMENT_PREVIOUSLY_ASSOCIATED = "new_assignment_previously_associated";
     /**
      * *************************** instructor's view student submission *****************
      */
@@ -537,6 +548,8 @@ public class AssignmentAction extends PagedResourceActionII {
     private static final String VIEW_GRADE_SUBMISSION_ID = "view_grade_submission_id";
     // alert for grade exceeds max grade setting
     private static final String GRADE_GREATER_THAN_MAX_ALERT = "grade_greater_than_max_alert";
+
+    private static final String DEFAULT_GRADE = "defaultGrade";
     /**
      * The list view of assignments
      */
@@ -551,6 +564,10 @@ public class AssignmentAction extends PagedResourceActionII {
      * The student view of an assignment submission confirmation
      */
     private static final String MODE_STUDENT_VIEW_SUBMISSION_CONFIRMATION = "Assignment.mode_view_submission_confirmation";
+    /**
+     * The student confirm step of an assignment submission
+     */
+    private static final String MODE_STUDENT_CONFIRM_SUBMISSION = "Assignment.mode_student_confirm_submission";
     /**
      * The student preview of an assignment submission
      */
@@ -571,6 +588,10 @@ public class AssignmentAction extends PagedResourceActionII {
      * The student view of assignments
      */
     private static final String MODE_STUDENT_VIEW_ASSIGNMENT = "Assignment.mode_student_view_assignment";
+    /**
+     * The student view of assignment honor pledge
+     */
+    private static final String MODE_STUDENT_VIEW_ASSIGNMENT_HONORPLEDGE = "Assignment.mode_student_view_assignment_honor_pledge";
     /**
      * The instructor view of creating a new assignment or editing an existing one
      */
@@ -647,6 +668,10 @@ public class AssignmentAction extends PagedResourceActionII {
      */
     private static final String TEMPLATE_STUDENT_VIEW_ASSIGNMENT = "_student_view_assignment";
     /**
+     * The student view of the assignments honor pledge
+     */
+    private static final String TEMPLATE_STUDENT_VIEW_ASSIGNMENT_HONORPLEDGE = "_student_view_assignment_honor_pledge";
+    /**
      * The student view of showing an assignment submission
      */
     private static final String TEMPLATE_STUDENT_VIEW_SUBMISSION = "_student_view_submission";
@@ -658,6 +683,10 @@ public class AssignmentAction extends PagedResourceActionII {
      * The student view of an assignment submission confirmation
      */
     private static final String TEMPLATE_STUDENT_VIEW_SUBMISSION_CONFIRMATION = "_student_view_submission_confirmation";
+    /**
+     * The student confirm step for an assignment submission
+     */
+    private static final String TEMPLATE_STUDENT_CONFIRM_SUBMISSION = "_student_confirm_submission";
     /**
      * The student preview an assignment submission
      */
@@ -857,6 +886,7 @@ public class AssignmentAction extends PagedResourceActionII {
     private static final String OW_FEEDBACK = "feedback_overwritten";
     private static final String SAVED_FEEDBACK = "feedback_saved";
     private static final int INPUT_BUFFER_SIZE = 102400;
+    private static final long MEGABYTE = 1024L * 1024L;
     private static final String INVOKE = "invoke_via";
     private static final String INVOKE_BY_LINK = "link";
     private static final String INVOKE_BY_PORTAL = "portal";
@@ -899,8 +929,9 @@ public class AssignmentAction extends PagedResourceActionII {
     private static final String CONTEXT_GO_NEXT_UNGRADED_ENABLED = "goNextUngradedEnabled";
     private static final String CONTEXT_GO_PREV_UNGRADED_ENABLED = "goPrevUngradedEnabled";
     private static final String PARAMS_VIEW_SUBS_ONLY_CHECKBOX = "chkSubsOnly1";
+    private static final String RUBRIC_STATE_DETAILS = "rbcs-state-details";
+    private static final String RUBRIC_TOKEN = "rbcs-token";
     private static ResourceLoader rb = new ResourceLoader("assignment");
-    private final String NO_SUBMISSION = rb.getString("listsub.nosub");
     private boolean nextUngraded = false;
     private boolean prevUngraded = false;
     private boolean nextWithSubmission = false;
@@ -914,8 +945,12 @@ public class AssignmentAction extends PagedResourceActionII {
     private String nextUngradedWithSubmissionRef = "";
     private String prevUngradedWithSubmissionRef = "";
 
+    // Content providers names
+    private static final String CONTENT_PROVIDER_URKUND = "Urkund";
+
     private AnnouncementService announcementService;
     private AssignmentActivityProducer assignmentActivityProducer;
+    private AssignmentDueReminderService assignmentDueReminderService;
     private AssignmentPeerAssessmentService assignmentPeerAssessmentService;
     private AssignmentService assignmentService;
     private AssignmentSupplementItemService assignmentSupplementItemService;
@@ -932,6 +967,7 @@ public class AssignmentAction extends PagedResourceActionII {
     private GradebookExternalAssessmentService gradebookExternalAssessmentService;
     private LearningResourceStoreService learningResourceStoreService;
     private NotificationService notificationService;
+	private RubricsService rubricsService;
     private SecurityService securityService;
     private ServerConfigurationService serverConfigurationService;
     private SessionManager sessionManager;
@@ -940,13 +976,14 @@ public class AssignmentAction extends PagedResourceActionII {
     private TimeService timeService;
     private ToolManager toolManager;
     private UserDirectoryService userDirectoryService;
-
+    private RangeAndGroupsDelegate rangeAndGroups;
 
     public AssignmentAction() {
         super();
 
         announcementService = ComponentManager.get(AnnouncementService.class);
         assignmentActivityProducer = ComponentManager.get(AssignmentActivityProducer.class);
+        assignmentDueReminderService = ComponentManager.get(AssignmentDueReminderService.class);
         assignmentPeerAssessmentService = ComponentManager.get(AssignmentPeerAssessmentService.class);
         assignmentService = ComponentManager.get(AssignmentService.class);
         assignmentSupplementItemService = ComponentManager.get(AssignmentSupplementItemService.class);
@@ -962,6 +999,7 @@ public class AssignmentAction extends PagedResourceActionII {
         gradebookService = (GradebookService) ComponentManager.get("org.sakaiproject.service.gradebook.GradebookService");
         learningResourceStoreService = ComponentManager.get(LearningResourceStoreService.class);
         notificationService = ComponentManager.get(NotificationService.class);
+		rubricsService  = ComponentManager.get(RubricsService.class);
         securityService = ComponentManager.get(SecurityService.class);
         serverConfigurationService = ComponentManager.get(ServerConfigurationService.class);
         sessionManager = ComponentManager.get(SessionManager.class);
@@ -970,6 +1008,7 @@ public class AssignmentAction extends PagedResourceActionII {
         timeService = ComponentManager.get(TimeService.class);
         toolManager = ComponentManager.get(ToolManager.class);
         userDirectoryService = ComponentManager.get(UserDirectoryService.class);
+        rangeAndGroups = new RangeAndGroupsDelegate(assignmentService, rb, siteService, securityService, formattedText);
     }
 
     /**
@@ -1044,24 +1083,6 @@ public class AssignmentAction extends PagedResourceActionII {
 
     } // fixAssignmentFeedback
 
-    /**
-     * Apply the fix to pre 1.1.05 assignments submissions feedback.
-     */
-    public static String showPrevFeedback(String value) {
-        if (value == null || value.length() == 0) return value;
-
-        StringBuilder buf = new StringBuilder(value);
-        int pos = -1;
-
-        // <br/> -> \n
-        while ((pos = buf.indexOf("\n")) != -1) {
-            buf.replace(pos, pos + "\n".length(), "<br />");
-        }
-
-        return buf.toString();
-
-    } // showPrevFeedback
-
     public String buildLinkedPanelContext(VelocityPortlet portlet, Context context, RunData data, SessionState state) {
         state.setAttribute(INVOKE, INVOKE_BY_LINK);
         return buildMainPanelContext(portlet, context, data, state);
@@ -1077,6 +1098,7 @@ public class AssignmentAction extends PagedResourceActionII {
         context.put("dateFormat", getDateFormatString());
         context.put("cheffeedbackhelper", this);
         context.put("service", assignmentService);
+        context.put("rubricsService", rubricsService);
 
         String contextString = (String) state.getAttribute(STATE_CONTEXT_STRING);
 
@@ -1121,6 +1143,9 @@ public class AssignmentAction extends PagedResourceActionII {
             String reviewServiceNonElectronic1 = rb.getFormattedMessage("review.switch.ne.1", reviewServiceName);
             String reviewServiceNonElectronic2 = rb.getFormattedMessage("review.switch.ne.2", reviewServiceName);
             context.put("reviewServiceName", reviewServiceName);
+            context.put("reviewServiceProviderId", contentReviewService.getProviderId());
+            context.put("turnitinProviderId", ContentReviewConstants.TURNITIN_PROVIDER_ID);
+            context.put("turnitinOCProviderId", ContentReviewConstants.TURNITINOC_PROVIDER_ID);
             context.put("reviewServiceTitle", reviewServiceTitle);
             context.put("reviewServiceUse", reviewServiceUse);
             context.put("reviewIndicator", rb.getFormattedMessage("review.contentReviewIndicator", new Object[]{reviewServiceName}));
@@ -1147,7 +1172,7 @@ public class AssignmentAction extends PagedResourceActionII {
         // get the system setting for whether to show the Option tool link or not
         context.put("enableViewOption", serverConfigurationService.getBoolean("assignment.enableViewOption", true));
 
-        String mode = (String) state.getAttribute(STATE_MODE);
+        String mode = StringUtils.defaultIfBlank((String) state.getAttribute(STATE_MODE), MODE_LIST_ASSIGNMENTS);
 
         if (!MODE_LIST_ASSIGNMENTS.equals(mode)) {
             // allow grade assignment?
@@ -1157,130 +1182,158 @@ public class AssignmentAction extends PagedResourceActionII {
             context.put("allowGradeSubmission", state.getAttribute(STATE_ALLOW_GRADE_SUBMISSION));
         }
 
-        if (MODE_LIST_ASSIGNMENTS.equals(mode)) {
-            // build the context for the student assignment view
-            template = build_list_assignments_context(portlet, context, data, state);
-        } else if (MODE_STUDENT_VIEW_ASSIGNMENT.equals(mode)) {
-            // the student view of assignment
-            template = build_student_view_assignment_context(portlet, context, data, state);
-        } else if (MODE_STUDENT_VIEW_GROUP_ERROR.equals(mode)) {
-            // disable auto-updates while leaving the list view
-            justDelivered(state);
-
-            // build the context for showing group submission error
-            template = build_student_view_group_error_context(portlet, context, data, state);
-        } else if (MODE_STUDENT_VIEW_SUBMISSION.equals(mode)) {
-            // disable auto-updates while leaving the list view
-            justDelivered(state);
-
-            // build the context for showing one assignment submission
-            template = build_student_view_submission_context(portlet, context, data, state);
-        } else if (MODE_STUDENT_VIEW_SUBMISSION_CONFIRMATION.equals(mode)) {
-            context.put("site", s);
-
-            // build the context for showing one assignment submission confirmation
-            template = build_student_view_submission_confirmation_context(portlet, context, data, state);
-        } else if (MODE_STUDENT_PREVIEW_SUBMISSION.equals(mode)) {
-            // build the context for showing one assignment submission
-            template = build_student_preview_submission_context(portlet, context, data, state);
-        } else if (MODE_STUDENT_VIEW_GRADE.equals(mode) || MODE_STUDENT_VIEW_GRADE_PRIVATE.equals(mode)) {
-            context.put("site", s);
-
-            // disable auto-updates while leaving the list view
-            justDelivered(state);
-
-            if (MODE_STUDENT_VIEW_GRADE_PRIVATE.equals(mode)) {
-                context.put("privateView", true);
-            }
-            // build the context for showing one graded submission
-            template = build_student_view_grade_context(portlet, context, data, state);
-        } else if (MODE_INSTRUCTOR_NEW_EDIT_ASSIGNMENT.equals(mode)) {
-            // allow add assignment?
-            boolean allowAddSiteAssignment = assignmentService.allowAddSiteAssignment(contextString);
-            context.put("allowAddSiteAssignment", allowAddSiteAssignment);
-
-            // disable auto-updates while leaving the list view
-            justDelivered(state);
-
-            // build the context for the instructor's create new assignment view
-            template = build_instructor_new_edit_assignment_context(portlet, context, data, state);
-        } else if (MODE_INSTRUCTOR_DELETE_ASSIGNMENT.equals(mode)) {
-            if (state.getAttribute(DELETE_ASSIGNMENT_IDS) != null) {
+        switch (mode) {
+            case MODE_LIST_ASSIGNMENTS:
+                // build the context for the student assignment view
+                template = build_list_assignments_context(portlet, context, data, state);
+                break;
+            case MODE_STUDENT_VIEW_ASSIGNMENT:
+                // the student view of assignment
+                template = build_student_view_assignment_context(portlet, context, data, state);
+                break;
+            case MODE_STUDENT_VIEW_GROUP_ERROR:
                 // disable auto-updates while leaving the list view
                 justDelivered(state);
 
-                // build the context for the instructor's delete assignment
-                template = build_instructor_delete_assignment_context(portlet, context, data, state);
-            }
-        } else if (MODE_INSTRUCTOR_GRADE_ASSIGNMENT.equals(mode)) {
-            if (allowGradeSubmission != null && (Boolean) allowGradeSubmission) {
-                // if allowed for grading, build the context for the instructor's grade assignment
-                template = build_instructor_grade_assignment_context(portlet, context, data, state);
-            }
-        } else if (MODE_INSTRUCTOR_GRADE_SUBMISSION.equals(mode)) {
-            context.put("site", s);
-            if (allowGradeSubmission != null && (Boolean) allowGradeSubmission) {
-                // if allowed for grading, disable auto-updates while leaving the list view
+                // build the context for showing group submission error
+                template = build_student_view_group_error_context(portlet, context, data, state);
+                break;
+            case MODE_STUDENT_VIEW_SUBMISSION:
+                // disable auto-updates while leaving the list view
                 justDelivered(state);
 
-                // build the context for the instructor's grade submission
-                template = build_instructor_grade_submission_context(portlet, context, data, state);
-            }
-        } else if (MODE_INSTRUCTOR_PREVIEW_GRADE_SUBMISSION.equals(mode)) {
-            if (allowGradeSubmission != null && (Boolean) allowGradeSubmission) {
-                // if allowed for grading, build the context for the instructor's preview grade submission
-                template = build_instructor_preview_grade_submission_context(portlet, context, data, state);
-            }
-        } else if (MODE_INSTRUCTOR_PREVIEW_ASSIGNMENT.equals(mode)) {
-            // build the context for preview one assignment
-            template = build_instructor_preview_assignment_context(portlet, context, data, state);
-        } else if (MODE_INSTRUCTOR_VIEW_ASSIGNMENT.equals(mode)) {
-            context.put("site", s);
-            // disable auto-updates while leaving the list view
-            justDelivered(state);
+                // build the context for showing one assignment submission
+                template = build_student_view_submission_context(portlet, context, data, state);
+                break;
+            case MODE_STUDENT_VIEW_SUBMISSION_CONFIRMATION:
+                context.put("site", s);
 
-            // build the context for view one assignment
-            template = build_instructor_view_assignment_context(portlet, context, data, state);
-        } else if (MODE_INSTRUCTOR_VIEW_STUDENTS_ASSIGNMENT.equals(mode)) {
-            if (allowGradeSubmission != null && (Boolean) allowGradeSubmission) {
-                // if allowed for grading, build the context for the instructor's create new assignment view
-                template = build_instructor_view_students_assignment_context(portlet, context, data, state);
-            }
-        } else if (MODE_INSTRUCTOR_REPORT_SUBMISSIONS.equals(mode)) {
-            context.put("site", s);
-            if (allowGradeSubmission != null && (Boolean) allowGradeSubmission) {
-                // if allowed for grading, build the context for the instructor's view of report submissions
-                template = build_instructor_report_submissions(portlet, context, data, state);
-            }
-        } else if (MODE_INSTRUCTOR_DOWNLOAD_ALL.equals(mode)) {
-            if (allowGradeSubmission != null && (Boolean) allowGradeSubmission) {
-                // if allowed for grading, build the context for the instructor's view of uploading all info from archive file
-                template = build_instructor_download_upload_all(portlet, context, data, state);
-            }
-        } else if (MODE_INSTRUCTOR_UPLOAD_ALL.equals(mode)) {
-            if (allowGradeSubmission != null && (Boolean) allowGradeSubmission) {
-                // if allowed for grading, build the context for the instructor's view of uploading all info from archive file
-                template = build_instructor_download_upload_all(portlet, context, data, state);
-            }
-        } else if (MODE_INSTRUCTOR_REORDER_ASSIGNMENT.equals(mode)) {
-            context.put("site", s);
+                // build the context for showing one assignment submission confirmation
+                template = build_student_view_submission_confirmation_context(portlet, context, data, state);
+                break;
+            case MODE_STUDENT_CONFIRM_SUBMISSION:
+                // build the context for confirming one assignment submission
+                template = build_student_confirm_submission_context(portlet, context, data, state);
+                break;
+            case MODE_STUDENT_PREVIEW_SUBMISSION:
+                // build the context for showing one assignment submission
+                template = build_student_preview_submission_context(portlet, context, data, state);
+                break;
+            case MODE_STUDENT_VIEW_GRADE_PRIVATE:
+            case MODE_STUDENT_VIEW_GRADE:
+                context.put("site", s);
+                // disable auto-updates while leaving the list view
+                justDelivered(state);
+                // build the context for showing one graded submission
+                template = build_student_view_grade_context(portlet, context, data, state);
+                break;
+            case MODE_INSTRUCTOR_NEW_EDIT_ASSIGNMENT:
+                // allow add assignment?
+                boolean allowAddSiteAssignment = assignmentService.allowAddSiteAssignment(contextString);
+                context.put("allowAddSiteAssignment", allowAddSiteAssignment);
 
-            // disable auto-updates while leaving the list view
-            justDelivered(state);
+                // disable auto-updates while leaving the list view
+                justDelivered(state);
 
-            // build the context for the instructor's create new assignment view
-            template = build_instructor_reorder_assignment_context(portlet, context, data, state);
-        } else if (mode.equals(MODE_OPTIONS)) {
-            if (allowUpdateSite) {
-                // build the options page
-                template = build_options_context(portlet, context, data, state);
-            }
-        } else if (mode.equals(MODE_STUDENT_REVIEW_EDIT)) {
-            template = build_student_review_edit_context(portlet, context, data, state);
-        } else if (MODE_LIST_DELETED_ASSIGNMENTS.equals(mode)) {
-            if (allowRecoverAssignment) {
-                template = build_list_deleted_assignments_context(portlet, context, data, state);
-            }
+                // build the context for the instructor's create new assignment view
+                template = build_instructor_new_edit_assignment_context(portlet, context, data, state);
+                break;
+            case MODE_INSTRUCTOR_DELETE_ASSIGNMENT:
+                if (state.getAttribute(DELETE_ASSIGNMENT_IDS) != null) {
+                    // disable auto-updates while leaving the list view
+                    justDelivered(state);
+
+                    // build the context for the instructor's delete assignment
+                    template = build_instructor_delete_assignment_context(portlet, context, data, state);
+                }
+                break;
+            case MODE_INSTRUCTOR_GRADE_ASSIGNMENT:
+                if (allowGradeSubmission != null && (Boolean) allowGradeSubmission) {
+                    // if allowed for grading, build the context for the instructor's grade assignment
+                    template = build_instructor_grade_assignment_context(portlet, context, data, state);
+                }
+                break;
+            case MODE_INSTRUCTOR_GRADE_SUBMISSION:
+                context.put("site", s);
+                context.put("allowAddAssignment", allowAddAssignment);
+                context.put("showStudentPhoto", serverConfigurationService.getBoolean("assignment.show.official.photo", true));
+                if (allowGradeSubmission != null && (Boolean) allowGradeSubmission) {
+                    // if allowed for grading, disable auto-updates while leaving the list view
+                    justDelivered(state);
+
+                    // build the context for the instructor's grade submission
+                    template = build_instructor_grade_submission_context(portlet, context, data, state);
+                }
+                break;
+            case MODE_INSTRUCTOR_PREVIEW_GRADE_SUBMISSION:
+                if (allowGradeSubmission != null && (Boolean) allowGradeSubmission) {
+                    // if allowed for grading, build the context for the instructor's preview grade submission
+                    template = build_instructor_preview_grade_submission_context(portlet, context, data, state);
+                }
+                break;
+            case MODE_INSTRUCTOR_PREVIEW_ASSIGNMENT:
+                // build the context for preview one assignment
+                template = build_instructor_preview_assignment_context(portlet, context, data, state);
+                break;
+            case MODE_INSTRUCTOR_VIEW_ASSIGNMENT:
+                context.put("site", s);
+                // disable auto-updates while leaving the list view
+                justDelivered(state);
+
+                // build the context for view one assignment
+                template = build_instructor_view_assignment_context(portlet, context, data, state);
+                break;
+            case MODE_INSTRUCTOR_VIEW_STUDENTS_ASSIGNMENT:
+                if (allowGradeSubmission != null && (Boolean) allowGradeSubmission) {
+                    // if allowed for grading, build the context for the instructor's create new assignment view
+                    template = build_instructor_view_students_assignment_context(portlet, context, data, state);
+                }
+                break;
+            case MODE_INSTRUCTOR_REPORT_SUBMISSIONS:
+                context.put("site", s);
+                if (allowGradeSubmission != null && (Boolean) allowGradeSubmission) {
+                    // if allowed for grading, build the context for the instructor's view of report submissions
+                    template = build_instructor_report_submissions(portlet, context, data, state);
+                }
+                break;
+            case MODE_INSTRUCTOR_DOWNLOAD_ALL:
+                if (allowGradeSubmission != null && (Boolean) allowGradeSubmission) {
+                    // if allowed for grading, build the context for the instructor's view of uploading all info from archive file
+                    template = build_instructor_download_upload_all(portlet, context, data, state);
+                }
+                break;
+            case MODE_INSTRUCTOR_UPLOAD_ALL:
+                if (allowGradeSubmission != null && (Boolean) allowGradeSubmission) {
+                    // if allowed for grading, build the context for the instructor's view of uploading all info from archive file
+                    template = build_instructor_download_upload_all(portlet, context, data, state);
+                }
+                break;
+            case MODE_INSTRUCTOR_REORDER_ASSIGNMENT:
+                context.put("site", s);
+
+                // disable auto-updates while leaving the list view
+                justDelivered(state);
+
+                // build the context for the instructor's create new assignment view
+                template = build_instructor_reorder_assignment_context(portlet, context, data, state);
+                break;
+            case MODE_OPTIONS:
+                if (allowUpdateSite) {
+                    // build the options page
+                    template = build_options_context(portlet, context, data, state);
+                }
+                break;
+            case MODE_STUDENT_REVIEW_EDIT:
+                template = build_student_review_edit_context(portlet, context, data, state);
+                break;
+            case MODE_LIST_DELETED_ASSIGNMENTS:
+                if (allowRecoverAssignment) {
+                    template = build_list_deleted_assignments_context(portlet, context, data, state);
+                }
+                break;
+            case MODE_STUDENT_VIEW_ASSIGNMENT_HONORPLEDGE:
+                template = build_student_view_assignment_honorPledge_context(portlet, context, data, state);
+                break;
         }
 
         if (template == null) {
@@ -1293,6 +1346,8 @@ public class AssignmentAction extends PagedResourceActionII {
         if (state.getAttribute(HAS_MULTIPLE_ASSIGNMENTS) != null) {
             context.put("assignmentscheck", state.getAttribute(HAS_MULTIPLE_ASSIGNMENTS));
         }
+
+        context.put(RUBRIC_TOKEN, rubricsService.generateJsonWebToken(RubricsConstants.RBCS_TOOL_ASSIGNMENT));
 
         return template;
 
@@ -1308,18 +1363,21 @@ public class AssignmentAction extends PagedResourceActionII {
      */
     private Assignment getAssignment(String assignmentReference, String callingFunctionName, SessionState state) {
         Assignment rv = null;
+        SecurityAdvisor secAdv = null;
+        String assignmentId = AssignmentReferenceReckoner.reckoner().reference(assignmentReference).reckon().getId();
+        Session session = sessionManager.getCurrentSession();
+
         try {
-            Session session = sessionManager.getCurrentSession();
-            SecurityAdvisor secAdv = pushSecurityAdvisor(session, "assignment.security.advisor", false);
-            String assignmentId = AssignmentReferenceReckoner.reckoner().reference(assignmentReference).reckon().getId();
+            secAdv = pushSecurityAdvisor(session, "assignment.security.advisor", false);
             rv = assignmentService.getAssignment(assignmentId);
-            securityService.popAdvisor(secAdv);
         } catch (IdUnusedException e) {
             log.warn(this + ":" + callingFunctionName + " " + e.getMessage() + " " + assignmentReference);
             addAlert(state, rb.getFormattedMessage("cannotfin_assignment", assignmentReference));
         } catch (PermissionException e) {
             log.warn(this + ":" + callingFunctionName + " " + e.getMessage() + " " + assignmentReference);
             addAlert(state, rb.getFormattedMessage("youarenot_viewAssignment", assignmentReference));
+        } finally {
+            securityService.popAdvisor(secAdv);
         }
 
         return rv;
@@ -1334,20 +1392,23 @@ public class AssignmentAction extends PagedResourceActionII {
      * @return
      */
     private AssignmentSubmission getSubmission(String submissionReference, String callingFunctionName, SessionState state) {
-        log.info("function {} requesting submission with reference = {}", callingFunctionName, submissionReference);
+        log.debug("function {} requesting submission with reference = {}", callingFunctionName, submissionReference);
         AssignmentSubmission rv = null;
+        SecurityAdvisor secAdv = null;
         String submissionId = AssignmentReferenceReckoner.reckoner().reference(submissionReference).reckon().getId();
+        Session session = sessionManager.getCurrentSession();
+
         try {
-            Session session = sessionManager.getCurrentSession();
-            SecurityAdvisor secAdv = pushSecurityAdvisor(session, "assignment.grade.security.advisor", false);
+            secAdv = pushSecurityAdvisor(session, "assignment.grade.security.advisor", false);
             rv = assignmentService.getSubmission(submissionId);
-            securityService.popAdvisor(secAdv);
         } catch (IdUnusedException e) {
             log.warn(this + ":" + callingFunctionName + " " + e.getMessage() + " " + submissionId);
             addAlert(state, rb.getFormattedMessage("cannotfin_submission", submissionId));
         } catch (PermissionException e) {
             log.warn(this + ":" + callingFunctionName + " " + e.getMessage() + " " + submissionId);
             addAlert(state, rb.getFormattedMessage("youarenot_viewSubmission", submissionId));
+        } finally {
+            securityService.popAdvisor(secAdv);
         }
 
         return rv;
@@ -1413,7 +1474,7 @@ public class AssignmentAction extends PagedResourceActionII {
 
         if (assignment != null) {
             context.put("assignment", assignment);
-            context.put("canSubmit", assignmentService.canSubmit(contextString, assignment));
+            context.put("canSubmit", assignmentService.canSubmit(assignment));
 
             Map<String, Reference> assignmentAttachmentReferences = new HashMap<>();
             assignment.getAttachments().forEach(r -> assignmentAttachmentReferences.put(r, entityManager.newReference(r)));
@@ -1421,9 +1482,27 @@ public class AssignmentAction extends PagedResourceActionII {
 
             if (assignment.getContentReview()) {
                 Map<String, String> properties = assignment.getProperties();
-                context.put("plagiarismNote", rb.getFormattedMessage("gen.yoursubwill", contentReviewService.getServiceName()));
+
+                // Indicate that the student's submission is going to Turnitin, and whether their submission will be indexed to be compared against by other submissions
+                boolean isSubmissionIndexed = "true".equalsIgnoreCase(properties.get("store_inst_index"));
+                String plagiarismNoteKey = isSubmissionIndexed ? "gen.yoursubwill.indexed" : "gen.yoursubwill";
+                state.setAttribute("plagiarismNote", rb.getFormattedMessage(plagiarismNoteKey, contentReviewService.getServiceName()));
+                context.put("plagiarismNote", state.getAttribute("plagiarismNote"));
+
                 if (!contentReviewService.allowAllContent() && assignmentSubmissionTypeTakesAttachments(assignment)) {
-                    context.put("plagiarismFileTypes", rb.getFormattedMessage("gen.onlythefoll", getContentReviewAcceptedFileTypesMessage()));
+                		state.setAttribute("plagiarismFileTypes", rb.getFormattedMessage("gen.onlythefoll", getContentReviewAcceptedFileTypesMessage())); 
+                    context.put("plagiarismFileTypes", state.getAttribute("plagiarismFileTypes"));
+
+                    String reviewServiceName = contentReviewService.getServiceName();
+                    switch(reviewServiceName) {
+                        case CONTENT_PROVIDER_URKUND:
+                            long maxFileSizeBytes = Long.parseLong(serverConfigurationService.getString("urkund.maxFileSize", "20971520"));
+                            String plagiarismFileSize = rb.getFormattedMessage("plagiarismFileSize", new Object[]{maxFileSizeBytes/MEGABYTE});
+                            state.setAttribute("plagiarismFileSize", plagiarismFileSize); 
+                            context.put("plagiarismFileSize", state.getAttribute("plagiarismFileSize"));
+                            break;
+                        default:
+                    }
 
                     // SAK-31649 commenting this out to remove file picker filters, as the results vary depending on OS and browser.
                     // If in the future browser support for the 'accept' attribute on a file picker becomes more robust and
@@ -1432,10 +1511,28 @@ public class AssignmentAction extends PagedResourceActionII {
                 }
                 try {
                     if (Boolean.valueOf(properties.get(NEW_ASSIGNMENT_REVIEW_SERVICE_STUDENT_PREVIEW))) {
-                        context.put("plagiarismStudentPreview", rb.getString("gen.subStudentPreview"));
+                        state.setAttribute("plagiarismStudentPreview", rb.getString("gen.subStudentPreview"));
+                        context.put("plagiarismStudentPreview", state.getAttribute("plagiarismStudentPreview"));
                     }
                 } catch (Exception e) {
                     log.error(e.getMessage(), e);
+                }
+                //Check if content review service requires a EULA
+                String eulaServiceLink = contentReviewService.getEndUserLicenseAgreementLink(user.getId());
+                if(StringUtils.isNotEmpty(eulaServiceLink)) {
+	                	Instant providerEulaTimestamp = contentReviewService.getEndUserLicenseAgreementTimestamp();
+	                	Instant userEulaTimestamp = contentReviewService.getUserEULATimestamp(user.getId());
+	                	String providerEulaVersion = contentReviewService.getEndUserLicenseAgreementVersion();
+	                	String userEulaVersion = contentReviewService.getUserEULAVersion(user.getId());
+	                	if((providerEulaTimestamp != null && (userEulaTimestamp == null || userEulaTimestamp.isBefore(providerEulaTimestamp)))
+	                			|| (providerEulaVersion != null && (userEulaVersion == null || !userEulaVersion.equals(providerEulaVersion)))) {
+	                		//user has either not accepted the required EULA or there is a new EULA that needs to be re-accepted
+	                		context.put("plagiarismEULALink", eulaServiceLink);
+	                		state.setAttribute("plagiarismEULALink", eulaServiceLink);
+	                		context.put("name_plagiarism_eula_agreement", SUBMISSION_REVIEW_SERVICE_EULA_AGREEMENT);
+	                		context.put("value_plagiarism_eula_agreement", state.getAttribute(SUBMISSION_REVIEW_SERVICE_EULA_AGREEMENT) != null ? state.getAttribute(SUBMISSION_REVIEW_SERVICE_EULA_AGREEMENT) : "false");
+	                		context.put("name_check_plagiarism_eula_agreement", SUBMISSION_REVIEW_CHECK_SERVICE_EULA_AGREEMENT);
+	                	}
                 }
             }
             if (assignment.getTypeOfSubmission() == Assignment.SubmissionType.NON_ELECTRONIC_ASSIGNMENT_SUBMISSION) {
@@ -1451,30 +1548,15 @@ public class AssignmentAction extends PagedResourceActionII {
             List<Reference> currentAttachments = (List<Reference>) state.getAttribute(ATTACHMENTS);
 
             if (s != null) {
-                log.debug("BUILD SUBMISSION FORM HAS SUBMISSION FOR USER {}", user);
+                log.debug("BUILD SUBMISSION FORM HAS SUBMISSION FOR USER {}", submitter);
                 context.put("submission", s);
+                String currentUser = userDirectoryService.getCurrentUser().getId();
+                String grade = assignmentService.getGradeForSubmitter(s, currentUser);
+                context.put("grade", grade);
                 if (assignment.getIsGroup()) {
                     context.put("selectedGroup", s.getGroupId());
                     context.put("originalGroup", s.getGroupId());
                     context.put("submitterId", s.getGroupId());
-
-                    String currentUser = userDirectoryService.getCurrentUser().getId();
-
-                    String gradeOverride = null;
-                    // if this assignment is associated with the gradebook get grade from gradebook
-                    if (StringUtils.isNotBlank(assignment.getProperties().get(PROP_ASSIGNMENT_ASSOCIATE_GRADEBOOK_ASSIGNMENT))
-                            && (assignment.getTypeOfGrade() == SCORE_GRADE_TYPE)) {
-                        gradeOverride = assignmentService.getGradeForUserInGradeBook(assignment.getId(), currentUser);
-                    }
-                    // if no grade from gradebook then check submission
-                    if (StringUtils.isBlank(gradeOverride)) {
-                        Optional<AssignmentSubmissionSubmitter> sub = s.getSubmitters().stream().filter(p -> p.getSubmitter().equals(currentUser)).findFirst();
-                        if (sub.isPresent()) gradeOverride = sub.get().getGrade();
-                    }
-                    // if still no grade then there is no override
-                    if (gradeOverride != null) {
-                        context.put("override", gradeOverride);
-                    }
                 }
 
                 setScoringAgentProperties(context, assignment, s, false);
@@ -1520,31 +1602,7 @@ public class AssignmentAction extends PagedResourceActionII {
             // put the resubmit information into context
             assignment_resubmission_option_into_context(context, state);
 
-            if (assignment.getIsGroup()) {
-                // get current site
-                Collection<Group> groups = null;
-                Site st = null;
-                try {
-                    st = siteService.getSite((String) state.getAttribute(STATE_CONTEXT_STRING));
-                    context.put("site", st);
-                    groups = getGroupsWithUser(user.getId(), assignment, st);
-                    checkForGroupsInMultipleGroups(assignment, groups, state, rb.getString("group.user.multiple.warning"));
-                    context.put("group_size", String.valueOf(groups.size()));
-                    context.put("groups", new SortedIterator(groups.iterator(), new AssignmentComparator(state, SORTED_BY_GROUP_TITLE, Boolean.TRUE.toString())));
-                    if (state.getAttribute(VIEW_SUBMISSION_GROUP) != null) {
-                        context.put("selectedGroup", (String) state.getAttribute(VIEW_SUBMISSION_GROUP));
-                        if (log.isDebugEnabled())
-                            log.debug(this + ":buildStudentViewSubmissionContext: VIEW_SUBMISSION_GROUP " + state.getAttribute(VIEW_SUBMISSION_GROUP));
-                    }
-                    if (state.getAttribute(VIEW_SUBMISSION_ORIGINAL_GROUP) != null) {
-                        context.put("originalGroup", (String) state.getAttribute(VIEW_SUBMISSION_ORIGINAL_GROUP));
-                        if (log.isDebugEnabled())
-                            log.debug(this + ":buildStudentViewSubmissionContext: VIEW_SUBMISSION_ORIGINAL_GROUP " + state.getAttribute(VIEW_SUBMISSION_ORIGINAL_GROUP));
-                    }
-                } catch (IdUnusedException iue) {
-                    log.warn(this + ":buildStudentViewSubmissionContext: Site not found!" + iue.getMessage());
-                }
-            }
+            rangeAndGroups.buildStudentViewSubmissionContext(state, context, user.getId(), assignment, this);
 
             // can the student view model answer or not
             canViewAssignmentIntoContext(context, assignment, s);
@@ -1561,9 +1619,8 @@ public class AssignmentAction extends PagedResourceActionII {
         // name value pairs for the vm
         context.put("name_submission_text", VIEW_SUBMISSION_TEXT);
         context.put("value_submission_text", state.getAttribute(VIEW_SUBMISSION_TEXT));
-        context.put("name_submission_honor_pledge_yes", VIEW_SUBMISSION_HONOR_PLEDGE_YES);
-        context.put("value_submission_honor_pledge_yes", state.getAttribute(VIEW_SUBMISSION_HONOR_PLEDGE_YES));
-        context.put("honor_pledge_text", serverConfigurationService.getString("assignment.honor.pledge", rb.getString("gen.honple2")));
+        context.put("name_plagiarism_eula_agreement", SUBMISSION_REVIEW_SERVICE_EULA_AGREEMENT);
+        context.put("value_plagiarism_eula_agreement", state.getAttribute(SUBMISSION_REVIEW_SERVICE_EULA_AGREEMENT));
         context.put("attachments", stripInvisibleAttachments(state.getAttribute(ATTACHMENTS)));
         context.put("new_attachments", newAttachments);
         context.put("userDirectoryService", userDirectoryService);
@@ -1629,8 +1686,8 @@ public class AssignmentAction extends PagedResourceActionII {
     /**
      * Returns a clone of the passed in List of attachments minus any attachments that should not be displayed in the UI
      */
-    private List stripInvisibleAttachments(Object attachments) {
-        List stripped = new ArrayList();
+    private List<Reference> stripInvisibleAttachments(Object attachments) {
+        List<Reference> stripped = new ArrayList<>();
         if (attachments == null || !(attachments instanceof List)) {
             return stripped;
         }
@@ -1718,22 +1775,6 @@ public class AssignmentAction extends PagedResourceActionII {
 
         if (assignment != null) {
             context.put("assignment", assignment);
-
-            if (assignment.getIsGroup()) {
-                context.put("assignmentService", assignmentService);
-                Collection<Group> groups = null;
-                Site st = null;
-                try {
-                    st = siteService.getSite((String) state.getAttribute(STATE_CONTEXT_STRING));
-                    context.put("site", st);
-                    groups = getGroupsWithUser(user.getId(), assignment, st);
-                    //checkForGroupsInMultipleGroups(assignment, groups, state, rb.getString("group.user.multiple.warning"));
-                    context.put("group_size", String.valueOf(groups.size()));
-                    context.put("groups", new SortedIterator(groups.iterator(), new AssignmentComparator(state, SORTED_BY_GROUP_TITLE, Boolean.TRUE.toString())));
-                } catch (IdUnusedException iue) {
-                    log.warn(this + ":buildStudentViewSubmissionContext: Site not found!" + iue.getMessage());
-                }
-            }
         }
 
         if (taggingManager.isTaggable() && assignment != null) {
@@ -1747,38 +1788,6 @@ public class AssignmentAction extends PagedResourceActionII {
         String template = (String) getContext(data).get("template");
         return template + TEMPLATE_STUDENT_VIEW_GROUP_ERROR;
     } // build_student_view_group_error_context
-
-    /**
-     * Get groups containing a user for this assignment (remove SECTION groups)
-     *
-     * @param member
-     * @param assignment
-     * @param site
-     * @return collection of groups with the given member
-     */
-    private Collection<Group> getGroupsWithUser(String member, Assignment assignment, Site site) {
-        Collection<Group> groups = new ArrayList<Group>();
-        if (assignment.getTypeOfAccess().equals(Assignment.Access.SITE)) {
-            Iterator<Group> _groups = site.getGroupsWithMember(member).iterator();
-            while (_groups.hasNext()) {
-                Group _g = _groups.next();
-                if (_g.getMember(member) != null)// && _g.getProperties().get(GROUP_SECTION_PROPERTY) == null)
-                    groups.add(_g);
-            }
-        } else {
-            Iterator<String> _it = assignment.getGroups().iterator();
-            while (_it.hasNext()) {
-                String _gRef = _it.next();
-                Group _g = site.getGroup(_gRef);
-                if (_g != null && _g.getMember(member) != null) {// && _g.getProperties().get(GROUP_SECTION_PROPERTY) == null)
-                    groups.add(_g);
-                } else if (_g != null && securityService.isSuperUser()) {// allow admin to submit on behalf of groups
-                    groups.add(_g);
-                }
-            }
-        }
-        return groups;
-    }
 
     /**
      * build the student view of showing an assignment submission confirmation
@@ -1857,16 +1866,8 @@ public class AssignmentAction extends PagedResourceActionII {
                 context.put("email_confirmation", serverConfigurationService.getBoolean("assignment.submission.confirmation.email", true));
 
                 if (currentAssignment.getIsGroup()) {
-                    Map<String, User> users = s.getSubmitters().stream().map(u -> {
-                        try {
-                            return userDirectoryService.getUser(u.getSubmitter());
-                        } catch (UserNotDefinedException e) {
-                            log.warn("User not found, {}", u.getSubmitter());
-                            return null;
-                        }
-                    }).filter(Objects::nonNull).collect(Collectors.toMap(User::getId, Function.identity()));
-                    String submitterNames = users.values().stream().map(u -> u.getDisplayName() + " (" + u.getDisplayId() + ")").collect(Collectors.joining(", "));
-                    context.put("submitterNames", formattedText.escapeHtml(submitterNames));
+					context.put("submitterNames", getSubmitterFormattedNames(s, "build_student_view_submission_confirmation_context"));
+					
                 }
             }
         }
@@ -1876,6 +1877,14 @@ public class AssignmentAction extends PagedResourceActionII {
         return template + TEMPLATE_STUDENT_VIEW_SUBMISSION_CONFIRMATION;
 
     } // build_student_view_submission_confirmation_context
+
+    //Get all submitter names from submission, comma separated and processed in formattedText
+	private String getSubmitterFormattedNames(AssignmentSubmission s, String method) {
+		final Map<String, User> users = getSubmitters(s, method)
+						.collect(Collectors.toMap(User::getId, Function.identity()));
+		final String submitterNames = users.values().stream().map(u -> u.getDisplayName() + " (" + u.getDisplayId() + ")").collect(Collectors.joining(", "));
+		return formattedText.escapeHtml(submitterNames);
+	}
 
     /**
      * build the student view of assignment
@@ -1898,6 +1907,7 @@ public class AssignmentAction extends PagedResourceActionII {
         Assignment assignment = getAssignment(aReference, "build_student_view_assignment_context", state);
         if (assignment != null) {
             context.put("assignment", assignment);
+            context.put("assignmentReference", aReference);
 
             // put creator information into context
             putCreatorIntoContext(context, assignment);
@@ -1905,26 +1915,17 @@ public class AssignmentAction extends PagedResourceActionII {
             submission = getSubmission(aReference, user, "build_student_view_assignment_context", state);
             context.put("submission", submission);
 
-            if (assignment.getIsGroup()) {
-                Collection<Group> groups = null;
-                Site st = null;
-                try {
-                    st = siteService.getSite((String) state.getAttribute(STATE_CONTEXT_STRING));
-                    context.put("site", st);
-                    groups = getGroupsWithUser(user.getId(), assignment, st);
-                    context.put("group_size", String.valueOf(groups.size()));
-                    context.put("groups", new SortedIterator(groups.iterator(), new AssignmentComparator(state, SORTED_BY_GROUP_TITLE, Boolean.TRUE.toString())));
-                    checkForGroupsInMultipleGroups(assignment, groups, state, rb.getString("group.user.multiple.warning"));
-                } catch (IdUnusedException iue) {
-                    log.warn(this + ":buildStudentViewAssignmentContext: Site not found!" + iue.getMessage());
-                }
-            }
+            rangeAndGroups.buildStudentViewAssignmentContext(state, user.getId(), assignment);
 
             // can the student view model answer or not
             canViewAssignmentIntoContext(context, assignment, submission);
 
             // put resubmit information into context
             assignment_resubmission_option_into_context(context, state);
+
+            Map<String, Reference> assignmentAttachmentReferences = new HashMap<>();
+            assignment.getAttachments().forEach(r -> assignmentAttachmentReferences.put(r, entityManager.newReference(r)));
+            context.put("assignmentAttachmentReferences", assignmentAttachmentReferences);
         }
 
         if (taggingManager.isTaggable() && assignment != null) {
@@ -1944,30 +1945,52 @@ public class AssignmentAction extends PagedResourceActionII {
 
     } // build_student_view_assignment_context
 
-    /**
-     * build the student preview of showing an assignment submission
-     *
-     * @param portlet
-     * @param context
-     * @param data
-     * @param state
-     * @return
-     */
-    protected String build_student_preview_submission_context(VelocityPortlet portlet, Context context, RunData data, SessionState state) {
+    protected String build_student_view_assignment_honorPledge_context(final VelocityPortlet portlet, final Context context, final RunData data, final SessionState state) {
+        String assignmentReference = (String) state.getAttribute(VIEW_SUBMISSION_ASSIGNMENT_REFERENCE);
+        String template = getContext(data).get("template");
+
+        Assignment a = getAssignment(assignmentReference, "build_student_view_assignment_honorPledge_context", state);
+        if (a != null) {
+            context.put("assignment", a);
+            context.put("assignmentReference", assignmentReference);
+            context.put("honorPledgeText", serverConfigurationService.getString("assignment.honor.pledge", rb.getString("gen.hpa.text")));
+            Map<String, Boolean> statusMap = new LinkedHashMap<>();
+            statusMap.put(rb.getString("gen.hpsta"), false);
+            statusMap.putAll(assignmentService.getProgressBarStatus(null));
+            context.put("statusMap", statusMap);
+        } else {
+            addAlert(state, rb.getString("youarenot18"));
+            doList_assignments(data);
+            return template + TEMPLATE_LIST_ASSIGNMENTS;
+        }
+
+        return template + TEMPLATE_STUDENT_VIEW_ASSIGNMENT_HONORPLEDGE;
+    }
+
+    protected String build_student_confirm_submission_context(VelocityPortlet portlet, Context context, RunData data, SessionState state) {
+		//TODO keep/remove/add what necessary
+
         User user = (User) state.getAttribute(STATE_USER);
         String aReference = (String) state.getAttribute(PREVIEW_SUBMISSION_ASSIGNMENT_REFERENCE);
 
-        Assignment assignment = getAssignment(aReference, "build_student_preview_submission_context", state);
+        Assignment assignment = getAssignment(aReference, "build_student_confirm_submission_context", state);
         if (assignment != null) {
             context.put("assignment", assignment);
             context.put("assignmentReference", AssignmentReferenceReckoner.reckoner().assignment(assignment).reckon().getReference());
             context.put("typeOfGradeString", getTypeOfGradeString(assignment.getTypeOfGrade()));
-            context.put("canSubmit", assignmentService.canSubmit((String) state.getAttribute(STATE_CONTEXT_STRING), assignment));
+            context.put("canSubmit", assignmentService.canSubmit(assignment));
 
-            AssignmentSubmission submission = getSubmission(aReference, user, "build_student_preview_submission_context", state);
+            AssignmentSubmission submission = getSubmission(aReference, user, "build_student_confirm_submission_context", state);
             if (submission != null) {
                 context.put("submission", submission);
+                String currentUser = userDirectoryService.getCurrentUser().getId();
+                String grade = assignmentService.getGradeForSubmitter(submission, currentUser);
+                context.put("grade", grade);
                 context.put("submissionReference", AssignmentReferenceReckoner.reckoner().submission(submission).reckon().getReference());
+            }
+
+            if (assignment.getIsGroup() && state.getAttribute(VIEW_SUBMISSION_GROUP) != null) {
+                context.put(VIEW_SUBMISSION_GROUP, (String) state.getAttribute(VIEW_SUBMISSION_GROUP));
             }
 
             setScoringAgentProperties(context, assignment, submission, false);
@@ -1993,9 +2016,111 @@ public class AssignmentAction extends PagedResourceActionII {
         }
 
         context.put("text", state.getAttribute(PREVIEW_SUBMISSION_TEXT));
-        context.put("honor_pledge_yes", state.getAttribute(PREVIEW_SUBMISSION_HONOR_PLEDGE_YES));
-        context.put("honor_pledge_text", serverConfigurationService.getString("assignment.honor.pledge", rb.getString("gen.honple2")));
-        context.put("attachments", stripInvisibleAttachments(state.getAttribute(PREVIEW_SUBMISSION_ATTACHMENTS)));
+        if(assignment.getContentReview()) {
+	        	context.put("plagiarismStudentPreview", state.getAttribute("plagiarismStudentPreview"));
+	        	context.put("plagiarismFileTypes", state.getAttribute("plagiarismFileTypes"));
+	        	context.put("plagiarismFileSize", state.getAttribute("plagiarismFileSize"));
+	        	context.put("plagiarismNote", state.getAttribute("plagiarismNote"));
+	        	context.put("name_plagiarism_eula_agreement", SUBMISSION_REVIEW_SERVICE_EULA_AGREEMENT);
+	        	context.put("value_plagiarism_eula_agreement", state.getAttribute(SUBMISSION_REVIEW_SERVICE_EULA_AGREEMENT));
+	        	context.put("plagiarismEULALink", state.getAttribute("eulaServiceLink"));
+	        	context.put("name_check_plagiarism_eula_agreement", SUBMISSION_REVIEW_CHECK_SERVICE_EULA_AGREEMENT);
+        }
+        Map<String, Reference> submissionAttachmentReferences = new HashMap<>();
+        stripInvisibleAttachments(state.getAttribute(PREVIEW_SUBMISSION_ATTACHMENTS)).forEach(r -> submissionAttachmentReferences.put(r.getId(), r));
+        context.put("submissionAttachmentReferences", submissionAttachmentReferences);
+        context.put("contentTypeImageService", contentTypeImageService);
+
+        //confirm custom messages
+        String confirmMessage = serverConfigurationService.getString("assignment.submissionConfirmMessage", rb.getFormattedMessage("submissionConfirmMessage"));
+        context.put("studentConfirmMessage", confirmMessage);
+        context.put("submissionConfirmOptionsRequired", serverConfigurationService.getBoolean("assignment.submissionConfirmOptionsRequired", false));
+        String[] submissionConfirmOptionsList = serverConfigurationService.getStrings("assignment.submissionConfirmOptions");
+        List<String> items = new ArrayList<>();
+        if (submissionConfirmOptionsList != null) {
+            for (String item : submissionConfirmOptionsList) {
+                if (StringUtils.isNotBlank(item)) {
+                    items.add(item);
+                }
+            }
+        }
+        context.put("submissionConfirmOptions", items);
+        context.put("submissionConfirmAlert", rb.getFormattedMessage("submissionConfirmAlert"));
+
+        String template = (String) getContext(data).get("template");
+        return template + TEMPLATE_STUDENT_CONFIRM_SUBMISSION;
+    }
+
+    /**
+     * build the student preview of showing an assignment submission
+     *
+     * @param portlet
+     * @param context
+     * @param data
+     * @param state
+     * @return
+     */
+    protected String build_student_preview_submission_context(VelocityPortlet portlet, Context context, RunData data, SessionState state) {
+        User user = (User) state.getAttribute(STATE_USER);
+        String aReference = (String) state.getAttribute(PREVIEW_SUBMISSION_ASSIGNMENT_REFERENCE);
+
+        Assignment assignment = getAssignment(aReference, "build_student_preview_submission_context", state);
+        if (assignment != null) {
+            context.put("assignment", assignment);
+            context.put("assignmentReference", AssignmentReferenceReckoner.reckoner().assignment(assignment).reckon().getReference());
+            context.put("typeOfGradeString", getTypeOfGradeString(assignment.getTypeOfGrade()));
+            context.put("canSubmit", assignmentService.canSubmit(assignment));
+
+            AssignmentSubmission submission = getSubmission(aReference, user, "build_student_preview_submission_context", state);
+            if (submission != null) {
+                context.put("submission", submission);
+                String currentUser = userDirectoryService.getCurrentUser().getId();
+                String grade = assignmentService.getGradeForSubmitter(submission, currentUser);
+                context.put("grade", grade);
+                context.put("submissionReference", AssignmentReferenceReckoner.reckoner().submission(submission).reckon().getReference());
+            }
+
+            if (assignment.getIsGroup() && state.getAttribute(VIEW_SUBMISSION_GROUP) != null) {
+                context.put(VIEW_SUBMISSION_GROUP, (String) state.getAttribute(VIEW_SUBMISSION_GROUP));
+            }
+
+            setScoringAgentProperties(context, assignment, submission, false);
+
+            // can the student view model answer or not
+            canViewAssignmentIntoContext(context, assignment, submission);
+
+            // put the resubmit information into context
+            assignment_resubmission_option_into_context(context, state);
+
+            if (state.getAttribute(SAVED_FEEDBACK) != null) {
+                context.put("savedFeedback", Boolean.TRUE);
+                state.removeAttribute(SAVED_FEEDBACK);
+            }
+            if (state.getAttribute(OW_FEEDBACK) != null) {
+                context.put("overwriteFeedback", Boolean.TRUE);
+                state.removeAttribute(OW_FEEDBACK);
+            }
+            if (state.getAttribute(RETURNED_FEEDBACK) != null) {
+                context.put("returnedFeedback", Boolean.TRUE);
+                state.removeAttribute(RETURNED_FEEDBACK);
+            }
+        }
+
+        context.put("text", state.getAttribute(PREVIEW_SUBMISSION_TEXT));
+        if(assignment.getContentReview()) {
+	        	context.put("plagiarismStudentPreview", state.getAttribute("plagiarismStudentPreview"));
+	        	context.put("plagiarismFileTypes", state.getAttribute("plagiarismFileTypes"));
+	        	context.put("plagiarismFileSize", state.getAttribute("plagiarismFileSize"));
+	        	context.put("plagiarismNote", state.getAttribute("plagiarismNote"));
+	        	context.put("name_plagiarism_eula_agreement", SUBMISSION_REVIEW_SERVICE_EULA_AGREEMENT);
+	        	context.put("value_plagiarism_eula_agreement", state.getAttribute(SUBMISSION_REVIEW_SERVICE_EULA_AGREEMENT));
+	        	context.put("plagiarismEULALink", state.getAttribute("eulaServiceLink"));
+	        	context.put("name_check_plagiarism_eula_agreement", SUBMISSION_REVIEW_CHECK_SERVICE_EULA_AGREEMENT);
+        }
+
+        Map<String, Reference> submissionAttachmentReferences = new HashMap<>();
+        stripInvisibleAttachments(state.getAttribute(PREVIEW_SUBMISSION_ATTACHMENTS)).forEach(r -> submissionAttachmentReferences.put(r.getId(), r));
+        context.put("submissionAttachmentReferences", submissionAttachmentReferences);
         context.put("contentTypeImageService", contentTypeImageService);
 
         String template = (String) getContext(data).get("template");
@@ -2097,25 +2222,10 @@ public class AssignmentAction extends PagedResourceActionII {
             submission.getFeedbackAttachments().forEach(r -> submissionFeedbackAttachmentReferences.put(r, entityManager.newReference(r)));
             context.put("submissionFeedbackAttachmentReferences", submissionFeedbackAttachmentReferences);
 
-            if (assignment.getIsGroup()) {
-                String currentUser = userDirectoryService.getCurrentUser().getId();
+            String currentUser = userDirectoryService.getCurrentUser().getId();
+            String grade = assignmentService.getGradeForSubmitter(submission, currentUser);
+            context.put("grade", grade);
 
-                String gradeOverride = null;
-                // if this assignment is associated with the gradebook get grade from gradebook
-                if (StringUtils.isNotBlank(assignment.getProperties().get(PROP_ASSIGNMENT_ASSOCIATE_GRADEBOOK_ASSIGNMENT))
-                        && (assignment.getTypeOfGrade() == SCORE_GRADE_TYPE)) {
-                    gradeOverride = assignmentService.getGradeForUserInGradeBook(assignment.getId(), currentUser);
-                }
-                // if no grade from gradebook then check submission
-                if (StringUtils.isBlank(gradeOverride)) {
-                    Optional<AssignmentSubmissionSubmitter> sub = submission.getSubmitters().stream().filter(p -> p.getSubmitter().equals(currentUser)).findFirst();
-                    if (sub.isPresent()) gradeOverride = sub.get().getGrade();
-                }
-                // if still no grade then there is no override
-                if (gradeOverride != null) {
-                    context.put("override", gradeOverride);
-                }
-            }
             // can the student view model answer or not
             canViewAssignmentIntoContext(context, assignment, submission);
 
@@ -2197,6 +2307,8 @@ public class AssignmentAction extends PagedResourceActionII {
         if (asgnAdvisor != null) {
             securityService.popAdvisor(asgnAdvisor);
         }
+        
+        context.put("submitterNames", getSubmitterFormattedNames(submission, "build_instructor_grade_submission_context"));
 
         String template = (String) getContext(data).get("template");
         return template + TEMPLATE_STUDENT_VIEW_GRADE;
@@ -2400,10 +2512,7 @@ public class AssignmentAction extends PagedResourceActionII {
             if (a != null) {
                 context.put("assignmentId", assignmentId);
                 context.put("assignment", a);
-                if (a.getIsGroup()) {
-                    Collection<String> _dupUsers = usersInMultipleGroups(a);
-                    if (_dupUsers.size() > 0) context.put("multipleGroupUsers", _dupUsers);
-                }
+                rangeAndGroups.buildInstructorNewEditAssignmentContextGroupCheck(context, a);
             }
         }
 
@@ -2428,7 +2537,6 @@ public class AssignmentAction extends PagedResourceActionII {
         // put the names and values into vm file
 
         context.put("name_UsePeerAssessment", NEW_ASSIGNMENT_USE_PEER_ASSESSMENT);
-        context.put("name_additionalOptions", NEW_ASSIGNMENT_ADDITIONAL_OPTIONS);
         context.put("name_PeerAssessmentAnonEval", NEW_ASSIGNMENT_PEER_ASSESSMENT_ANON_EVAL);
         context.put("name_PeerAssessmentStudentViewReviews", NEW_ASSIGNMENT_PEER_ASSESSMENT_STUDENT_VIEW_REVIEWS);
         context.put("name_PeerAssessmentNumReviews", NEW_ASSIGNMENT_PEER_ASSESSMENT_NUM_REVIEWS);
@@ -2441,6 +2549,7 @@ public class AssignmentAction extends PagedResourceActionII {
         context.put("name_NEW_ASSIGNMENT_REVIEW_SERVICE_SUBMIT_INSITUTION", NEW_ASSIGNMENT_REVIEW_SERVICE_SUBMIT_INSITUTION);
         context.put("name_NEW_ASSIGNMENT_REVIEW_SERVICE_REPORT_RADIO", NEW_ASSIGNMENT_REVIEW_SERVICE_REPORT_RADIO);
         context.put("name_NEW_ASSIGNMENT_REVIEW_SERVICE_REPORT_IMMEDIATELY", NEW_ASSIGNMENT_REVIEW_SERVICE_REPORT_IMMEDIATELY);
+        context.put("name_NEW_ASSIGNMENT_REVIEW_SERVICE_REPORT_IMMEDIATELY_AND_DUE", NEW_ASSIGNMENT_REVIEW_SERVICE_REPORT_IMMEDIATELY_AND_DUE);
         context.put("name_NEW_ASSIGNMENT_REVIEW_SERVICE_REPORT_DUE", NEW_ASSIGNMENT_REVIEW_SERVICE_REPORT_DUE);
         context.put("name_NEW_ASSIGNMENT_REVIEW_SERVICE_CHECK_TURNITIN", NEW_ASSIGNMENT_REVIEW_SERVICE_CHECK_TURNITIN);
         context.put("name_NEW_ASSIGNMENT_REVIEW_SERVICE_CHECK_INTERNET", NEW_ASSIGNMENT_REVIEW_SERVICE_CHECK_INTERNET);
@@ -2478,6 +2587,7 @@ public class AssignmentAction extends PagedResourceActionII {
         context.put("name_Section", NEW_ASSIGNMENT_SECTION);
         context.put("name_SubmissionType", NEW_ASSIGNMENT_SUBMISSION_TYPE);
         context.put("name_Category", NEW_ASSIGNMENT_CATEGORY);
+        context.put("name_GradeAssignment", NEW_ASSIGNMENT_GRADE_ASSIGNMENT);
         context.put("name_GradeType", NEW_ASSIGNMENT_GRADE_TYPE);
         context.put("name_GradePoints", NEW_ASSIGNMENT_GRADE_POINTS);
         context.put("name_Description", NEW_ASSIGNMENT_DESCRIPTION);
@@ -2495,15 +2605,6 @@ public class AssignmentAction extends PagedResourceActionII {
 
         // SAK-17606
         context.put("name_CheckAnonymousGrading", NEW_ASSIGNMENT_CHECK_ANONYMOUS_GRADING);
-
-        context.put("name_CheckIsGroupSubmission", NEW_ASSIGNMENT_GROUP_SUBMIT);
-        //Default value of additional options for now. It's a radio so it can only have one option
-        String contextAdditionalOptions = "none";
-
-        String gs = (String) state.getAttribute(NEW_ASSIGNMENT_GROUP_SUBMIT);
-        if (gs != null && "1".equals(gs)) {
-            contextAdditionalOptions = Assignment.Access.GROUP.toString();
-        }
 
         // set the values
         Assignment a = null;
@@ -2529,20 +2630,27 @@ public class AssignmentAction extends PagedResourceActionII {
         putGradebookCategoryInfoIntoContext(state, context);
 
         context.put("value_totalSubmissionTypes", Assignment.SubmissionType.values().length - 1);
-        context.put("value_GradeType", state.getAttribute(NEW_ASSIGNMENT_GRADE_TYPE));
-        // format to show one decimal place
-        String maxGrade = (String) state.getAttribute(NEW_ASSIGNMENT_GRADE_POINTS);
+
+        Integer scaleFactor;
+        Boolean anonGrading;
         if (a != null) {
-            context.put("value_GradePoints", assignmentService.getGradeDisplay(maxGrade, a.getTypeOfGrade(), a.getScaleFactor() != null ? a.getScaleFactor() : assignmentService.getScaleFactor()));
-            context.put("value_CheckAnonymousGrading", assignmentService.assignmentUsesAnonymousGrading(a));
+            scaleFactor = a.getScaleFactor() != null ? a.getScaleFactor() : assignmentService.getScaleFactor();
+            anonGrading = assignmentService.assignmentUsesAnonymousGrading(a);
+        } else {
+            scaleFactor = assignmentService.getScaleFactor();
+            anonGrading = (Boolean) state.getAttribute(NEW_ASSIGNMENT_CHECK_ANONYMOUS_GRADING);
         }
+
+        Assignment.GradeType gradeType = values()[(Integer) state.getAttribute(NEW_ASSIGNMENT_GRADE_TYPE)];
+        String maxGrade = (String) state.getAttribute(NEW_ASSIGNMENT_GRADE_POINTS);
+        context.put("value_GradeType", gradeType.ordinal());
+        context.put("value_GradePoints", assignmentService.getGradeDisplay(maxGrade, gradeType, scaleFactor));
         context.put("value_Description", state.getAttribute(NEW_ASSIGNMENT_DESCRIPTION));
+        context.put("value_CheckAnonymousGrading", anonGrading);
 
         //Peer Assessment
         String peer = (String) state.getAttribute(NEW_ASSIGNMENT_USE_PEER_ASSESSMENT);
-        if (peer != null && "true".equals(peer)) {
-            contextAdditionalOptions = "peerreview";
-        }
+        context.put("value_UsePeerAssessment", peer);
         context.put("value_PeerAssessmentAnonEval", state.getAttribute(NEW_ASSIGNMENT_PEER_ASSESSMENT_ANON_EVAL));
         context.put("value_PeerAssessmentStudentViewReviews", state.getAttribute(NEW_ASSIGNMENT_PEER_ASSESSMENT_STUDENT_VIEW_REVIEWS));
         context.put("value_PeerAssessmentNumReviews", state.getAttribute(NEW_ASSIGNMENT_PEER_ASSESSMENT_NUM_REVIEWS));
@@ -2553,7 +2661,18 @@ public class AssignmentAction extends PagedResourceActionII {
         context.put("value_UseReviewService", state.getAttribute(NEW_ASSIGNMENT_USE_REVIEW_SERVICE));
         if (!contentReviewService.allowAllContent()) {
             String fileTypesMessage = getContentReviewAcceptedFileTypesMessage();
-            String contentReviewNote = rb.getFormattedMessage("content_review.note", new Object[]{fileTypesMessage});
+            String reviewServiceName = contentReviewService.getServiceName();
+            Object[] params = new Object[2];
+            params[0] = fileTypesMessage;
+            params[1] = "";
+            switch(reviewServiceName) {
+                case CONTENT_PROVIDER_URKUND:
+                    long maxFileSizeBytes = Long.parseLong(serverConfigurationService.getString("urkund.maxFileSize", "20971520"));
+                    params[1] = rb.getFormattedMessage("plagiarismFileSize", new Object[]{maxFileSizeBytes/MEGABYTE});
+                    break;
+                default:
+            }
+            String contentReviewNote = rb.getFormattedMessage("content_review.note", params);
             context.put("content_review_note", contentReviewNote);
         }
         context.put("turnitin_forceSingleAttachment", serverConfigurationService.getBoolean("turnitin.forceSingleAttachment", false));
@@ -2569,7 +2688,7 @@ public class AssignmentAction extends PagedResourceActionII {
         context.put("show_NEW_ASSIGNMENT_REVIEW_SERVICE_SUBMIT", subOptions);
 
         List<String> reportGenOptions = getReportGenOptions();
-        String reportRadio = serverConfigurationService.getString("turnitin.report_gen_speed.setting.value", null) == null ? NEW_ASSIGNMENT_REVIEW_SERVICE_REPORT_IMMEDIATELY : serverConfigurationService.getString("turnitin.report_gen_speed.setting.value");
+        String reportRadio = serverConfigurationService.getString("turnitin.report_gen_speed.setting.value", null) == null ? reportGenOptions.get(0) : serverConfigurationService.getString("turnitin.report_gen_speed.setting.value");
         if (state.getAttribute(NEW_ASSIGNMENT_REVIEW_SERVICE_REPORT_RADIO) != null && reportGenOptions.contains(state.getAttribute(NEW_ASSIGNMENT_REVIEW_SERVICE_REPORT_RADIO)))
             reportRadio = state.getAttribute(NEW_ASSIGNMENT_REVIEW_SERVICE_REPORT_RADIO).toString();
         context.put("value_NEW_ASSIGNMENT_REVIEW_SERVICE_REPORT_RADIO", reportRadio);
@@ -2638,6 +2757,9 @@ public class AssignmentAction extends PagedResourceActionII {
             context.put("value_opendate_notification_low", AssignmentConstants.ASSIGNMENT_OPENDATE_NOTIFICATION_LOW);
             context.put("value_opendate_notification_high", AssignmentConstants.ASSIGNMENT_OPENDATE_NOTIFICATION_HIGH);
         }
+        context.put("name_CheckEmailReminder",NEW_ASSIGNMENT_REMINDER_EMAIL);
+        context.put("value_CheckEmailReminder",state.getAttribute(NEW_ASSIGNMENT_REMINDER_EMAIL));
+        context.put("value_reminder_hours", serverConfigurationService.getInt("assignment.reminder.hours", 24));
 
         context.put("value_CheckAddHonorPledge", state.getAttribute(NEW_ASSIGNMENT_CHECK_ADD_HONOR_PLEDGE));
 
@@ -2649,38 +2771,55 @@ public class AssignmentAction extends PagedResourceActionII {
         if (gradebookExists) {
             String gradebookUid = toolManager.getCurrentPlacement().getContext();
 
-            try {
-                // how many gradebook assignment have been integrated with Assignment tool already
-                currentAssignmentGradebookIntegrationIntoContext(context, state, gradebookUid, a != null ? a.getTitle() : null);
+            // how many gradebook assignment have been integrated with Assignment tool already
+            currentAssignmentGradebookIntegrationIntoContext(context, state, gradebookUid, a != null ? a.getTitle() : null);
 
-                if (StringUtils.isBlank((String) state.getAttribute(NEW_ASSIGNMENT_ADD_TO_GRADEBOOK))) {
-                    state.setAttribute(NEW_ASSIGNMENT_ADD_TO_GRADEBOOK, GRADEBOOK_INTEGRATION_NO);
-                }
+            if (StringUtils.isBlank((String) state.getAttribute(NEW_ASSIGNMENT_ADD_TO_GRADEBOOK))) {
+                state.setAttribute(NEW_ASSIGNMENT_ADD_TO_GRADEBOOK, GRADEBOOK_INTEGRATION_NO);
+            }
 
-                context.put("withGradebook", Boolean.TRUE);
+            context.put("withGradebook", Boolean.TRUE);
 
-                // offer the gradebook integration choice only in the Assignments with Grading tool
-                boolean withGrade = (Boolean) state.getAttribute(WITH_GRADES);
-                if (withGrade) {
-                    context.put("name_Addtogradebook", NEW_ASSIGNMENT_ADD_TO_GRADEBOOK);
-                    context.put("name_AssociateGradebookAssignment", PROP_ASSIGNMENT_ASSOCIATE_GRADEBOOK_ASSIGNMENT);
-                }
+            // offer the gradebook integration choice only in the Assignments with Grading tool
+            boolean withGrade = (Boolean) state.getAttribute(WITH_GRADES);
+            if (withGrade) {
+                context.put("name_SendToGradebook", NEW_ASSIGNMENT_SEND_TO_GRADEBOOK);
+                context.put("name_Addtogradebook", NEW_ASSIGNMENT_ADD_TO_GRADEBOOK);
+                context.put("name_AssociateGradebookAssignment", PROP_ASSIGNMENT_ASSOCIATE_GRADEBOOK_ASSIGNMENT);
+            }
 
-                context.put("gradebookChoice", state.getAttribute(NEW_ASSIGNMENT_ADD_TO_GRADEBOOK));
-                context.put("gradebookChoice_no", GRADEBOOK_INTEGRATION_NO);
-                context.put("gradebookChoice_add", GRADEBOOK_INTEGRATION_ADD);
-                context.put("gradebookChoice_associate", GRADEBOOK_INTEGRATION_ASSOCIATE);
-                String associateGradebookAssignment = (String) state.getAttribute(PROP_ASSIGNMENT_ASSOCIATE_GRADEBOOK_ASSIGNMENT);
-                if (StringUtils.isNotBlank(associateGradebookAssignment)) {
-                    context.put("associateGradebookAssignment", associateGradebookAssignment);
-                    if (a != null) {
-                        context.put("noAddToGradebookChoice",
-                                associateGradebookAssignment.equals(AssignmentReferenceReckoner.reckoner().assignment(a).reckon().getReference()) || gradebookService.isAssignmentDefined(gradebookUid, a.getTitle()));
+            context.put("gradebookChoice", state.getAttribute(NEW_ASSIGNMENT_ADD_TO_GRADEBOOK));
+            context.put("gradebookChoice_no", GRADEBOOK_INTEGRATION_NO);
+            context.put("gradebookChoice_add", GRADEBOOK_INTEGRATION_ADD);
+            context.put("gradebookChoice_associate", GRADEBOOK_INTEGRATION_ASSOCIATE);
+            String associateGradebookAssignment = (String) state.getAttribute(PROP_ASSIGNMENT_ASSOCIATE_GRADEBOOK_ASSIGNMENT);
+            if (StringUtils.isNotBlank(associateGradebookAssignment)) {
+                context.put("associateGradebookAssignment", associateGradebookAssignment);
+                if (a != null) {
+                    // the premise here is that if there is a VALID value for PROP_ASSIGNMENT_ASSOCIATE_GRADEBOOK_ASSIGNMENT
+                    // then the assignment is already associated to the gradebook and the user should not see the add to gradebook option
+                    boolean valid = false;
+                    if (StringUtils.startsWith(associateGradebookAssignment, REFERENCE_ROOT)) {
+                        // checking externally maintained by gradebook
+                        if (AssignmentReferenceReckoner.reckoner().assignment(a).reckon().getReference().equals(associateGradebookAssignment)) {
+                            // the reference matches that of the assignment
+                            valid = true;
+                        } else {
+                            // why do we have a reference to some other assignment?
+                            log.warn("Gradebook association for assignment {} was pointing to assignment {}", a.getId(), associateGradebookAssignment);
+                        }
+                    } else {
+                        // check internally maintained by gradebook
+                        try {
+                            if (gradebookService.getAssignmentByNameOrId(gradebookUid, associateGradebookAssignment) != null) {
+                                valid = true;
+                            }
+                        } catch (AssessmentNotFoundException anfe) {
+                            log.debug("Gradebook item not found for assignment {} with {} = {}", a.getId(), PROP_ASSIGNMENT_ASSOCIATE_GRADEBOOK_ASSIGNMENT, associateGradebookAssignment);
+                        }
                     }
+                    context.put("noAddToGradebookChoice", valid);
                 }
-            } catch (Exception e) {
-                // not able to link to Gradebook
-                log.warn(this + "setAssignmentFormContext " + e.getMessage());
             }
 
             if (StringUtils.isBlank((String) state.getAttribute(NEW_ASSIGNMENT_ADD_TO_GRADEBOOK))) {
@@ -2693,9 +2832,6 @@ public class AssignmentAction extends PagedResourceActionII {
         context.put("attachments", state.getAttribute(ATTACHMENTS));
         context.put("contentTypeImageService", contentTypeImageService);
 
-        String range = StringUtils.trimToNull((String) state.getAttribute(NEW_ASSIGNMENT_RANGE));
-        context.put("range", range != null ? range : Assignment.Access.SITE.toString());
-
         String contextString = (String) state.getAttribute(STATE_CONTEXT_STRING);
         // put site object into context
         try {
@@ -2706,41 +2842,7 @@ public class AssignmentAction extends PagedResourceActionII {
             log.warn(this + ":setAssignmentFormContext " + ignore.getMessage());
         }
 
-        Collection<Group> groupsAllowAddAssignment = assignmentService.getGroupsAllowAddAssignment(contextString);
-
-        if (range == null) {
-            if (assignmentService.allowAddSiteAssignment(contextString)) {
-                // default to make site selection
-                context.put("range", Assignment.Access.SITE.toString());
-            } else if (groupsAllowAddAssignment.size() > 0) {
-                // to group otherwise
-                context.put("range", Assignment.Access.GROUP.toString());
-            }
-        }
-
-        // group list which user can add message to
-        if (groupsAllowAddAssignment.size() > 0) {
-            String sort = (String) state.getAttribute(SORTED_BY);
-            String asc = (String) state.getAttribute(SORTED_ASC);
-            if (sort == null || (!sort.equals(SORTED_BY_GROUP_TITLE) && !sort.equals(SORTED_BY_GROUP_DESCRIPTION))) {
-                sort = SORTED_BY_GROUP_TITLE;
-                asc = Boolean.TRUE.toString();
-                state.setAttribute(SORTED_BY, sort);
-                state.setAttribute(SORTED_ASC, asc);
-            }
-
-
-            // SAK-26349 - need to add the collection; the iterator added below is only usable once in the velocity template
-            AssignmentComparator comp = new AssignmentComparator(state, sort, asc);
-            List<Group> groupList = new ArrayList<>(groupsAllowAddAssignment);
-            Collections.sort(groupList, comp);
-            context.put("groupsList", groupList);
-
-            context.put("groups", new SortedIterator(groupList.iterator(), comp));
-            context.put("assignmentGroups", state.getAttribute(NEW_ASSIGNMENT_GROUPS));
-        }
-
-        context.put("allowGroupAssignmentsInGradebook", Boolean.TRUE);
+        rangeAndGroups.setAssignmentFormContext(state, context, contextString, this);
 
         // the notification email choices
         // whether the choice of emails instructor submission notification is available in the installation
@@ -2822,8 +2924,6 @@ public class AssignmentAction extends PagedResourceActionII {
         } catch (Exception e) {
             log.warn(this + ":setAssignmentFormContext role cast problem " + e.getMessage() + " site =" + contextString);
         }
-        //Add the additional options in
-        context.put("value_additionalOptions", contextAdditionalOptions);
 
     } // setAssignmentFormContext
 
@@ -2896,13 +2996,11 @@ public class AssignmentAction extends PagedResourceActionII {
         // get all assignments in Gradebook
         try {
             List gradebookAssignments = gradebookService.getAssignments(gradebookUid);
-            List gradebookAssignmentsExceptSamigo = new ArrayList();
 
             // filtering out those from Samigo
             for (Iterator i = gradebookAssignments.iterator(); i.hasNext(); ) {
                 org.sakaiproject.service.gradebook.shared.Assignment gAssignment = (org.sakaiproject.service.gradebook.shared.Assignment) i.next();
                 if (!gAssignment.isExternallyMaintained() || gAssignment.isExternallyMaintained() && gAssignment.getExternalAppName().equals(assignmentService.getToolTitle())) {
-                    gradebookAssignmentsExceptSamigo.add(gAssignment);
 
                     // gradebook item has been associated or not
                     String gaId = gAssignment.isExternallyMaintained() ? gAssignment.getExternalId() : gAssignment.getName();
@@ -2942,7 +3040,8 @@ public class AssignmentAction extends PagedResourceActionII {
     private void putGradebookCategoryInfoIntoContext(SessionState state, Context context) {
         Map<Long, String> categoryTable = categoryTable();
         if (categoryTable != null) {
-            context.put("value_totalCategories", Integer.valueOf(categoryTable.size()));
+            long categoryTableSize = categoryTable.keySet().stream().filter(i -> i >= 0).count();
+            context.put("value_totalCategories", Long.valueOf(categoryTableSize));
 
             // selected category
             context.put("value_Category", state.getAttribute(NEW_ASSIGNMENT_CATEGORY));
@@ -2955,7 +3054,7 @@ public class AssignmentAction extends PagedResourceActionII {
             context.put("categoryKeys", categoryList);
             context.put("categoryTable", categoryTable);
         } else {
-            context.put("value_totalCategories", Integer.valueOf(0));
+            context.put("value_totalCategories", Long.valueOf(0));
         }
     }
 
@@ -3076,9 +3175,12 @@ public class AssignmentAction extends PagedResourceActionII {
             context.put("value_assignment_id", assignmentId);
             Assignment a = getAssignment(assignmentId, "build_instructor_preview_assignment_context", state);
             if (a != null) {
+            	context.put("gradeName", getGradeName(a, assignmentId));
                 context.put("value_CheckAnonymousGrading", assignmentService.assignmentUsesAnonymousGrading(a));
-                context.put("isDraft", Boolean.valueOf(a.getDraft()));
-                context.put("value_GradePoints", displayGrade(state, maxGrade, a.getScaleFactor()));
+                context.put("isDraft", a.getDraft());
+                if (a.getTypeOfGrade() == SCORE_GRADE_TYPE) {
+                    context.put("value_GradePoints", displayGrade(state, maxGrade, a.getScaleFactor()));
+                }
             }
         } else {
             // new assignment
@@ -3134,17 +3236,19 @@ public class AssignmentAction extends PagedResourceActionII {
      */
     protected String build_instructor_grade_submission_context(VelocityPortlet portlet, Context context, RunData data, SessionState state) {
         Assignment.GradeType gradeType = GRADE_TYPE_NONE;
+        Integer scaleFactor = assignmentService.getScaleFactor();
 
         // need to show the alert for grading drafts?
         boolean addGradeDraftAlert = false;
 
-        // assignment
         String assignmentRef = (String) state.getAttribute(GRADE_SUBMISSION_ASSIGNMENT_ID);
-        Assignment a = getAssignment(assignmentRef, "build_instructor_grade_submission_context", state);
-        if (a != null) {
+        Optional<Assignment> assignment = Optional.ofNullable(getAssignment(assignmentRef, "build_instructor_grade_submission_context", state));
+        if (assignment.isPresent()) {
+            Assignment a = assignment.get();
             context.put("assignment", a);
             context.put("assignmentReference", AssignmentReferenceReckoner.reckoner().assignment(a).reckon().getReference());
             gradeType = a.getTypeOfGrade();
+            scaleFactor = a.getScaleFactor() != null ? a.getScaleFactor() : scaleFactor;
 
             state.setAttribute(NEW_ASSIGNMENT_CHECK_ANONYMOUS_GRADING, assignmentService.assignmentUsesAnonymousGrading(a));
 
@@ -3167,27 +3271,36 @@ public class AssignmentAction extends PagedResourceActionII {
 
         String submissionRef = (String) state.getAttribute(GRADE_SUBMISSION_SUBMISSION_ID);
         // assignment submission
-        AssignmentSubmission s = getSubmission(submissionRef, "build_instructor_grade_submission_context", state);
-        if (s != null) {
+        Optional<AssignmentSubmission> submission = Optional.ofNullable(getSubmission(submissionRef, "build_instructor_grade_submission_context", state));
+        if (submission.isPresent()) {
+            AssignmentSubmission s = submission.get();
             context.put("submission", s);
             context.put("submissionReference", submissionRef);
 
-            Map<String, User> users = s.getSubmitters().stream().map(u -> {
-                try {
-                    return userDirectoryService.getUser(u.getSubmitter());
-                } catch (UserNotDefinedException e) {
-                    log.warn("User not found, {}", u.getSubmitter());
-                    return null;
-                }
-            }).filter(Objects::nonNull).collect(Collectors.toMap(User::getId, Function.identity()));
+            final Map<String, User> users = getSubmitters(s, "build_instructor_grade_submission_context")
+                   .collect(Collectors.toMap(User::getId, Function.identity()));
+
             context.put("users", users);
 
-            String submitterNames = users.values().stream().map(u -> u.getDisplayName() + " (" + u.getDisplayId() + ")").collect(Collectors.joining(", "));
-            context.put("submitterNames", formattedText.escapeHtml(submitterNames));
+            context.put("submitterNames", getSubmitterFormattedNames(s, "build_instructor_grade_submission_context"));
             context.put("submissionStatus", assignmentService.getSubmissionStatus(s.getId()));
+            s.getSubmitters().stream().findAny().ifPresent(u -> context.put("submitterId", u.getSubmitter()));
 
-            if (a != null) {
+            if (assignment.isPresent()) {
+                Assignment a = assignment.get();
                 setScoringAgentProperties(context, a, s, true);
+
+                // try to put in grade overrides
+                if (a.getIsGroup()) {
+                    Map<String, Object> grades = new HashMap<>();
+                    for (String userId : users.keySet()) {
+                        String userGrade = (String) state.getAttribute(GRADE_SUBMISSION_GRADE + "_" + userId);
+                        if (userGrade != null) {
+                            grades.put(userId, userGrade);
+                        }
+                    }
+                    context.put("value_grades", grades);
+                }
             }
 
             // show alert if student is working on a draft
@@ -3230,7 +3343,7 @@ public class AssignmentAction extends PagedResourceActionII {
 
                 context.put("isAdditionalNotesEnabled", isAdditionalNotesEnabled);
 
-                if (isAdditionalNotesEnabled && candidateDetailProvider != null && a != null && !a.getIsGroup()) {
+                if (isAdditionalNotesEnabled && candidateDetailProvider != null && assignment.isPresent() && !assignment.get().getIsGroup()) {
                     if (users.size() == 1) {
                         context.put("notes", candidateDetailProvider.getAdditionalNotes(users.values().toArray(new User[]{})[0], st).orElse(new ArrayList<>()));
                     } else {
@@ -3245,22 +3358,6 @@ public class AssignmentAction extends PagedResourceActionII {
             Map<String, Reference> attachmentReferences = new HashMap<>();
             s.getAttachments().forEach(r -> attachmentReferences.put(r, entityManager.newReference(r)));
             context.put("submissionAttachmentReferences", attachmentReferences);
-
-            // try to put in grade overrides
-            if (a.getIsGroup()) {
-                Map<String, Object> grades = new HashMap<>();
-                for (  String userId : users.keySet()) {
-                    if (state.getAttribute(GRADE_SUBMISSION_GRADE + "_" + userId) != null) {
-                        grades.put(
-                                userId,
-                                gradeType == SCORE_GRADE_TYPE
-                                        ? displayGrade(state, (String) state.getAttribute(GRADE_SUBMISSION_GRADE + "_" + userId), a.getScaleFactor())
-                                        : state.getAttribute(GRADE_SUBMISSION_GRADE + "_" + userId)
-                        );
-                    }
-                }
-                context.put("value_grades", grades);
-            }
         }
 
         context.put("user", state.getAttribute(STATE_USER));
@@ -3284,27 +3381,20 @@ public class AssignmentAction extends PagedResourceActionII {
         context.put("value_feedback_comment", state.getAttribute(GRADE_SUBMISSION_FEEDBACK_COMMENT));
         context.put("value_feedback_text", state.getAttribute(GRADE_SUBMISSION_FEEDBACK_TEXT));
         context.put("value_feedback_attachment", state.getAttribute(ATTACHMENTS));
-
-        // SAK-17606
-        context.put("value_CheckAnonymousGrading", assignmentService.assignmentUsesAnonymousGrading(a));
-
-        // format to show one decimal place in grade
-        context.put("value_grade", (gradeType == SCORE_GRADE_TYPE) ? displayGrade(state, (String) state.getAttribute(GRADE_SUBMISSION_GRADE), a.getScaleFactor())
-                : state.getAttribute(GRADE_SUBMISSION_GRADE));
+        context.put("value_CheckAnonymousGrading", assignmentService.assignmentUsesAnonymousGrading(assignment.get()));
+        context.put("value_grade", displayGrade(state, (String) state.getAttribute(GRADE_SUBMISSION_GRADE), scaleFactor));
 
         context.put("assignment_expand_flag", state.getAttribute(GRADE_SUBMISSION_ASSIGNMENT_EXPAND_FLAG));
 
         // is this a non-electronic submission type of assignment
-        context.put("nonElectronic", (a != null && a.getTypeOfSubmission() == Assignment.SubmissionType.NON_ELECTRONIC_ASSIGNMENT_SUBMISSION) ? Boolean.TRUE : Boolean.FALSE);
+        context.put("nonElectronic", (assignment.isPresent() && assignment.get().getTypeOfSubmission() == Assignment.SubmissionType.NON_ELECTRONIC_ASSIGNMENT_SUBMISSION) ? Boolean.TRUE : Boolean.FALSE);
 
         if (addGradeDraftAlert) {
             addAlert(state, rb.getString("grading.alert.draft.beforeclosedate"));
         }
         context.put("alertGradeDraft", Boolean.valueOf(addGradeDraftAlert));
 
-        if (a != null && a.getIsGroup()) {
-            checkForUsersInMultipleGroups(a, s.getSubmitters().stream().map(AssignmentSubmissionSubmitter::getSubmitter).collect(Collectors.toSet()), state, rb.getString("group.user.multiple.warning"));
-        }
+        rangeAndGroups.buildInstructorGradeSubmissionContextGroupCheck(assignment, submission.get().getGroupId(), state);
 
         // SAK-29314
         // Since USER_SUBMISSIONS is restricted to the page size, it is not very useful here
@@ -3325,9 +3415,9 @@ public class AssignmentAction extends PagedResourceActionII {
 
         // SAK-29314
         resetNavOptions();
-        if (userSubmissions != null) {
+        if (userSubmissions != null && submission.isPresent()) {
             for (int index = 0; index < userSubmissions.size(); index++) {
-                if (((SubmitterSubmission) userSubmissions.get(index)).getSubmission().getId().equals(s.getId())) {
+                if (userSubmissions.get(index).getSubmission().getId().equals(submission.get().getId())) {
                     // Determine next/previous
                     boolean goPT = false;
                     boolean goNT = false;
@@ -3435,22 +3525,27 @@ public class AssignmentAction extends PagedResourceActionII {
         }
 
         // put supplement item into context
-        supplementItemIntoContext(state, context, a, null);
+        if (assignment.isPresent()) supplementItemIntoContext(state, context, assignment.get(), null);
 
         // put the grade confirmation message if applicable
         if (state.getAttribute(GRADE_SUBMISSION_DONE) != null) {
             context.put("gradingDone", Boolean.TRUE);
             state.removeAttribute(GRADE_SUBMISSION_DONE);
+            state.removeAttribute(RUBRIC_STATE_DETAILS);
         }
 
         // put the grade confirmation message if applicable
         if (state.getAttribute(GRADE_SUBMISSION_SUBMIT) != null) {
             context.put("gradingSubmit", Boolean.TRUE);
             state.removeAttribute(GRADE_SUBMISSION_SUBMIT);
+            state.removeAttribute(RUBRIC_STATE_DETAILS);
         }
 
         // letter grading
         letterGradeOptionsIntoContext(context);
+
+        // Check if the assignment has a rubric associated or not
+        context.put("hasAssociatedRubric", assignment.isPresent() && rubricsService.hasAssociatedRubric(RubricsConstants.RBCS_TOOL_ASSIGNMENT, assignment.get().getId()));
 
         String template = (String) getContext(data).get("template");
         return template + TEMPLATE_INSTRUCTOR_GRADE_SUBMISSION;
@@ -3577,7 +3672,7 @@ public class AssignmentAction extends PagedResourceActionII {
         resetNavOptions(flag);
 
         // If the submission is actually a submission, set the appropriate flag and reference; return true
-        if (!NO_SUBMISSION.equals(assignmentService.getSubmissionStatus(submission.getId())) && submission.getUserSubmission()) {
+        if (!AssignmentConstants.SubmissionStatus.NO_SUBMISSION.equals(assignmentService.getSubmissionCannonicalStatus(submission)) && submission.getUserSubmission()) {
             applyNavOption(flag, submission);
         }
     }
@@ -3594,7 +3689,7 @@ public class AssignmentAction extends PagedResourceActionII {
         resetNavOptions(flag);
 
         // If the submisison is actually a submission and is ungraded, set the appropriate flag and reference; return true
-        if (!submission.getGraded() && !NO_SUBMISSION.equals(assignmentService.getSubmissionStatus(submission.getId())) && submission.getUserSubmission()) {
+        if (!submission.getGraded() && !AssignmentConstants.SubmissionStatus.NO_SUBMISSION.equals(assignmentService.getSubmissionCannonicalStatus(submission)) && submission.getUserSubmission()) {
             applyNavOption(flag, submission);
         }
     }
@@ -3683,6 +3778,7 @@ public class AssignmentAction extends PagedResourceActionII {
         }
 
         if (state.getAttribute(STATE_MESSAGE) == null) {
+            state.removeAttribute(RUBRIC_STATE_DETAILS);
             if ("back".equals(option)) {
                 // SAK-29314 - calculate our position relative to the list so we can return to the correct page
                 state.setAttribute(STATE_GOTO_PAGE, calcPageFromSubmission(state));
@@ -3867,16 +3963,7 @@ public class AssignmentAction extends PagedResourceActionII {
             assignment.getAttachments().forEach(r -> assignmentAttachmentReferences.put(r, entityManager.newReference(r)));
             context.put("assignmentAttachmentReferences", assignmentAttachmentReferences);
 
-            String submitterNames = submission.getSubmitters().stream().map(u -> {
-                try {
-                    User user = userDirectoryService.getUser(u.getSubmitter());
-                    return user.getDisplayName() + " (" + user.getDisplayId() + ")";
-                } catch (UserNotDefinedException e) {
-                    log.warn("Could not find user = {}, who is a submitter on submission = {}, {}", u, submission.getId(), e.getMessage());
-                }
-                return "";
-            }).collect(Collectors.joining(", "));
-            context.put("submitterNames", formattedText.escapeHtml(submitterNames));
+            context.put("submitterNames", getSubmitterFormattedNames(submission, "build_instructor_preview_grade_submission_context"));
 
             setScoringAgentProperties(context, assignment, submission, false);
 
@@ -3967,11 +4054,6 @@ public class AssignmentAction extends PagedResourceActionII {
             // put creator information into context
             putCreatorIntoContext(context, assignment);
 
-            String defaultGrade = assignment.getProperties().get(GRADE_NO_SUBMISSION_DEFAULT_GRADE);
-            if (defaultGrade != null) {
-                context.put("defaultGrade", defaultGrade);
-            }
-
             initViewSubmissionListOption(state);
 
             String view = (String) state.getAttribute(VIEW_SUBMISSION_LIST_OPTION);
@@ -3990,20 +4072,13 @@ public class AssignmentAction extends PagedResourceActionII {
             context.put("accessPointUrl", accessPointUrl);
 
             state.setAttribute(NEW_ASSIGNMENT_CHECK_ANONYMOUS_GRADING, assignmentService.assignmentUsesAnonymousGrading(assignment));
-
             Collection groupsAllowGradeAssignment = assignmentService.getGroupsAllowGradeAssignment(AssignmentReferenceReckoner.reckoner().assignment(assignment).reckon().getReference());
 
             // group list which user can add message to
             if (groupsAllowGradeAssignment.size() > 0) {
-                String sort = (String) state.getAttribute(SORTED_BY);
-                String asc = (String) state.getAttribute(SORTED_ASC);
-                if (sort == null || (!sort.equals(SORTED_BY_GROUP_TITLE) && !sort.equals(SORTED_BY_GROUP_DESCRIPTION))) {
-                    sort = SORTED_BY_GROUP_TITLE;
-                    asc = Boolean.TRUE.toString();
-                    state.setAttribute(SORTED_BY, sort);
-                    state.setAttribute(SORTED_ASC, asc);
-                }
-                context.put("groups", new SortedIterator(groupsAllowGradeAssignment.iterator(), new AssignmentComparator(state, sort, asc)));
+                List<Group> groupList = new ArrayList<>(groupsAllowGradeAssignment);
+                sortGroupList(groupList, state);
+                context.put("groups", groupList.iterator());
             }
 
             context.put("value_CheckAnonymousGrading", assignmentService.assignmentUsesAnonymousGrading(assignment));
@@ -4073,23 +4148,16 @@ public class AssignmentAction extends PagedResourceActionII {
                     if (ss != null && ss.getSubmission() != null) {
                         List<String> users = ss.getSubmission().getSubmitters().stream().map(AssignmentSubmissionSubmitter::getSubmitter).collect(Collectors.toList());
                         for (String user : users) {
-                            String agrade = (StringUtils.isNotBlank(p.get(PROP_ASSIGNMENT_ASSOCIATE_GRADEBOOK_ASSIGNMENT))) && (assignment.getTypeOfGrade() == SCORE_GRADE_TYPE) ?
-                                    assignmentService.getGradeForUserInGradeBook(assignment.getId(), user) != null
-                                            ? assignmentService.getGradeForUserInGradeBook(assignment.getId(), user) :
-                                            ss.getGradeForUser(user)
-                                    : ss.getGradeForUser(user);
+                            String agrade = assignmentService.getGradeForSubmitter(ss.getSubmission(), user);
                             if (agrade != null) {
                                 ugrades.put(user, agrade);
                             }
                         }
                     }
                 }
-
                 context.put("value_grades", ugrades);
-                Collection<String> dups = checkForUsersInMultipleGroups(assignment, null, state, rb.getString("group.user.multiple.warning"));
-                if (!dups.isEmpty()) {
-                    context.put("usersinmultiplegroups", dups);
-                }
+
+                rangeAndGroups.buildInstructorGradeAssignmentContext(state, context, assignment);
             }
 
             // put the re-submission info into context
@@ -4256,6 +4324,7 @@ public class AssignmentAction extends PagedResourceActionII {
         Assignment assignment = getAssignment(assignmentId, "build_instructor_view_assignment_context", state);
         if (assignment != null) {
             context.put("assignment", assignment);
+            context.put("assignmentReference", assignmentId);
 
             // put the resubmit information into context
             assignment_resubmission_option_into_context(context, state);
@@ -4361,6 +4430,10 @@ public class AssignmentAction extends PagedResourceActionII {
             factor = assignment.getScaleFactor();
             dec = (int) Math.log10(factor);
             context.put("peerAssessmentInstructions", StringUtils.isEmpty(assignment.getPeerAssessmentInstructions()) ? "" : assignment.getPeerAssessmentInstructions());
+
+            Map<String, Reference> assignmentAttachmentReferences = new HashMap<>();
+            assignment.getAttachments().forEach(r -> assignmentAttachmentReferences.put(r, entityManager.newReference(r)));
+            context.put("assignmentAttachmentReferences", assignmentAttachmentReferences);
         }
         String submissionId = "";
         SecurityAdvisor secAdv = (userId, function, reference) -> {
@@ -4388,16 +4461,9 @@ public class AssignmentAction extends PagedResourceActionII {
             submissionId = s.getId();
             context.put("submission", s);
             context.put("submissionReference", submissionReference);
-
-            String submitterNames = s.getSubmitters().stream().map(u -> {
-                try {
-                    User user = userDirectoryService.getUser(u.getSubmitter());
-                    return user.getDisplayName() + " (" + user.getDisplayName() + ")";
-                } catch (UserNotDefinedException e) {
-                    log.warn("Could not find user = {}, who is a submitter on a submission (build_student_review_edit_context) , {}", u, e.getMessage());
-                }
-                return "";
-            }).collect(Collectors.joining(", "));
+            
+            final String submitterNames = getSubmitters(s, "build_student_review_edit_context")
+					.map(u -> u.getDisplayName() + " (" + u.getDisplayId() + ")").collect(Collectors.joining(", "));
             context.put("submitterNames", formattedText.escapeHtml(submitterNames));
 
             Map<String, String> p = s.getProperties();
@@ -4718,8 +4784,11 @@ public class AssignmentAction extends PagedResourceActionII {
         }
 
         context.put("studentAssignmentsTable", showStudentAssignments);
+        context.put("currentTime", Instant.now());
 
         add2ndToolbarFields(data, context);
+
+        context.put("view", MODE_INSTRUCTOR_VIEW_STUDENTS_ASSIGNMENT);
 
         return getContext(data).get("template") + TEMPLATE_INSTRUCTOR_VIEW_STUDENTS_ASSIGNMENT;
 
@@ -4881,7 +4950,7 @@ public class AssignmentAction extends PagedResourceActionII {
                     // add assignment into gradebook
                     try {
                         // add assignment to gradebook
-                        gradebookExternalAssessmentService.addExternalAssessment(gradebookUid, assignmentRef, null, newAssignment_title, newAssignment_maxPoints / (double) a.getScaleFactor(), Date.from(newAssignment_dueTime), assignmentToolTitle, false, category != -1 ? category : null);
+                        gradebookExternalAssessmentService.addExternalAssessment(gradebookUid, assignmentRef, null, newAssignment_title, newAssignment_maxPoints / (double) a.getScaleFactor(), Date.from(newAssignment_dueTime), assignmentToolTitle, null, false, category != -1 ? category : null);
                     } catch (AssignmentHasIllegalPointsException e) {
                         addAlert(state, rb.getString("addtogradebook.illegalPoints"));
                         log.warn(this + ":integrateGradebook " + e.getMessage());
@@ -4897,7 +4966,7 @@ public class AssignmentAction extends PagedResourceActionII {
                         // if there is an external entry created in Gradebook based on this assignment, update it
                         try {
                             // update attributes if the GB assignment was created for the assignment
-                            gradebookExternalAssessmentService.updateExternalAssessment(gradebookUid, associateGradebookAssignment, null, newAssignment_title, newAssignment_maxPoints / (double) a.getScaleFactor(), Date.from(newAssignment_dueTime), false);
+                            gradebookExternalAssessmentService.updateExternalAssessment(gradebookUid, associateGradebookAssignment, null, null, newAssignment_title, newAssignment_maxPoints / (double) a.getScaleFactor(), Date.from(newAssignment_dueTime), false);
                         } catch (Exception e) {
                             addAlert(state, rb.getFormattedMessage("cannotfin_assignment", assignmentRef));
                             log.warn("{}", rb.getFormattedMessage("cannotfin_assignment", assignmentRef));
@@ -4935,7 +5004,8 @@ public class AssignmentAction extends PagedResourceActionII {
                                     String grade = gradeString != null ? displayGrade(state, gradeString, a.getScaleFactor()) : null;
                                     for (AssignmentSubmissionSubmitter submitter : submission.getSubmitters()) {
                                         String submitterId = submitter.getSubmitter();
-                                        String gradeStringToUse = (a.getIsGroup() && submitter.getGrade() != null) ? submitter.getGrade() : grade;
+                                        String submitterGrade = submitter.getGrade() != null ? displayGrade(state, submitter.getGrade(), a.getScaleFactor()) : null;
+                                        String gradeStringToUse = (a.getIsGroup() && submitterGrade != null) ? submitterGrade : grade;
                                         sm.put(submitterId, gradeStringToUse);
                                         cm.put(submitterId, commentString);
                                     }
@@ -4953,13 +5023,13 @@ public class AssignmentAction extends PagedResourceActionII {
                                         Long associateGradebookAssignmentId = gradebookService.getAssignment(gradebookUid, associateGradebookAssignment).getId();
                                         // the associated assignment is internal one, update records one by one
                                         for (Map.Entry<String, String> entry : sm.entrySet()) {
-                                            String submitterId = (String) entry.getKey();
-                                            String grade = StringUtils.trimToNull(displayGrade(state, (String) sm.get(submitterId), a.getScaleFactor()));
-                                            if (grade != null) {
-                                                gradebookService.setAssignmentScoreString(gradebookUid, associateGradebookAssignmentId, submitterId, grade, "");
-                                                String comment = StringUtils.isNotEmpty(cm.get(submitterId)) ? cm.get(submitterId) : "";
-                                                gradebookService.setAssignmentScoreComment(gradebookUid, associateGradebookAssignmentId, submitterId, comment);
-                                            }
+                                        	String submitterId = (String) entry.getKey();
+                                        	String grade = StringUtils.trimToNull(displayGrade(state, (String) sm.get(submitterId), a.getScaleFactor()));
+                                        	if (grade != null && gradebookService.isUserAbleToGradeItemForStudent(gradebookUid, associateGradebookAssignmentId, submitterId)) {
+                                        		gradebookService.setAssignmentScoreString(gradebookUid, associateGradebookAssignmentId, submitterId, grade, "");
+                                        		String comment = StringUtils.isNotEmpty(cm.get(submitterId)) ? cm.get(submitterId) : "";
+                                        		gradebookService.setAssignmentScoreComment(gradebookUid, associateGradebookAssignmentId, submitterId, comment);
+                                        	}
                                         }
                                     }
                                 } else if (isExternalAssignmentDefined) {
@@ -4986,12 +5056,15 @@ public class AssignmentAction extends PagedResourceActionII {
                                             gradebookExternalAssessmentService.updateExternalAssessmentComment(gradebookUid, associateGradebookAssignment, submitter.getSubmitter(),
                                                     (commentString != null && aSubmission.getGradeReleased()) ? commentString : "");
                                         } else if (gradebookService.isAssignmentDefined(gradebookUid, associateGradebookAssignment)) {
-                                            Long associateGradebookAssignmentId = gradebookService.getAssignment(gradebookUid, associateGradebookAssignment).getId();
-                                            // the associated assignment is internal one, update records
-                                            gradebookService.setAssignmentScoreString(gradebookUid, associateGradebookAssignmentId, submitter.getSubmitter(),
-                                                    (gradeStringToUse != null && aSubmission.getGradeReleased()) ? gradeStringToUse : "", "");
-                                            gradebookService.setAssignmentScoreComment(gradebookUid, associateGradebookAssignmentId, submitter.getSubmitter(),
-                                                    (commentString != null && aSubmission.getGradeReleased()) ? commentString : "");
+                                        	// the associated assignment is internal one, update records
+                                        	final Long associateGradebookAssignmentId = gradebookService.getAssignment(gradebookUid, associateGradebookAssignment).getId();
+                                        	final String submitterId = submitter.getSubmitter();
+                                        	if (gradebookService.isUserAbleToGradeItemForStudent(gradebookUid, associateGradebookAssignmentId, submitterId)) {
+                                        		gradebookService.setAssignmentScoreString(gradebookUid, associateGradebookAssignmentId, submitterId,
+                                        				(gradeStringToUse != null && aSubmission.getGradeReleased()) ? gradeStringToUse : "", "");
+                                        		gradebookService.setAssignmentScoreComment(gradebookUid, associateGradebookAssignmentId, submitterId,
+                                        				(commentString != null && aSubmission.getGradeReleased()) ? commentString : "");
+                                        	}
                                         }
                                     } else {
                                         gradebookExternalAssessmentService.updateExternalAssessmentScore(gradebookUid, assignmentRef, submitter.getSubmitter(),
@@ -5012,20 +5085,17 @@ public class AssignmentAction extends PagedResourceActionII {
                             while (submissions.hasNext()) {
                                 AssignmentSubmission aSubmission = (AssignmentSubmission) submissions.next();
                                 if (StringUtils.isNotBlank(aSubmission.getGrade())) {
-                                    User[] submitters = aSubmission.getSubmitters().stream().map(u -> {
-                                        try {
-                                            return userDirectoryService.getUser(u.getSubmitter());
-                                        } catch (UserNotDefinedException e) {
-                                            log.warn("User not found, {}", u.getSubmitter());
-                                            return null;
-                                        }
-                                    }).filter(Objects::nonNull).toArray(User[]::new);
-                                    for (int i = 0; submitters != null && i < submitters.length; i++) {
+                                	 final List<User> submitters = getSubmitters(aSubmission, "integrateGradebook").collect(Collectors.toList());
+                                     for (User submitter :submitters) {
                                         if (isExternalAssociateAssignmentDefined) {
                                             // if the old associated assignment is an external maintained one
-                                            gradebookExternalAssessmentService.updateExternalAssessmentScore(gradebookUid, associateGradebookAssignment, submitters[i].getId(), null);
+                                        	gradebookExternalAssessmentService.updateExternalAssessmentScore(gradebookUid, associateGradebookAssignment, submitter.getId(), null);
                                         } else if (isAssignmentDefined) {
-                                            gradebookService.setAssignmentScoreString(gradebookUid, associateGradebookAssignment, submitters[i].getId(), "0", assignmentToolTitle);
+                                        	final String submitterId = submitter.getId();
+                                        	final Long associateGradebookAssignmentId = gradebookService.getAssignment(gradebookUid, associateGradebookAssignment).getId();
+                                        	if (gradebookService.isUserAbleToGradeItemForStudent(gradebookUid, associateGradebookAssignmentId, submitterId)) {
+                                        		gradebookService.setAssignmentScoreString(gradebookUid, associateGradebookAssignment, submitter.getId(), "0", assignmentToolTitle);
+                                        	}
                                         }
                                     }
                                 }
@@ -5034,22 +5104,18 @@ public class AssignmentAction extends PagedResourceActionII {
                             // remove only one submission grade
                             AssignmentSubmission aSubmission = getSubmission(submissionRef, "integrateGradebook", state);
                             if (aSubmission != null) {
-                                User[] submitters = aSubmission.getSubmitters().stream().map(u -> {
-                                    try {
-                                        return userDirectoryService.getUser(u.getSubmitter());
-                                    } catch (UserNotDefinedException e) {
-                                        log.warn("User not found, {}", u.getSubmitter());
-                                        return null;
-                                    }
-                                }).filter(Objects::nonNull).toArray(User[]::new);
-                                for (int i = 0; submitters != null && i < submitters.length; i++) {
-
+                            	final List<User> submitters = getSubmitters(aSubmission, "integrateGradebook").collect(Collectors.toList());
+                            	for (User submitter :submitters) {
                                     if (isExternalAssociateAssignmentDefined) {
                                         // external assignment
-                                        gradebookExternalAssessmentService.updateExternalAssessmentScore(gradebookUid, assignmentRef, submitters[i].getId(), null);
+                                    	gradebookExternalAssessmentService.updateExternalAssessmentScore(gradebookUid, assignmentRef, submitter.getId(), null);
                                     } else if (isAssignmentDefined) {
-                                        // gb assignment
-                                        gradebookService.setAssignmentScoreString(gradebookUid, associateGradebookAssignment, submitters[i].getId(), "0", "");
+                                    	// gb assignment
+                                    	final String submitterId = submitter.getId();
+                                    	final Long associateGradebookAssignmentId = gradebookService.getAssignment(gradebookUid, associateGradebookAssignment).getId();
+                                    	if (gradebookService.isUserAbleToGradeItemForStudent(gradebookUid, associateGradebookAssignmentId, submitterId)) {
+                                    		gradebookService.setAssignmentScoreString(gradebookUid, associateGradebookAssignment, submitter.getId(), "0", "");
+                                    	}
                                     }
                                 }
                             }
@@ -5059,6 +5125,12 @@ public class AssignmentAction extends PagedResourceActionII {
             }
         }
     } // integrateGradebook
+    
+	private Stream<User> getSubmitters(final AssignmentSubmission aSubmission, final String method) {
+		return userDirectoryService
+				.getUsers(aSubmission.getSubmitters().stream().map(s -> s.getSubmitter()).collect(Collectors.toList()))
+				.stream().filter(Objects::nonNull);
+	}
 
     /**
      * Filter the assignments list by group
@@ -5103,6 +5175,43 @@ public class AssignmentAction extends PagedResourceActionII {
         doView_submission(data);
     }
 
+    public void doView_assignment_honorPledge(RunData data) {
+        SessionState state = ((JetspeedRunData) data).getPortletSessionState(((JetspeedRunData) data).getJs_peid());
+        ParameterParser params = data.getParameters();
+        String assignmentReference = params.getString("assignmentReference");
+        User user = (User) state.getAttribute(STATE_USER);
+
+        AssignmentSubmission submission = getSubmission(assignmentReference, user, "build_student_view_assignment_honorPledge_context", state);
+        Assignment assignment;
+
+        if (submission != null) {
+            assignment = submission.getAssignment();
+            Boolean honorPledge = submission.getHonorPledge();
+            if (honorPledge) {
+                // if already accepted honor pledge can continue to view submission
+                doView_submission(data);
+                return;
+            }
+        } else {
+            assignment = getAssignment(assignmentReference, "doView_assignment_honorPledge", state);
+        }
+
+        if (assignment != null) {
+            if (assignment.getTypeOfSubmission() == Assignment.SubmissionType.NON_ELECTRONIC_ASSIGNMENT_SUBMISSION) {
+                // non electronic assignments don't have to accept honor pledge
+                doView_submission(data);
+                return;
+            } else {
+                state.setAttribute(VIEW_SUBMISSION_ASSIGNMENT_REFERENCE, assignmentReference);
+                state.setAttribute(STATE_MODE, MODE_STUDENT_VIEW_ASSIGNMENT_HONORPLEDGE);
+            }
+        } else {
+            // if no assignment add alert and return to assignment list
+            addAlert(state, rb.getFormattedMessage("youarenot_viewAssignment", assignmentReference));
+            state.setAttribute(STATE_MODE, MODE_LIST_ASSIGNMENTS);
+        }
+    }
+
     /**
      * Action is to view the content of one specific assignment submission
      */
@@ -5119,9 +5228,8 @@ public class AssignmentAction extends PagedResourceActionII {
         User u = (User) state.getAttribute(STATE_USER);
 
         // redirect student to doView_grade if they clicked an old link
-        String contextString = (String) state.getAttribute(STATE_CONTEXT_STRING);
         Assignment a = getAssignment(assignmentReference, "doView_submission", state);
-        if (a != null && !assignmentService.canSubmit(contextString, a)) {
+        if (a != null && !assignmentService.canSubmit(a)) {
             AssignmentSubmission submission = null;
             try {
                 submission = assignmentService.getSubmission(a.getId(), u);
@@ -5167,12 +5275,10 @@ public class AssignmentAction extends PagedResourceActionII {
             AssignmentSubmission submission = getSubmission(assignmentReference, u, "doView_submission", state);
             if (submission != null) {
                 state.setAttribute(VIEW_SUBMISSION_TEXT, submission.getSubmittedText());
-                state.setAttribute(VIEW_SUBMISSION_HONOR_PLEDGE_YES, (submission.getHonorPledge()).toString());
                 List v = entityManager.newReferenceList();
                 submission.getAttachments().forEach(f -> v.add(entityManager.newReference(f)));
                 state.setAttribute(ATTACHMENTS, v);
             } else {
-                state.setAttribute(VIEW_SUBMISSION_HONOR_PLEDGE_YES, "false");
                 state.setAttribute(ATTACHMENTS, entityManager.newReferenceList());
             }
 
@@ -5181,35 +5287,25 @@ public class AssignmentAction extends PagedResourceActionII {
 
             // show submission view unless group submission with group error
             String _mode = MODE_STUDENT_VIEW_SUBMISSION;
-            if (a.getIsGroup()) {
-                Collection<Group> groups = null;
-                Site st = null;
-                try {
-                    st = siteService.getSite((String) state.getAttribute(STATE_CONTEXT_STRING));
-                    groups = getGroupsWithUser(u.getId(), a, st);
-                    Collection<String> _dupUsers = checkForGroupsInMultipleGroups(a, groups, state, rb.getString("group.user.multiple.warning"));
-                    if (_dupUsers.size() > 0) {
-                        _mode = MODE_STUDENT_VIEW_GROUP_ERROR;
-                    }
-                } catch (IdUnusedException iue) {
-                    log.warn(this + ":doView_submission: Site not found!" + iue.getMessage());
-                }
+            if (a.getIsGroup() && !rangeAndGroups.validateUserGroups(state, u.getId(), a)) {
+                _mode = MODE_STUDENT_VIEW_GROUP_ERROR;
             }
             state.setAttribute(STATE_MODE, _mode);
 
             if (submission != null) {
                 // submission read event
             	LRS_Statement statement = getStatementForViewSubmittedAssignment(submission.getId(), a.getTitle());
-                Event event = eventTrackingService.newEvent(AssignmentConstants.EVENT_ACCESS_ASSIGNMENT_SUBMISSION, submission.getId(), null, false, NotificationService.NOTI_OPTIONAL, statement);
+                String ref = AssignmentReferenceReckoner.reckoner().submission(submission).reckon().getReference();
+                Event event = eventTrackingService.newEvent(AssignmentConstants.EVENT_ACCESS_ASSIGNMENT_SUBMISSION, ref, null, false, NotificationService.NOTI_OPTIONAL, statement);
                 eventTrackingService.post(event);
             } else {
                 // otherwise, the student just read assignment description and prepare for submission
             	LRS_Statement statement = getStatementForViewAssignment(a.getId(), a.getTitle());
-                Event event = eventTrackingService.newEvent(AssignmentConstants.EVENT_ACCESS_ASSIGNMENT, a.getId(), null, false, NotificationService.NOTI_OPTIONAL, statement);
+                String ref = AssignmentReferenceReckoner.reckoner().assignment(a).reckon().getReference();
+                Event event = eventTrackingService.newEvent(AssignmentConstants.EVENT_ACCESS_ASSIGNMENT, ref, null, false, NotificationService.NOTI_OPTIONAL, statement);
                 eventTrackingService.post(event);
             }
         }
-
     } // doView_submission
 
     /**
@@ -5220,13 +5316,7 @@ public class AssignmentAction extends PagedResourceActionII {
 
         ParameterParser params = data.getParameters();
         String option = params.getString("option");
-        if ("changeView".equals(option)) {
-            doChange_submission_list_option(data);
-        } else if ("search".equals(option)) {
-            state.setAttribute(VIEW_SUBMISSION_SEARCH, params.getString("search"));
-        } else if ("clearSearch".equals(option)) {
-            state.removeAttribute(VIEW_SUBMISSION_SEARCH);
-        } else if ("download".equals(option)) {
+        if ("download".equals(option)) {
             // go to download all page
             doPrep_download_all(data);
         } else if ("upload".equals(option)) {
@@ -5238,6 +5328,20 @@ public class AssignmentAction extends PagedResourceActionII {
         }
 
     } // doView_submission_list_option
+
+	public void doView_submission_list_search(RunData data)
+	{
+        SessionState state = ((JetspeedRunData) data).getPortletSessionState(((JetspeedRunData) data).getJs_peid());
+
+        ParameterParser params = data.getParameters();
+        state.setAttribute(VIEW_SUBMISSION_SEARCH, params.getString("search"));
+	}
+
+	public void doView_submission_list_search_clear(RunData data)
+	{
+        SessionState state = ((JetspeedRunData) data).getPortletSessionState(((JetspeedRunData) data).getJs_peid());
+        state.removeAttribute(VIEW_SUBMISSION_SEARCH);
+	}
 
     /**
      * Action is to view the content of one specific assignment submission
@@ -5254,6 +5358,46 @@ public class AssignmentAction extends PagedResourceActionII {
 
     } // doView_submission_list_option
 
+    public void doConfirm_submission(RunData data) {
+		//TODO remove unnecessary code
+        SessionState state = ((JetspeedRunData) data).getPortletSessionState(((JetspeedRunData) data).getJs_peid());
+
+        ParameterParser params = data.getParameters();
+        String aReference = (String) state.getAttribute(VIEW_SUBMISSION_ASSIGNMENT_REFERENCE);
+        state.setAttribute(PREVIEW_SUBMISSION_ASSIGNMENT_REFERENCE, aReference);
+        Assignment a = getAssignment(aReference, "doPreview_submission", state);
+
+        String[] groupChoice = params.getStrings("selectedGroups");
+        if (groupChoice != null && ArrayUtils.isNotEmpty(groupChoice)) {
+            state.setAttribute(VIEW_SUBMISSION_GROUP, groupChoice[0]);
+        }
+
+        saveSubmitInputs(state, params);
+
+        // retrieve the submission text (as formatted text)
+        String text = processFormattedTextFromBrowser(state, params.getCleanString(VIEW_SUBMISSION_TEXT), true);
+        if (text == null) {
+            text = state.getAttribute(VIEW_SUBMISSION_TEXT) != null ? (String) state.getAttribute(VIEW_SUBMISSION_TEXT) : (String) state.getAttribute(PREVIEW_SUBMISSION_TEXT);
+        }
+        state.setAttribute(PREVIEW_SUBMISSION_TEXT, text);
+        state.setAttribute(VIEW_SUBMISSION_TEXT, text);
+
+        // assign the EULA attribute
+        String eulaAgreementYes = params.getString(SUBMISSION_REVIEW_SERVICE_EULA_AGREEMENT);
+        if(StringUtils.isEmpty(eulaAgreementYes)) {
+            eulaAgreementYes = "false";
+        }
+        state.setAttribute(SUBMISSION_REVIEW_SERVICE_EULA_AGREEMENT, eulaAgreementYes);
+
+        // get attachment input and generate alert message according to assignment submission type
+        checkSubmissionTextAttachmentInput(data, state, a, text);
+        state.setAttribute(PREVIEW_SUBMISSION_ATTACHMENTS, state.getAttribute(ATTACHMENTS));
+
+        if (state.getAttribute(STATE_MESSAGE) == null) {
+            state.setAttribute(STATE_MODE, MODE_STUDENT_CONFIRM_SUBMISSION);
+        }
+    }
+
     /**
      * Preview of the submission
      */
@@ -5265,6 +5409,11 @@ public class AssignmentAction extends PagedResourceActionII {
         state.setAttribute(PREVIEW_SUBMISSION_ASSIGNMENT_REFERENCE, aReference);
         Assignment a = getAssignment(aReference, "doPreview_submission", state);
 
+        String[] groupChoice = params.getStrings("selectedGroups");
+        if (groupChoice != null && ArrayUtils.isNotEmpty(groupChoice)) {
+            state.setAttribute(VIEW_SUBMISSION_GROUP, groupChoice[0]);
+        }
+
         saveSubmitInputs(state, params);
 
         // retrieve the submission text (as formatted text)
@@ -5273,13 +5422,12 @@ public class AssignmentAction extends PagedResourceActionII {
         state.setAttribute(PREVIEW_SUBMISSION_TEXT, text);
         state.setAttribute(VIEW_SUBMISSION_TEXT, text);
 
-        // assign the honor pledge attribute
-        String honor_pledge_yes = params.getString(VIEW_SUBMISSION_HONOR_PLEDGE_YES);
-        if (honor_pledge_yes == null) {
-            honor_pledge_yes = "false";
+        // assign the EULA attribute
+        String eulaAgreementYes = params.getString(SUBMISSION_REVIEW_SERVICE_EULA_AGREEMENT);
+        if(StringUtils.isEmpty(eulaAgreementYes)) {
+            eulaAgreementYes = "false";
         }
-        state.setAttribute(PREVIEW_SUBMISSION_HONOR_PLEDGE_YES, honor_pledge_yes);
-        state.setAttribute(VIEW_SUBMISSION_HONOR_PLEDGE_YES, honor_pledge_yes);
+        state.setAttribute(SUBMISSION_REVIEW_SERVICE_EULA_AGREEMENT, eulaAgreementYes);
 
         // get attachment input and generate alert message according to assignment submission type
         checkSubmissionTextAttachmentInput(data, state, a, text);
@@ -5315,6 +5463,71 @@ public class AssignmentAction extends PagedResourceActionII {
         state.setAttribute(STATE_MODE, MODE_STUDENT_VIEW_SUBMISSION);
 
     } // doDone_preview_submission
+
+    public void doAccept_assignment_honor_pledge(RunData data) {
+        SessionState state = ((JetspeedRunData) data).getPortletSessionState(((JetspeedRunData) data).getJs_peid());
+        String assignmentReference = (String) state.getAttribute(VIEW_SUBMISSION_ASSIGNMENT_REFERENCE);
+        User user = (User) state.getAttribute(STATE_USER);
+
+        Assignment assignment = getAssignment(assignmentReference, "doView_assignment_honorPledge", state);
+        boolean isVisibleDateEnabled = serverConfigurationService.getBoolean("assignment.visible.date.enabled", false);
+        Instant now = Instant.now();
+        if (now.isBefore(assignment.getOpenDate())) {
+            if (isVisibleDateEnabled && assignment.getVisibleDate() != null && now.isAfter(assignment.getVisibleDate())) {
+                state.setAttribute(VIEW_ASSIGNMENT_ID, assignmentReference);
+                doView_submission(data);
+            } else {
+                addAlert(state, rb.getString("notpermis4"));
+                state.setAttribute(STATE_MODE, MODE_LIST_ASSIGNMENTS);
+            }
+        } else {
+            if (assignmentService.canSubmit(assignment, user.getId())) {
+                AssignmentSubmission submission = getSubmission(assignmentReference, user, "build_student_view_assignment_honorPledge_context", state);
+                if (submission == null) {
+                    String submitter = user.getId();
+                    if (assignment.getIsGroup()) {
+                        try {
+                            Site site = siteService.getSite(assignment.getContext());
+                            Collection<Group> groups = site.getGroupsWithMember(user.getId());
+                            Set<String> assignmentGroups = assignment.getGroups();
+                            Optional<String> groupId = groups.stream().filter(g -> assignmentGroups.contains(g.getReference())).map(Group::getId).findAny();
+                            submitter = groupId.orElseThrow(Exception::new);
+                        } catch (Exception e) {
+                            addAlert(state, "group.submission.not.found");
+                            log.warn("User {} could not add submission for assignment {}", user.getId(), assignment.getId());
+                            doView_assignment_honorPledge(data);
+                            return;
+                        }
+                    }
+
+                    try {
+                        submission = assignmentService.addSubmission(assignment.getId(), submitter);
+                    } catch (PermissionException pe) {
+                        addAlert(state, rb.getString("notpermis4"));
+                        log.warn("User {} could not add submission {}", user.getId(), submission.getId(), pe);
+                        doView_assignment_honorPledge(data);
+                        return;
+                    }
+                }
+
+                try {
+                    setResubmissionProperties(assignment, submission);
+                    submission.setHonorPledge(Boolean.TRUE);
+                    assignmentService.updateSubmission(submission);
+                    doView_submission(data);
+                } catch (PermissionException pe) {
+                    addAlert(state, rb.getString("notpermis4"));
+                    log.warn("User {} could not update submission {}", user.getId(), submission.getId(), pe);
+                    doView_assignment_honorPledge(data);
+                }
+            }
+        }
+    }
+
+    public void doCancel_assignment_honor_pledge(RunData data) {
+        SessionState state = ((JetspeedRunData) data).getPortletSessionState(((JetspeedRunData) data).getJs_peid());
+        state.setAttribute(STATE_MODE, MODE_LIST_ASSIGNMENTS);
+    }
 
     /**
      * Action is to end the view assignment process
@@ -5439,6 +5652,7 @@ public class AssignmentAction extends PagedResourceActionII {
         } else {
             state.setAttribute(STATE_MODE, MODE_INSTRUCTOR_GRADE_SUBMISSION);
         }
+        state.removeAttribute(RUBRIC_STATE_DETAILS);
     } // doCancel_grade_submission
 
     /**
@@ -5468,6 +5682,8 @@ public class AssignmentAction extends PagedResourceActionII {
 
         // SAK-29314
         state.removeAttribute(STATE_VIEW_SUBS_ONLY);
+
+        state.removeAttribute(RUBRIC_STATE_DETAILS);
 
         resetAllowResubmitParams(state);
     }
@@ -5512,6 +5728,7 @@ public class AssignmentAction extends PagedResourceActionII {
         state.setAttribute(STATE_MODE, MODE_LIST_ASSIGNMENTS);
         state.setAttribute(SORTED_BY, SORTED_BY_DEFAULT);
         state.setAttribute(SORTED_ASC, Boolean.TRUE.toString());
+        state.removeAttribute(RUBRIC_STATE_DETAILS);
 
     } // doList_assignments
 
@@ -5571,7 +5788,14 @@ public class AssignmentAction extends PagedResourceActionII {
         if (state.getAttribute(PEER_ASSESSMENT_ASSESSOR_ID) != null) {
             String peerAssessor = (String) state.getAttribute(PEER_ASSESSMENT_ASSESSOR_ID);
             ParameterParser params = data.getParameters();
-            String submissionId = params.getString("submissionId");
+            String submissionRef = params.getString("submissionId");
+            String submissionId = null;
+            String assignmentRef = null;
+            AssignmentSubmission submission = null;
+            if(submissionRef != null){
+            	submissionRef = submissionRef.endsWith("/") ? StringUtils.chop(submissionRef) : submissionRef;
+            	submissionId = AssignmentReferenceReckoner.reckoner().reference(submissionRef).reckon().getId();
+            }
             if (submissionId != null) {
                 //call the DB to make sure this user can edit this assessment, otherwise it wouldn't exist
                 PeerAssessmentItem item = assignmentPeerAssessmentService.getPeerAssessmentItem(submissionId, peerAssessor);
@@ -5582,15 +5806,14 @@ public class AssignmentAction extends PagedResourceActionII {
                         //item was part of the calculation, re-calculate
                         boolean saved = assignmentPeerAssessmentService.updateScore(submissionId, peerAssessor);
                         if (saved) {
-                            //we need to make sure the GB is updated correctly (or removed)
-                            String assignmentId = item.getAssignmentId();
-                            if (assignmentId != null) {
-                                Assignment a = getAssignment(assignmentId, "saveReviewGradeForm", state);
-                                if (a != null) {
-                                    String aReference = AssignmentReferenceReckoner.reckoner().assignment(a).reckon().getReference();
+                        	submission = getSubmission(submissionRef, "saveReviewGradeForm", state);
+                        	Assignment a = submission.getAssignment();
+                        	if (a != null) {
+                        		assignmentRef = AssignmentReferenceReckoner.reckoner().assignment(a).reckon().getReference();
+                                if (assignmentRef != null) {
                                     String associateGradebookAssignment = a.getProperties().get(PROP_ASSIGNMENT_ASSOCIATE_GRADEBOOK_ASSIGNMENT);
                                     // update grade in gradebook
-                                    integrateGradebook(state, aReference, associateGradebookAssignment, null, null, null, -1, null, submissionId, "update", -1);
+                                    integrateGradebook(state, assignmentRef, associateGradebookAssignment, null, null, null, -1, null, submissionId, "update", -1);
                                 }
                             }
                         }
@@ -5726,7 +5949,7 @@ public class AssignmentAction extends PagedResourceActionII {
             if (withGrade && a.getIsGroup()) {
                 for (AssignmentSubmissionSubmitter submitter : submission.getSubmitters()) {
                     String g = (String) state.getAttribute(GRADE_SUBMISSION_GRADE + "_" + submitter.getSubmitter());
-                    if (StringUtils.isNotBlank(g)) submitter.setGrade(g);
+                    if (g != submitter.getGrade()) submitter.setGrade(g);
                 }
             }
 
@@ -5747,7 +5970,6 @@ public class AssignmentAction extends PagedResourceActionII {
                 }
                 submission.setReturned(true);
                 submission.setDateReturned(Instant.now());
-                submission.setHonorPledge(false);
             } else if (AssignmentConstants.SUBMISSION_OPTION_RETRACT.equals(gradeOption)) {
                 submission.setGradeReleased(false);
                 submission.setReturned(false);
@@ -5823,6 +6045,14 @@ public class AssignmentAction extends PagedResourceActionII {
                 //remove grade from gradebook
                 integrateGradebook(state, aReference, associateGradebookAssignment, null, null, null, -1, null, sReference, "remove", -1);
             }
+
+            // Persist the rubric evaluations
+            if(rubricsService.hasAssociatedRubric(RubricsConstants.RBCS_TOOL_ASSIGNMENT, submission.getAssignment().getId())){
+                for (AssignmentSubmissionSubmitter submitter : submission.getSubmitters()) {
+                    String submitterId = submitter.getSubmitter();
+                    rubricsService.saveRubricEvaluation(RubricsConstants.RBCS_TOOL_ASSIGNMENT, submission.getAssignment().getId(), submission.getId(), submitterId, submission.getGradedBy(), getRubricConfigurationParameters(data.getParameters()));
+                }
+            }			
         }
 
         if (state.getAttribute(STATE_MESSAGE) == null) {
@@ -5854,21 +6084,28 @@ public class AssignmentAction extends PagedResourceActionII {
     } // doSave_submission
 
     /**
-     * set the resubmission related properties in AssignmentSubmission object
+     * set the resubmission related properties in AssignmentSubmission object if they are missing
      *
-     * @param a
+     * @param assignment
      * @param submission
      */
-    private void setResubmissionProperties(Assignment a, AssignmentSubmission submission) {
-        // get the assignment setting for resubmitting
-        Map<String, String> assignmentProperties = a.getProperties();
-        String assignmentAllowResubmitNumber = assignmentProperties.get(AssignmentConstants.ALLOW_RESUBMIT_NUMBER);
-        if (assignmentAllowResubmitNumber != null) {
-            submission.getProperties().put(AssignmentConstants.ALLOW_RESUBMIT_NUMBER, assignmentAllowResubmitNumber);
+    private void setResubmissionProperties(Assignment assignment, AssignmentSubmission submission) {
+        Map<String, String> submissionProperties = submission.getProperties();
 
-            String assignmentAllowResubmitCloseDate = assignmentProperties.get(AssignmentConstants.ALLOW_RESUBMIT_CLOSETIME);
-            // if assignment's setting of resubmit close time is null, use assignment close time as the close time for resubmit
-            submission.getProperties().put(AssignmentConstants.ALLOW_RESUBMIT_CLOSETIME, assignmentAllowResubmitCloseDate != null ? assignmentAllowResubmitCloseDate : String.valueOf(a.getCloseDate().toEpochMilli()));
+        if (StringUtils.isBlank(submissionProperties.get(AssignmentConstants.ALLOW_RESUBMIT_NUMBER))) {
+            Map<String, String> assignmentProperties = assignment.getProperties();
+            String assignmentAllowResubmitNumber = assignmentProperties.get(AssignmentConstants.ALLOW_RESUBMIT_NUMBER);
+
+            if (StringUtils.isNotBlank(assignmentAllowResubmitNumber)) {
+                submissionProperties.put(AssignmentConstants.ALLOW_RESUBMIT_NUMBER, assignmentAllowResubmitNumber);
+
+                // if assignment's setting of resubmit close time is null, use assignment close time as the close time for resubmit
+                String assignmentAllowResubmitCloseDate = StringUtils.isNotBlank(assignmentProperties.get(AssignmentConstants.ALLOW_RESUBMIT_CLOSETIME))
+                        ? assignmentProperties.get(AssignmentConstants.ALLOW_RESUBMIT_CLOSETIME)
+                        : String.valueOf(assignment.getCloseDate().toEpochMilli());
+
+                submissionProperties.put(AssignmentConstants.ALLOW_RESUBMIT_CLOSETIME, assignmentAllowResubmitCloseDate);
+            }
         }
     }
 
@@ -5894,11 +6131,10 @@ public class AssignmentAction extends PagedResourceActionII {
     private void post_save_submission(RunData data, boolean post) {
         SessionState state = ((JetspeedRunData) data).getPortletSessionState(((JetspeedRunData) data).getJs_peid());
 
-        String contextString = (String) state.getAttribute(STATE_CONTEXT_STRING);
         String aReference = (String) state.getAttribute(VIEW_SUBMISSION_ASSIGNMENT_REFERENCE);
         Assignment a = getAssignment(aReference, "post_save_submission", state);
 
-        if (a != null && assignmentService.canSubmit(contextString, a)) {
+        if (assignmentService.canSubmit(a)) {
             ParameterParser params = data.getParameters();
             // retrieve the submission text (as formatted text)
             boolean checkForFormattingErrors = true; // check formatting error whether the student is posting or saving
@@ -5910,14 +6146,9 @@ public class AssignmentAction extends PagedResourceActionII {
                 state.setAttribute(VIEW_SUBMISSION_TEXT, text);
             }
 
-            String honorPledgeYes = params.getString(VIEW_SUBMISSION_HONOR_PLEDGE_YES);
-            /*if (honorPledgeYes == null)
-            {
-				honorPledgeYes = (String) state.getAttribute(VIEW_SUBMISSION_HONOR_PLEDGE_YES);
-			}*/
-
-            if (honorPledgeYes == null) {
-                honorPledgeYes = "false";
+            String eulaAgreementYes = params.getString(SUBMISSION_REVIEW_SERVICE_EULA_AGREEMENT);
+            if(StringUtils.isEmpty(eulaAgreementYes)) {
+            		eulaAgreementYes = "false";
             }
 
             User u = (User) state.getAttribute(STATE_USER);
@@ -5979,11 +6210,11 @@ public class AssignmentAction extends PagedResourceActionII {
 
 
             if (state.getAttribute(STATE_MESSAGE) == null) {
-                if (a.getHonorPledge()) {
-                    if (!Boolean.valueOf(honorPledgeYes)) {
-                        addAlert(state, rb.getString("youarenot18"));
+                if (StringUtils.isNotEmpty(params.getString(SUBMISSION_REVIEW_CHECK_SERVICE_EULA_AGREEMENT))) {
+                    if (!Boolean.valueOf(eulaAgreementYes)) {
+                        addAlert(state, rb.getFormattedMessage("youarenot21", contentReviewService.getServiceName()));
                     }
-                    state.setAttribute(VIEW_SUBMISSION_HONOR_PLEDGE_YES, honorPledgeYes);
+                    state.setAttribute(SUBMISSION_REVIEW_SERVICE_EULA_AGREEMENT, eulaAgreementYes);
                 }
 
                 // SAK-26322
@@ -6003,6 +6234,10 @@ public class AssignmentAction extends PagedResourceActionII {
             }
             if ((state.getAttribute(STATE_MESSAGE) == null) && (a != null)) {
                 AssignmentSubmission submission;
+                if (contentReviewService != null && Boolean.valueOf(eulaAgreementYes)) {
+                		//update EULA agreement timestamp
+                		contentReviewService.updateUserEULATimestamp(sessionManager.getCurrentSessionUserId());
+                }
 
                 if (a.getIsGroup()) {
                     String g = StringUtils.isNotBlank(original_group_id) ? original_group_id : group_id;
@@ -6014,11 +6249,6 @@ public class AssignmentAction extends PagedResourceActionII {
                 if (submission != null) {
                     // the submission already exists, change the text and honor pledge value, post it
                     Map<String, String> properties = submission.getProperties();
-
-                    boolean isPreviousSubmissionTime = true;
-                    if (submission.getDateSubmitted() == null || !submission.getSubmitted()) {
-                        isPreviousSubmissionTime = false;
-                    }
 
                     if (a.getIsGroup()) {
                         if (StringUtils.isNotBlank(original_group_id) && !StringUtils.equals(original_group_id, group_id)) {
@@ -6032,23 +6262,27 @@ public class AssignmentAction extends PagedResourceActionII {
                         submission.setGroupId(group_id);
                     }
 
+                    if (NumberUtils.isParsable(properties.get(AssignmentConstants.ALLOW_RESUBMIT_NUMBER))) {
+                        // if this submission has been already been submitted previously.
+                        if (submission.getSubmitted() && submission.getDateSubmitted() != null) {
+                            // decrease the allow_resubmit_number,
+                            int number = Integer.parseInt(properties.get(AssignmentConstants.ALLOW_RESUBMIT_NUMBER));
+                            // minus 1 from the submit number, if the number is not -1 (not unlimited)
+                            if (number >= 1) {
+                                properties.put(AssignmentConstants.ALLOW_RESUBMIT_NUMBER, String.valueOf(number - 1));
+                            }
+                        }
+                    } else {
+                        setResubmissionProperties(a, submission);
+                    }
+
                     submission.setUserSubmission(true);
                     submission.setSubmittedText(text);
-                    submission.setHonorPledge(Boolean.valueOf(honorPledgeYes));
                     submission.setDateSubmitted(Instant.now());
                     submission.setSubmitted(post);
                     String currentUser = sessionManager.getCurrentSessionUserId();
                     // identify who the submittee is using the session
                     submission.getSubmitters().stream().filter(s -> s.getSubmitter().equals(currentUser)).findFirst().ifPresent(s -> s.setSubmittee(true));
-
-                    // decrease the allow_resubmit_number, if this submission has been submitted.
-                    if (submission.getSubmitted() && isPreviousSubmissionTime && properties.get(AssignmentConstants.ALLOW_RESUBMIT_NUMBER) != null) {
-                        int number = Integer.parseInt(properties.get(AssignmentConstants.ALLOW_RESUBMIT_NUMBER));
-                        // minus 1 from the submit number, if the number is not -1 (not unlimited)
-                        if (number >= 1) {
-                            properties.put(AssignmentConstants.ALLOW_RESUBMIT_NUMBER, String.valueOf(number - 1));
-                        }
-                    }
 
                     // for resubmissions
                     // when resubmit, keep the Returned flag on till the instructor grade again.
@@ -6132,7 +6366,9 @@ public class AssignmentAction extends PagedResourceActionII {
                     // use comma as separator for attachments
                     feedbackAttachmentHistory = StringUtils.join(feedbackAttachments, ",") + feedbackAttachmentHistory;
 
-                    properties.put(PROP_SUBMISSION_PREVIOUS_FEEDBACK_ATTACHMENTS, feedbackAttachmentHistory);
+                    if (StringUtils.isNotBlank(feedbackAttachmentHistory)) {
+                    	properties.put(PROP_SUBMISSION_PREVIOUS_FEEDBACK_ATTACHMENTS, feedbackAttachmentHistory);
+                    }
 
                     // reset the previous grading context
                     submission.setFeedbackText(null);
@@ -6160,7 +6396,6 @@ public class AssignmentAction extends PagedResourceActionII {
 
                         submission.setUserSubmission(true);
                         submission.setSubmittedText(text);
-                        submission.setHonorPledge(Boolean.valueOf(honorPledgeYes));
                         submission.setDateSubmitted(Instant.now());
                         submission.setSubmitted(post);
 
@@ -6201,7 +6436,7 @@ public class AssignmentAction extends PagedResourceActionII {
                 }
 
                 // SAK-26322 - add inline as an attachment for the content review service
-                if (a.getContentReview()) {
+                if (post && a.getContentReview()) {
                     if (!isHtmlEmpty(text)) {
                         prepareInlineForContentReview(text, submission, state, u);
                     }
@@ -6215,10 +6450,6 @@ public class AssignmentAction extends PagedResourceActionII {
             if (state.getAttribute(STATE_MESSAGE) == null) {
                 state.setAttribute(STATE_MODE, MODE_STUDENT_VIEW_SUBMISSION_CONFIRMATION);
             }
-
-            LRS_Statement statement = getStatementForSubmitAssignment(a.getId(), serverConfigurationService.getAccessUrl(), a.getTitle());
-            Event event = eventTrackingService.newEvent(AssignmentConstants.EVENT_SUBMIT_ASSIGNMENT_SUBMISSION, a.getId(), null, false, NotificationService.NOTI_OPTIONAL, statement);
-            eventTrackingService.post(event);
         }
     } // post_save_submission
 
@@ -6232,13 +6463,12 @@ public class AssignmentAction extends PagedResourceActionII {
         //We will be replacing the inline submission's attachment
         //firstly, disconnect any existing attachments with AssignmentSubmission.PROP_INLINE_SUBMISSION set
         Set<String> attachments = submission.getAttachments();
-        for (String attachment : attachments) {
+        attachments.removeIf(attachment ->
+        {
             Reference reference = entityManager.newReference(attachment);
             ResourceProperties referenceProperties = reference.getProperties();
-            if ("true".equals(referenceProperties.getProperty(AssignmentConstants.PROP_INLINE_SUBMISSION))) {
-                attachments.remove(attachment);
-            }
-        }
+            return "true".equals(referenceProperties.getProperty(AssignmentConstants.PROP_INLINE_SUBMISSION));
+        });
 
         //now prepare the new resource
         //provide lots of info for forensics - filename=InlineSub_assignmentId_userDisplayId_(for_studentDisplayId)_date.html
@@ -6293,9 +6523,6 @@ public class AssignmentAction extends PagedResourceActionII {
         try {
             securityService.pushAdvisor(sa);
             ContentResource attachment = contentHostingService.addAttachmentResource(resourceId, siteId, toolName, contentType, contentStream, inlineProps);
-            // TODO: need to put this file in some kind of list to improve performance with web service impls of content-review service
-            String contentUserId = isOnBehalfOfStudent ? student.getId() : currentUser.getId();
-            contentReviewService.queueContent(contentUserId, siteId, AssignmentReferenceReckoner.reckoner().assignment(submission.getAssignment()).reckon().getReference(), Collections.singletonList(attachment));
 
             try {
                 Reference ref = entityManager.newReference(contentHostingService.getReference(attachment.getId()));
@@ -6324,8 +6551,8 @@ public class AssignmentAction extends PagedResourceActionII {
     /**
      * Used when students are selecting from a list of previous attachments for their single uploaded file
      */
-    private void adjustAttachmentsToSingleUpload(RunData data, SessionState state, Assignment a, List nonInlineAttachments) {
-        if (a == null || a.getTypeOfSubmission() != Assignment.SubmissionType.SINGLE_ATTACHMENT_SUBMISSION) {
+    private void adjustAttachmentsToSingleUpload(RunData data, SessionState state, Assignment assignment, List nonInlineAttachments) {
+        if (assignment == null || assignment.getTypeOfSubmission() != Assignment.SubmissionType.SINGLE_ATTACHMENT_SUBMISSION) {
             throw new IllegalArgumentException("adjustAttachmentsToSingleUpload called, but the assignment type is not Single Uploaded File");
         }
         if (nonInlineAttachments == null) {
@@ -6379,12 +6606,12 @@ public class AssignmentAction extends PagedResourceActionII {
     }
 
     private void checkSubmissionTextAttachmentInput(RunData data,
-                                                    SessionState state, Assignment a, String text) {
+                                                    SessionState state, Assignment assignment, String text) {
         // SAK-26329 - determine if the submission has text
         boolean textIsEmpty = isHtmlEmpty(text);
-        if (a != null) {
+        if (assignment != null) {
             // check the submission inputs based on the submission type
-            Assignment.SubmissionType submissionType = a.getTypeOfSubmission();
+            Assignment.SubmissionType submissionType = assignment.getTypeOfSubmission();
             if (submissionType == Assignment.SubmissionType.TEXT_ONLY_ASSIGNMENT_SUBMISSION) {
                 // for the inline only submission
                 if (textIsEmpty) {
@@ -6392,20 +6619,20 @@ public class AssignmentAction extends PagedResourceActionII {
                 }
             } else if (submissionType == Assignment.SubmissionType.ATTACHMENT_ONLY_ASSIGNMENT_SUBMISSION) {
                 // for the attachment only submission
-                List v = getNonInlineAttachments(state, a);
+                List v = getNonInlineAttachments(state, assignment);
                 if ((v == null) || (v.size() == 0)) {
                     addAlert(state, rb.getString("youmust1"));
                 }
             } else if (submissionType == Assignment.SubmissionType.SINGLE_ATTACHMENT_SUBMISSION) {
                 // for the single uploaded file only submission
-                List v = getNonInlineAttachments(state, a);
+                List v = getNonInlineAttachments(state, assignment);
                 if ((v == null) || (v.size() != 1)) {
                     addAlert(state, rb.getString("youmust8"));
                 }
             } else {
                 // for the inline and attachment submission / other submission types
                 // There must be at least one thing submitted: inline text or at least one attachment
-                List v = getNonInlineAttachments(state, a);
+                List v = getNonInlineAttachments(state, assignment);
                 if (textIsEmpty && (v == null || v.size() == 0)) {
                     addAlert(state, rb.getString("youmust2"));
                 }
@@ -6416,11 +6643,11 @@ public class AssignmentAction extends PagedResourceActionII {
     /**
      * When using content review, inline text gets turned into an attachment. This method returns all the attachments that do not represent inline text
      */
-    private List<Reference> getNonInlineAttachments(SessionState state, Assignment a) {
+    private List<Reference> getNonInlineAttachments(SessionState state, Assignment assignment) {
         List<Reference> attachments = (List<Reference>) state.getAttribute(ATTACHMENTS);
         List<Reference> nonInlineAttachments = new ArrayList<>();
         nonInlineAttachments.addAll(attachments);
-        if (a.getContentReview()) {
+        if (assignment.getContentReview()) {
             for (Reference attachment : attachments) {
                 if ("true".equals(attachment.getProperties().getProperty(AssignmentConstants.PROP_INLINE_SUBMISSION))) {
                     nonInlineAttachments.remove(attachment);
@@ -6467,6 +6694,7 @@ public class AssignmentAction extends PagedResourceActionII {
 			boolean allowAddAssignment = assignmentService.allowAddAssignment((String) state.getAttribute(STATE_CONTEXT_STRING));
 			boolean allowUpdateAssignment = assignmentService.allowUpdateAssignmentInContext((String) state.getAttribute(STATE_CONTEXT_STRING));
             if (allowAddAssignment && allowUpdateAssignment) {
+            	resetAssignment(state);
                 initializeAssignment(state);
 
                 state.setAttribute(ATTACHMENTS, entityManager.newReferenceList());
@@ -6522,6 +6750,7 @@ public class AssignmentAction extends PagedResourceActionII {
         ParameterParser params = data.getParameters();
 
         String assignmentRef = params.getString("assignmentId");
+        String assignmentId = AssignmentReferenceReckoner.reckoner().reference(assignmentRef).reckon().getId();
 
         // put the input value into the state attributes
         String title = params.getString(NEW_ASSIGNMENT_TITLE);
@@ -6530,15 +6759,13 @@ public class AssignmentAction extends PagedResourceActionII {
         String order = params.getString(NEW_ASSIGNMENT_ORDER);
         state.setAttribute(NEW_ASSIGNMENT_ORDER, order);
 
-        String additionalOptions = params.getString(NEW_ASSIGNMENT_ADDITIONAL_OPTIONS);
+        //Returns the rubrics state in the case of validation problems in the form
+        String rubricStateDetails = params.getString(RUBRIC_STATE_DETAILS);
+        state.setAttribute(RUBRIC_STATE_DETAILS, rubricStateDetails);
 
-        boolean groupAssignment = false;
-        if (StringUtils.equals(Assignment.Access.GROUP.toString(), additionalOptions)) {
-            state.setAttribute(NEW_ASSIGNMENT_GROUP_SUBMIT, "1");
-            groupAssignment = true;
-        } else {
-            state.setAttribute(NEW_ASSIGNMENT_GROUP_SUBMIT, "0");
-        }
+        String contextString = toolManager.getCurrentPlacement().getContext();
+
+        boolean groupAssignment = rangeAndGroups.setNewAssignmentParameters(data, state, contextString);
 
         if (StringUtils.isBlank(title)) {
             // empty assignment title
@@ -6580,6 +6807,11 @@ public class AssignmentAction extends PagedResourceActionII {
         }
 
         state.setAttribute(NEW_ASSIGNMENT_ENABLECLOSEDATE, Boolean.TRUE);
+        if(params.getBoolean(NEW_ASSIGNMENT_REMINDER_EMAIL)){
+            state.setAttribute(NEW_ASSIGNMENT_REMINDER_EMAIL, Boolean.TRUE);
+        }else{
+            state.setAttribute(NEW_ASSIGNMENT_REMINDER_EMAIL, Boolean.FALSE);
+        }
 
         // close time
         Instant closeTime = putTimeInputInState(params, state, NEW_ASSIGNMENT_CLOSEMONTH, NEW_ASSIGNMENT_CLOSEDAY, NEW_ASSIGNMENT_CLOSEYEAR, NEW_ASSIGNMENT_CLOSEHOUR, NEW_ASSIGNMENT_CLOSEMIN, "date.closedate");
@@ -6599,23 +6831,109 @@ public class AssignmentAction extends PagedResourceActionII {
         Assignment.SubmissionType submissionType = Assignment.SubmissionType.values()[params.getInt(NEW_ASSIGNMENT_SUBMISSION_TYPE)];
         state.setAttribute(NEW_ASSIGNMENT_SUBMISSION_TYPE, submissionType.ordinal());
 
-        // Skip category if it was never set.
-        Long catInt = -1L;
-        if (params.getString(NEW_ASSIGNMENT_CATEGORY) != null)
-            catInt = Long.valueOf(params.getString(NEW_ASSIGNMENT_CATEGORY));
-        state.setAttribute(NEW_ASSIGNMENT_CATEGORY, catInt);
+        // ------------------- BEGIN GRADING PARAMS -------------------
 
         Assignment.GradeType gradeType = GRADE_TYPE_NONE;
 
         // grade type and grade points
         if (state.getAttribute(WITH_GRADES) != null && (Boolean) state.getAttribute(WITH_GRADES)) {
-            gradeType = values()[params.getInt(NEW_ASSIGNMENT_GRADE_TYPE)];
+            boolean gradeAssignment = params.getBoolean(NEW_ASSIGNMENT_GRADE_ASSIGNMENT);
+            state.setAttribute(NEW_ASSIGNMENT_GRADE_ASSIGNMENT, gradeAssignment);
+            int gType = gradeAssignment ? params.getInt(NEW_ASSIGNMENT_GRADE_TYPE) : UNGRADED_GRADE_TYPE.ordinal();
+            gradeType = values()[gType];
             state.setAttribute(NEW_ASSIGNMENT_GRADE_TYPE, gradeType.ordinal());
+        }
+
+        boolean sendToGradebook = gradeType == SCORE_GRADE_TYPE && params.getBoolean(NEW_ASSIGNMENT_SEND_TO_GRADEBOOK);
+        String grading = sendToGradebook ? params.getString(NEW_ASSIGNMENT_ADD_TO_GRADEBOOK) : GRADEBOOK_INTEGRATION_NO;
+        state.setAttribute(NEW_ASSIGNMENT_ADD_TO_GRADEBOOK, grading);
+
+        state.setAttribute(NEW_ASSIGNMENT_CHECK_ANONYMOUS_GRADING, Boolean.valueOf(params.getString(NEW_ASSIGNMENT_CHECK_ANONYMOUS_GRADING)));
+
+        // Skip category if it was never set.
+        Long catInt = -1L;
+        if (params.getString(NEW_ASSIGNMENT_CATEGORY) != null && GRADEBOOK_INTEGRATION_ADD.equals(grading)) {
+            catInt = Long.valueOf(params.getString(NEW_ASSIGNMENT_CATEGORY));
+        }
+        state.setAttribute(NEW_ASSIGNMENT_CATEGORY, catInt);
+
+        // only when choose to associate with assignment in Gradebook
+        String associateAssignment = params.getString(PROP_ASSIGNMENT_ASSOCIATE_GRADEBOOK_ASSIGNMENT);
+
+        Double droppedCategoryPoints = -1D;
+        if (grading != null) {
+            if (grading.equals(GRADEBOOK_INTEGRATION_ASSOCIATE)) {
+                state.setAttribute(PROP_ASSIGNMENT_ASSOCIATE_GRADEBOOK_ASSIGNMENT, associateAssignment);
+            } else {
+                state.removeAttribute(PROP_ASSIGNMENT_ASSOCIATE_GRADEBOOK_ASSIGNMENT);
+            }
+
+            if (!grading.equals(GRADEBOOK_INTEGRATION_NO)) {
+                // gradebook integration only available to point-grade assignment
+                if (gradeType != SCORE_GRADE_TYPE) {
+                    addAlert(state, rb.getString("addtogradebook.wrongGradeScale"));
+                }
+
+                // if chosen as "associate", have to choose one assignment from Gradebook
+                if (grading.equals(GRADEBOOK_INTEGRATION_ASSOCIATE) && StringUtils.trimToNull(associateAssignment) == null) {
+                    addAlert(state, rb.getString("grading.associate.alert"));
+                } else {
+                    Long thisCatRef = -1L;
+                    String gradebookUid = toolManager.getCurrentPlacement().getContext();
+                    List<CategoryDefinition> categoryDefinitions = gradebookService.getCategoryDefinitions(gradebookUid);
+                    if (catInt != -1) {
+                      thisCatRef = catInt;
+                    } else if (assignmentRef.isEmpty()) {
+                      thisCatRef = catInt;
+                    } else {
+                        for (CategoryDefinition thisCategoryDefinition : categoryDefinitions) {
+                            if (thisCategoryDefinition.isAssignmentInThisCategory(assignmentRef)) {
+                                thisCatRef = thisCategoryDefinition.getId();
+                            }
+                        }
+                    }
+                    if (thisCatRef != -1) {
+                        for(CategoryDefinition thisCategoryDefinition : categoryDefinitions) {
+                            if (Objects.equals(thisCategoryDefinition.getId(), thisCatRef)) {
+                                if (thisCategoryDefinition.getDropKeepEnabled()) {
+                                    Double thisCategoryPoints = thisCategoryDefinition.getPointsForCategory();
+                                    if (thisCategoryPoints != null) {
+                                        droppedCategoryPoints = thisCategoryPoints;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // check if chosen a previously associated object
+                Collection<Assignment> assignments = assignmentService.getAssignmentsForContext(contextString);
+                String associatedAssignmentTitles = "";
+                // check assignments from the site
+                for (Assignment a : assignments) {
+                    if (assignmentId.equals(a.getId())) {
+                        continue;
+                    }
+                    String gradebookItem = a.getProperties().get(PROP_ASSIGNMENT_ASSOCIATE_GRADEBOOK_ASSIGNMENT);
+                    if (gradebookItem != null && StringUtils.equals(associateAssignment, gradebookItem)) {
+                        associatedAssignmentTitles += a.getTitle();
+                    }
+                }
+                if (StringUtils.isNotBlank(associatedAssignmentTitles) && state.getAttribute(NEW_ASSIGNMENT_PREVIOUSLY_ASSOCIATED) == null) {
+                    state.setAttribute(NEW_ASSIGNMENT_PREVIOUSLY_ASSOCIATED, Boolean.TRUE);
+                } else {
+                    // clean the attribute after user confirm
+                    state.removeAttribute(NEW_ASSIGNMENT_PREVIOUSLY_ASSOCIATED);
+                }
+                if (state.getAttribute(NEW_ASSIGNMENT_PREVIOUSLY_ASSOCIATED) != null && validify) {
+                    addAlert(state, rb.getString("addtogradebook.previouslyAssoc"));
+                }
+            }
         }
 
         //Peer Assessment
         boolean peerAssessment = false;
-        if ("peerreview".equals(additionalOptions)) {
+        if (gradeType == SCORE_GRADE_TYPE && params.getBoolean(NEW_ASSIGNMENT_USE_PEER_ASSESSMENT)) {
             state.setAttribute(NEW_ASSIGNMENT_USE_PEER_ASSESSMENT, Boolean.TRUE.toString());
             peerAssessment = true;
         } else {
@@ -6630,9 +6948,6 @@ public class AssignmentAction extends PagedResourceActionII {
             //do not allow non-electronic assignments
             if (Assignment.SubmissionType.NON_ELECTRONIC_ASSIGNMENT_SUBMISSION == submissionType) {
                 addAlert(state, rb.getString("peerassessment.invliadSubmissionTypeAssignment"));
-            }
-            if (gradeType != SCORE_GRADE_TYPE) {
-                addAlert(state, rb.getString("peerassessment.invliadGradeTypeAssignment"));
             }
 
             Instant peerPeriodTime = putTimeInputInState(params, state, NEW_ASSIGNMENT_PEERPERIODMONTH, NEW_ASSIGNMENT_PEERPERIODDAY, NEW_ASSIGNMENT_PEERPERIODYEAR, NEW_ASSIGNMENT_PEERPERIODHOUR, NEW_ASSIGNMENT_PEERPERIODMIN, "newassig.opedat");
@@ -6665,6 +6980,8 @@ public class AssignmentAction extends PagedResourceActionII {
         String peerAssessmentInstructions = processFormattedTextFromBrowser(state, params.getString(NEW_ASSIGNMENT_PEER_ASSESSMENT_INSTRUCTIONS), true);
         state.setAttribute(NEW_ASSIGNMENT_PEER_ASSESSMENT_INSTRUCTIONS, peerAssessmentInstructions);
 
+        // -------------   END GRADING PARAMS (EXCEPT FOR POINTS AT THE END OF THIS METHOD)  ----------------------
+
         String b, r;
         //REVIEW SERVICE
         r = params.getString(NEW_ASSIGNMENT_USE_REVIEW_SERVICE);
@@ -6692,7 +7009,7 @@ public class AssignmentAction extends PagedResourceActionII {
         state.setAttribute(NEW_ASSIGNMENT_REVIEW_SERVICE_SUBMIT_RADIO, r);
         //set originality report options
         r = params.getString(NEW_ASSIGNMENT_REVIEW_SERVICE_REPORT_RADIO);
-        if (r == null || !NEW_ASSIGNMENT_REVIEW_SERVICE_REPORT_DUE.equals(r))
+        if (r == null || (!NEW_ASSIGNMENT_REVIEW_SERVICE_REPORT_DUE.equals(r) && !NEW_ASSIGNMENT_REVIEW_SERVICE_REPORT_IMMEDIATELY_AND_DUE.equals(r)))
             r = NEW_ASSIGNMENT_REVIEW_SERVICE_REPORT_IMMEDIATELY;
         state.setAttribute(NEW_ASSIGNMENT_REVIEW_SERVICE_REPORT_RADIO, r);
         //set check repository options:
@@ -6798,20 +7115,22 @@ public class AssignmentAction extends PagedResourceActionII {
                 && params.getString(ResourceProperties.NEW_ASSIGNMENT_CHECK_AUTO_ANNOUNCE)
                 .equalsIgnoreCase(Boolean.TRUE.toString())) {
             state.setAttribute(ResourceProperties.NEW_ASSIGNMENT_CHECK_AUTO_ANNOUNCE, Boolean.TRUE.toString());
+            if (params.getString(AssignmentConstants.ASSIGNMENT_OPENDATE_NOTIFICATION) != null) {
+                if (params.getString(AssignmentConstants.ASSIGNMENT_OPENDATE_NOTIFICATION)
+                        .equalsIgnoreCase(AssignmentConstants.ASSIGNMENT_OPENDATE_NOTIFICATION_NONE)) {
+                    state.setAttribute(AssignmentConstants.ASSIGNMENT_OPENDATE_NOTIFICATION, AssignmentConstants.ASSIGNMENT_OPENDATE_NOTIFICATION_NONE);
+                } else if (params.getString(AssignmentConstants.ASSIGNMENT_OPENDATE_NOTIFICATION)
+                        .equalsIgnoreCase(AssignmentConstants.ASSIGNMENT_OPENDATE_NOTIFICATION_LOW)) {
+                    state.setAttribute(AssignmentConstants.ASSIGNMENT_OPENDATE_NOTIFICATION, AssignmentConstants.ASSIGNMENT_OPENDATE_NOTIFICATION_LOW);
+                } else if (params.getString(AssignmentConstants.ASSIGNMENT_OPENDATE_NOTIFICATION)
+                        .equalsIgnoreCase(AssignmentConstants.ASSIGNMENT_OPENDATE_NOTIFICATION_HIGH)) {
+                    state.setAttribute(AssignmentConstants.ASSIGNMENT_OPENDATE_NOTIFICATION, AssignmentConstants.ASSIGNMENT_OPENDATE_NOTIFICATION_HIGH);
+                }
+            }
         } else {
             state.setAttribute(ResourceProperties.NEW_ASSIGNMENT_CHECK_AUTO_ANNOUNCE, Boolean.FALSE.toString());
-        }
-
-        if (params.getString(AssignmentConstants.ASSIGNMENT_OPENDATE_NOTIFICATION) != null) {
-            if (params.getString(AssignmentConstants.ASSIGNMENT_OPENDATE_NOTIFICATION)
-                    .equalsIgnoreCase(AssignmentConstants.ASSIGNMENT_OPENDATE_NOTIFICATION_NONE)) {
+            if (params.getString(AssignmentConstants.ASSIGNMENT_OPENDATE_NOTIFICATION) != null) {
                 state.setAttribute(AssignmentConstants.ASSIGNMENT_OPENDATE_NOTIFICATION, AssignmentConstants.ASSIGNMENT_OPENDATE_NOTIFICATION_NONE);
-            } else if (params.getString(AssignmentConstants.ASSIGNMENT_OPENDATE_NOTIFICATION)
-                    .equalsIgnoreCase(AssignmentConstants.ASSIGNMENT_OPENDATE_NOTIFICATION_LOW)) {
-                state.setAttribute(AssignmentConstants.ASSIGNMENT_OPENDATE_NOTIFICATION, AssignmentConstants.ASSIGNMENT_OPENDATE_NOTIFICATION_LOW);
-            } else if (params.getString(AssignmentConstants.ASSIGNMENT_OPENDATE_NOTIFICATION)
-                    .equalsIgnoreCase(AssignmentConstants.ASSIGNMENT_OPENDATE_NOTIFICATION_HIGH)) {
-                state.setAttribute(AssignmentConstants.ASSIGNMENT_OPENDATE_NOTIFICATION, AssignmentConstants.ASSIGNMENT_OPENDATE_NOTIFICATION_HIGH);
             }
         }
 
@@ -6822,34 +7141,6 @@ public class AssignmentAction extends PagedResourceActionII {
 
         // set the honor pledge to be "no honor pledge"
         state.setAttribute(NEW_ASSIGNMENT_CHECK_ADD_HONOR_PLEDGE, hp);
-
-        String grading = params.getString(NEW_ASSIGNMENT_ADD_TO_GRADEBOOK);
-        state.setAttribute(NEW_ASSIGNMENT_ADD_TO_GRADEBOOK, grading);
-
-        state.setAttribute(NEW_ASSIGNMENT_CHECK_ANONYMOUS_GRADING, Boolean.valueOf(params.getString(NEW_ASSIGNMENT_CHECK_ANONYMOUS_GRADING)));
-
-        // only when choose to associate with assignment in Gradebook
-        String associateAssignment = params.getString(PROP_ASSIGNMENT_ASSOCIATE_GRADEBOOK_ASSIGNMENT);
-
-        if (grading != null) {
-            if (grading.equals(GRADEBOOK_INTEGRATION_ASSOCIATE)) {
-                state.setAttribute(PROP_ASSIGNMENT_ASSOCIATE_GRADEBOOK_ASSIGNMENT, associateAssignment);
-            } else {
-                state.removeAttribute(PROP_ASSIGNMENT_ASSOCIATE_GRADEBOOK_ASSIGNMENT);
-            }
-
-            if (!grading.equals(GRADEBOOK_INTEGRATION_NO)) {
-                // gradebook integration only available to point-grade assignment
-                if (gradeType != SCORE_GRADE_TYPE) {
-                    addAlert(state, rb.getString("addtogradebook.wrongGradeScale"));
-                }
-
-                // if chosen as "associate", have to choose one assignment from Gradebook
-                if (grading.equals(GRADEBOOK_INTEGRATION_ASSOCIATE) && StringUtils.trimToNull(associateAssignment) == null) {
-                    addAlert(state, rb.getString("grading.associate.alert"));
-                }
-            }
-        }
 
         List attachments = (List) state.getAttribute(ATTACHMENTS);
         if (attachments == null || attachments.isEmpty()) {
@@ -6880,34 +7171,6 @@ public class AssignmentAction extends PagedResourceActionII {
 
         if (validify && state.getAttribute(NEW_ASSIGNMENT_DESCRIPTION_EMPTY) != null) {
             addAlert(state, rb.getString("thiasshas"));
-        }
-
-        // assignment range?
-        String range = data.getParameters().getString("range");
-        state.setAttribute(NEW_ASSIGNMENT_RANGE, range);
-        if (Assignment.Access.GROUP.toString().equals(range)) {
-            String[] groupChoice = data.getParameters().getStrings("selectedGroups");
-            if (groupChoice != null && groupChoice.length != 0) {
-                state.setAttribute(NEW_ASSIGNMENT_GROUPS, new ArrayList<>(Arrays.asList(groupChoice)));
-            } else {
-                state.setAttribute(NEW_ASSIGNMENT_GROUPS, null);
-                addAlert(state, rb.getString("java.alert.youchoosegroup"));
-            }
-        } else {
-            state.removeAttribute(NEW_ASSIGNMENT_GROUPS);
-        }
-
-        // check groups for duplicate members here
-        if (groupAssignment) {
-            Collection<String> users = usersInMultipleGroups(state, Assignment.Access.GROUP.toString().equals(range), (Assignment.Access.GROUP.toString().equals(range) ? data.getParameters().getStrings("selectedGroups") : null), false, null);
-            if (!users.isEmpty()) {
-                StringBuilder sb = new StringBuilder(rb.getString("group.user.multiple.warning") + " ");
-                for (String user : users) {
-                    sb.append(", " + user);
-                }
-                log.warn("{}", sb.toString());
-                addAlert(state, sb.toString());
-            }
         }
 
         // allow resubmission numbers
@@ -6951,31 +7214,32 @@ public class AssignmentAction extends PagedResourceActionII {
             // the grade point
             String gradePoints = params.getString(NEW_ASSIGNMENT_GRADE_POINTS);
             state.setAttribute(NEW_ASSIGNMENT_GRADE_POINTS, gradePoints);
-            if (gradePoints != null) {
-                if (gradeType == SCORE_GRADE_TYPE) {
-                    if ((gradePoints.length() == 0)) {
-                        // in case of point grade assignment, user must specify maximum grade point
-                        addAlert(state, rb.getString("plespethe3"));
-                    } else {
-                        Integer scaleFactor = assignmentService.getScaleFactor();
-                        try {
-                            if (StringUtils.isNotEmpty(assignmentRef)) {
-                                Assignment assignment = assignmentService.getAssignment(assignmentRef);
-                                if (assignment != null) {
-                                    scaleFactor = assignment.getScaleFactor();
-                                }
+            if (gradePoints != null && gradeType == SCORE_GRADE_TYPE) {
+                if (gradePoints.length() == 0) {
+                    // in case of point grade assignment, user must specify maximum grade point
+                    addAlert(state, rb.getString("plespethe3"));
+                } else {
+                    Integer scaleFactor = assignmentService.getScaleFactor();
+                    try {
+                        if (StringUtils.isNotEmpty(assignmentRef)) {
+                            Assignment assignment = assignmentService.getAssignment(assignmentId);
+                            if (assignment != null && assignment.getScaleFactor() != null) {
+                                scaleFactor = assignment.getScaleFactor();
                             }
-                        } catch (IdUnusedException | PermissionException e) {
-                            log.error(e.getMessage());
                         }
+                    } catch (IdUnusedException | PermissionException e) {
+                        log.error(e.getMessage());
+                    }
 
-                        validPointGrade(state, gradePoints, scaleFactor);
-                        // when scale is points, grade must be integer and less than maximum value
-                        if (state.getAttribute(STATE_MESSAGE) == null) {
-                            gradePoints = scalePointGrade(state, gradePoints, scaleFactor);
-                        }
-                        if (state.getAttribute(STATE_MESSAGE) == null) {
-                            state.setAttribute(NEW_ASSIGNMENT_GRADE_POINTS, gradePoints);
+                    validPointGrade(state, gradePoints, scaleFactor);
+                    // when scale is points, grade must be integer and less than maximum value
+                    gradePoints = scalePointGrade(state, gradePoints, scaleFactor);
+                    state.setAttribute(NEW_ASSIGNMENT_GRADE_POINTS, gradePoints);
+                    if (droppedCategoryPoints != -1) {
+                        int factor = assignmentService.getScaleFactor();
+                        Double enteredPoints = new Double(displayGrade(state, gradePoints, factor));
+                        if (!enteredPoints.equals(droppedCategoryPoints)) {
+                          addAlert(state, rb.getFormattedMessage("pleasee6", new Object[] {droppedCategoryPoints.toString()}));
                         }
                     }
                 }
@@ -7424,7 +7688,7 @@ public class AssignmentAction extends PagedResourceActionII {
         Assignment.Access aOldAccess = null;
 
         // assignment old group setting
-        Collection<String> aOldGroups;
+        Collection<String> aOldGroups = new ArrayList<String>();
 
         // assignment old open date setting
         Instant oldOpenTime;
@@ -7439,13 +7703,6 @@ public class AssignmentAction extends PagedResourceActionII {
         if (!MODE_INSTRUCTOR_PREVIEW_ASSIGNMENT.equals(mode)) {
             // read input data if the mode is not preview mode
             setNewAssignmentParameters(data, true);
-        }
-
-        boolean isGroupSubmit = "1".equals((String) state.getAttribute(NEW_ASSIGNMENT_GROUP_SUBMIT));
-        if (isGroupSubmit) {
-            if (!siteService.allowUpdateSite(siteId)) {
-                addAlert(state, rb.getFormattedMessage("group.editsite.nopermission"));
-            }
         }
 
         String assignmentId = params.getString("assignmentId");
@@ -7512,6 +7769,8 @@ public class AssignmentAction extends PagedResourceActionII {
             // due time
             Instant dueTime = getTimeFromState(state, NEW_ASSIGNMENT_DUEMONTH, NEW_ASSIGNMENT_DUEDAY, NEW_ASSIGNMENT_DUEYEAR, NEW_ASSIGNMENT_DUEHOUR, NEW_ASSIGNMENT_DUEMIN);
 
+            boolean emailReminder = (Boolean) state.getAttribute(NEW_ASSIGNMENT_REMINDER_EMAIL);
+            
             // close time
             Instant closeTime = dueTime;
             boolean enableCloseDate = (Boolean) state.getAttribute(NEW_ASSIGNMENT_ENABLECLOSEDATE);
@@ -7572,6 +7831,7 @@ public class AssignmentAction extends PagedResourceActionII {
             if (submissionType == Assignment.SubmissionType.NON_ELECTRONIC_ASSIGNMENT_SUBMISSION) {
                 useReviewService = a.getContentReview();
                 allowStudentViewReport = Boolean.valueOf(p.get(NEW_ASSIGNMENT_ALLOW_STUDENT_VIEW));
+                allowResubmitNumber = null;
             }
 
             String submitReviewRepo = (String) state.getAttribute(NEW_ASSIGNMENT_REVIEW_SERVICE_SUBMIT_RADIO);
@@ -7615,38 +7875,17 @@ public class AssignmentAction extends PagedResourceActionII {
                 }
             }
 
-
             // the attachments
             List attachments = (List) state.getAttribute(NEW_ASSIGNMENT_ATTACHMENT);
 
-            // set group property
-            String range = (String) state.getAttribute(NEW_ASSIGNMENT_RANGE);
-
-            Collection<Group> groups = new ArrayList<>();
-            try {
-                Site site = siteService.getSite(siteId);
-                Collection groupChoice = (Collection) state.getAttribute(NEW_ASSIGNMENT_GROUPS);
-                if (Assignment.Access.GROUP.toString().equals(range) && (groupChoice == null || groupChoice.size() == 0)) {
-                    // show alert if no group is selected for the group access assignment
-                    addAlert(state, rb.getString("java.alert.youchoosegroup"));
-                } else if (groupChoice != null) {
-                    for (Iterator iGroups = groupChoice.iterator(); iGroups.hasNext(); ) {
-                        String groupId = (String) iGroups.next();
-                        Group _aGroup = site.getGroup(groupId);
-                        if (_aGroup != null) groups.add(_aGroup);
-                    }
-                }
-            } catch (Exception e) {
-                log.warn(this + ":post_save_assignment " + e.getMessage());
-            }
-
+            RangeAndGroupsDelegate.RangeAndGroupSettings rangeAndGroupSettings = rangeAndGroups.postSaveAssignmentSettings(state, siteService, siteId);
 
             if ((state.getAttribute(STATE_MESSAGE) == null) && (a != null)) {
                 aOldTitle = a.getTitle();
 
                 aOldAccess = a.getTypeOfAccess();
 
-                aOldGroups = a.getGroups();
+                aOldGroups.addAll(a.getGroups());
 
                 // old open time
                 oldOpenTime = a.getOpenDate();
@@ -7663,6 +7902,10 @@ public class AssignmentAction extends PagedResourceActionII {
                 editAssignmentProperties(a, checkAddDueTime, checkAutoAnnounce, addtoGradebook, associateGradebookAssignment, allowResubmitNumber, aProperties, post, resubmitCloseTime, checkAnonymousGrading);
 
                 //TODO: ADD_DUE_DATE
+                if (state.getAttribute(AssignmentConstants.ASSIGNMENT_OPENDATE_NOTIFICATION) != null) {
+                    aProperties.put(AssignmentConstants.ASSIGNMENT_OPENDATE_NOTIFICATION, (String) state.getAttribute(AssignmentConstants.ASSIGNMENT_OPENDATE_NOTIFICATION));
+                }
+
                 // the notification option
                 if (state.getAttribute(AssignmentConstants.ASSIGNMENT_INSTRUCTOR_NOTIFICATIONS_VALUE) != null) {
                     aProperties.put(AssignmentConstants.ASSIGNMENT_INSTRUCTOR_NOTIFICATIONS_VALUE, (String) state.getAttribute(AssignmentConstants.ASSIGNMENT_INSTRUCTOR_NOTIFICATIONS_VALUE));
@@ -7679,62 +7922,16 @@ public class AssignmentAction extends PagedResourceActionII {
 
                 // persist the Assignment changes
                 commitAssignment(state, post, a, assignmentReference, title, submissionType, useReviewService, allowStudentViewReport,
-                        gradeType, gradePoints, description, checkAddHonorPledge, attachments, section, range,
-                        visibleTime, openTime, dueTime, closeTime, hideDueDate, enableCloseDate, isGroupSubmit, groups,
+                        gradeType, gradePoints, description, checkAddHonorPledge, attachments, section, rangeAndGroupSettings.range,
+                        visibleTime, openTime, dueTime, closeTime, hideDueDate, enableCloseDate, emailReminder, rangeAndGroupSettings.isGroupSubmit, rangeAndGroupSettings.groups,
                         usePeerAssessment, peerPeriodTime, peerAssessmentAnonEval, peerAssessmentStudentViewReviews, peerAssessmentNumReviews, peerAssessmentInstructions,
                         submitReviewRepo, generateOriginalityReport, checkTurnitin, checkInternet, checkPublications, checkInstitution, excludeBibliographic, excludeQuoted, excludeSelfPlag, storeInstIndex, studentPreview, excludeType, excludeValue);
 
+                //RUBRICS, Save the binding between the assignment and the rubric
+                rubricsService.saveRubricAssociation(RubricsConstants.RBCS_TOOL_ASSIGNMENT, a.getId(), getRubricConfigurationParameters(params));
+
                 // Locking and unlocking groups
-                List<String> lockedGroupsReferences = new ArrayList<String>();
-                if (post && isGroupSubmit && !groups.isEmpty()) {
-                    for (Group group : groups) {
-                        String groupAssignmentReference = group.getReference() + "/assignment/" + a.getId();
-
-                        log.debug("Getting groups from reference: {}", groupAssignmentReference);
-                        lockedGroupsReferences.add(group.getReference());
-                        log.debug("Adding group: {}", group.getReference());
-
-                        if (!aOldGroups.contains(group.getReference()) || !group.isLocked(groupAssignmentReference)) {
-                            log.debug("locking group: {}", group.getReference());
-                            group.lockGroup(groupAssignmentReference);
-                            log.debug("locked group: {}", group.getReference());
-
-                            try {
-                                siteService.save(group.getContainingSite());
-                            } catch (IdUnusedException e) {
-                                log.warn(".post_save_assignment: Cannot find site with id {}", siteId);
-                                addAlert(state, rb.getFormattedMessage("options_cannotFindSite", siteId));
-                            } catch (PermissionException e) {
-                                log.warn(".post_save_assignment: Do not have permission to edit site with id {}", siteId);
-                                addAlert(state, rb.getFormattedMessage("options_cannotEditSite", siteId));
-                            }
-                        }
-                    }
-                }
-
-                if (post && !aOldGroups.isEmpty()) {
-                    try {
-                        Site site = siteService.getSite(siteId);
-
-                        for (String reference : aOldGroups) {
-                            if (!lockedGroupsReferences.contains(reference)) {
-                                log.debug("Not contains: {}", reference);
-                                Group group = site.getGroup(reference);
-                                if (group != null) {
-                                    String groupReferenceAssignment = group.getReference() + "/assignment/" + a.getId();
-                                    group.unlockGroup(groupReferenceAssignment);
-                                    siteService.save(group.getContainingSite());
-                                }
-                            }
-                        }
-                    } catch (IdUnusedException e) {
-                        log.warn(".post_save_assignment: Cannot find site with id {}", siteId);
-                        addAlert(state, rb.getFormattedMessage("options_cannotFindSite", siteId));
-                    } catch (PermissionException e) {
-                        log.warn(".post_save_assignment: Do not have permission to edit site with id {}", siteId);
-                        addAlert(state, rb.getFormattedMessage("options_cannotEditSite", siteId));
-                    }
-                }
+                rangeAndGroups.postSaveAssignmentGroupLocking(state, post, rangeAndGroupSettings, aOldGroups, siteId, a.getId());
 
                 if (post) {
                     // we need to update the submission
@@ -7798,7 +7995,7 @@ public class AssignmentAction extends PagedResourceActionII {
 
                         // integrate with Gradebook
                         try {
-                            initIntegrateWithGradebook(state, siteId, aOldTitle, oAssociateGradebookAssignment, a, title, dueTime, gradeType, gradePoints, addtoGradebook, associateGradebookAssignment, range, category);
+                            initIntegrateWithGradebook(state, siteId, aOldTitle, oAssociateGradebookAssignment, a, title, dueTime, gradeType, gradePoints, addtoGradebook, associateGradebookAssignment, rangeAndGroupSettings.range, category);
                         } catch (AssignmentHasIllegalPointsException e) {
                             addAlert(state, rb.getString("addtogradebook.illegalPoints"));
                             log.warn(this + ":post_save_assignment " + e.getMessage());
@@ -7855,9 +8052,9 @@ public class AssignmentAction extends PagedResourceActionII {
      * @param a
      */
     private void saveAssignmentSupplementItem(SessionState state,
-                                              ParameterParser params, String siteId, Assignment a) {
+                                              ParameterParser params, String siteId, Assignment assignment) {
         // assignment supplement items
-        String aId = a.getId();
+        String aId = assignment.getId();
         //model answer
         if (state.getAttribute(MODELANSWER_TO_DELETE) != null && "true".equals((String) state.getAttribute(MODELANSWER_TO_DELETE))) {
             // to delete the model answer
@@ -7890,7 +8087,7 @@ public class AssignmentAction extends PagedResourceActionII {
             AssignmentNoteItem nNote = assignmentSupplementItemService.getNoteItem(aId);
             if (nNote == null)
                 nNote = assignmentSupplementItemService.newNoteItem();
-            nNote.setAssignmentId(a.getId());
+            nNote.setAssignmentId(assignment.getId());
             nNote.setNote((String) state.getAttribute(NOTE_TEXT));
             nNote.setShareWith(state.getAttribute(NOTE_SHAREWITH) != null ? Integer.parseInt((String) state.getAttribute(NOTE_SHAREWITH)) : 0);
             nNote.setCreatorId(userDirectoryService.getCurrentUser().getId());
@@ -7910,7 +8107,7 @@ public class AssignmentAction extends PagedResourceActionII {
             AssignmentAllPurposeItem nAllPurpose = assignmentSupplementItemService.getAllPurposeItem(aId);
             if (nAllPurpose == null) {
                 nAllPurpose = assignmentSupplementItemService.newAllPurposeItem();
-                nAllPurpose.setAssignmentId(a.getId());
+                nAllPurpose.setAssignmentId(assignment.getId());
                 nAllPurpose.setHide(false);//SAK-33681
                 assignmentSupplementItemService.saveAllPurposeItem(nAllPurpose);
             }
@@ -8003,6 +8200,25 @@ public class AssignmentAction extends PagedResourceActionII {
     }
 
     /**
+     * Get the rubrics params and includes all them in a HashMap to pass them to the rubrics service.
+     * @param params
+     * @return
+     */
+    private HashMap<String,String> getRubricConfigurationParameters(ParameterParser params){
+
+        HashMap<String,String> parametersHash = new HashMap<>();
+        //Get the parameters
+        Iterator it2 = params.getNames();
+        while (it2.hasNext()) {
+            String name = it2.next().toString();
+            if (name.startsWith("rbcs")) {
+                parametersHash.put(name,params.getString(name));
+            }
+        }
+        return parametersHash;
+    }
+
+    /**
      * whether the resubmit option has been changed
      *
      * @param state
@@ -8050,7 +8266,7 @@ public class AssignmentAction extends PagedResourceActionII {
      * @param state
      * @param a
      */
-    private void addRemoveSubmissionsForNonElectronicAssignment(SessionState state, List submissions, HashSet<String> addSubmissionForUsers, HashSet<String> removeSubmissionForUsers, Assignment a) {
+    private void addRemoveSubmissionsForNonElectronicAssignment(SessionState state, List submissions, HashSet<String> addSubmissionForUsers, HashSet<String> removeSubmissionForUsers, Assignment assignment) {
         // create submission object for those user who doesn't have one yet
         for (String userId : addSubmissionForUsers) {
             try {
@@ -8058,17 +8274,17 @@ public class AssignmentAction extends PagedResourceActionII {
                 // only include those users that can submit to this assignment
                 if (u != null) {
                     // construct fake submissions for grading purpose
-                    AssignmentSubmission submission = assignmentService.addSubmission(a.getId(), userId);
+                    AssignmentSubmission submission = assignmentService.addSubmission(assignment.getId(), userId);
                     if (submission != null) {
                         submission.setDateSubmitted(Instant.now());
                         submission.setSubmitted(true);
                         submission.setUserSubmission(false);
-                        submission.setAssignment(a);
+                        submission.setAssignment(assignment);
                         assignmentService.updateSubmission(submission);
                     }
                 }
             } catch (Exception e) {
-                log.warn("Cannot add submission for assignment: {}, userId: {}, {}", a.getId(), userId, e.getMessage());
+                log.warn("Cannot add submission for assignment: {}, userId: {}, {}", assignment.getId(), userId, e.getMessage());
             }
         }
 
@@ -8076,22 +8292,22 @@ public class AssignmentAction extends PagedResourceActionII {
         for (String userId : removeSubmissionForUsers) {
             try {
                 User user = userDirectoryService.getUser(userId);
-                AssignmentSubmission submission = assignmentService.getSubmission(a.getId(), user);
+                AssignmentSubmission submission = assignmentService.getSubmission(assignment.getId(), user);
                 if (submission != null) {
                     assignmentService.removeSubmission(submission);
                 }
             } catch (Exception e) {
-                log.warn("Cannot remove submission for assignment: {}, userId: {}, {}", a.getId(), userId, e.getMessage());
-                addAlert(state, rb.getFormattedMessage("youarenot_removeSubmission", a.getId()));
+                log.warn("Cannot remove submission for assignment: {}, userId: {}, {}", assignment.getId(), userId, e.getMessage());
+                addAlert(state, rb.getFormattedMessage("youarenot_removeSubmission", assignment.getId()));
             }
         }
     }
 
-    private void initIntegrateWithGradebook(SessionState state, String siteId, String aOldTitle, String oAssociateGradebookAssignment, Assignment a, String title, Instant dueTime, Assignment.GradeType gradeType, String gradePoints, String addtoGradebook, String associateGradebookAssignment, String range, long category) {
+    private void initIntegrateWithGradebook(SessionState state, String siteId, String aOldTitle, String oAssociateGradebookAssignment, Assignment assignment, String title, Instant dueTime, Assignment.GradeType gradeType, String gradePoints, String addtoGradebook, String associateGradebookAssignment, String range, long category) {
 
         String context = (String) state.getAttribute(STATE_CONTEXT_STRING);
         boolean gradebookExists = isGradebookDefined();
-        String assignmentReference = AssignmentReferenceReckoner.reckoner().assignment(a).reckon().getReference();
+        String assignmentReference = AssignmentReferenceReckoner.reckoner().assignment(assignment).reckon().getReference();
         // only if the gradebook is defined
         if (gradebookExists) {
             String gradebookUid = toolManager.getCurrentPlacement().getContext();
@@ -8120,7 +8336,7 @@ public class AssignmentAction extends PagedResourceActionII {
                             removeNonAssociatedExternalGradebookEntry(context, assignmentReference, oAssociateGradebookAssignment, gradebookUid);
                         }
                     } catch (NumberFormatException nE) {
-                        alertInvalidPoint(state, gradePoints, a.getScaleFactor());
+                        alertInvalidPoint(state, gradePoints, assignment.getScaleFactor());
                         log.warn(this + ":initIntegrateWithGradebook " + nE.getMessage());
                     }
                 } else {
@@ -8156,7 +8372,7 @@ public class AssignmentAction extends PagedResourceActionII {
         }
     }
 
-    private void integrateWithAnnouncement(SessionState state, String aOldTitle, Assignment a, String title, Instant openTime, String checkAutoAnnounce, String valueOpenDateNotification, Instant oldOpenTime) {
+    private void integrateWithAnnouncement(SessionState state, String aOldTitle, Assignment assignment, String title, Instant openTime, String checkAutoAnnounce, String valueOpenDateNotification, Instant oldOpenTime) {
         if (checkAutoAnnounce.equalsIgnoreCase(Boolean.TRUE.toString())) {
             AnnouncementChannel channel = (AnnouncementChannel) state.getAttribute(ANNOUNCEMENT_CHANNEL);
             if (channel != null) {
@@ -8165,8 +8381,8 @@ public class AssignmentAction extends PagedResourceActionII {
                 boolean updatedOpenDate = false;
                 boolean updateAccess = false;
 
-                String openDateAnnounced = StringUtils.trimToNull(a.getProperties().get(NEW_ASSIGNMENT_OPEN_DATE_ANNOUNCED));
-                String openDateAnnouncementId = StringUtils.trimToNull(a.getProperties().get(ResourceProperties.PROP_ASSIGNMENT_OPENDATE_ANNOUNCEMENT_MESSAGE_ID));
+                String openDateAnnounced = StringUtils.trimToNull(assignment.getProperties().get(NEW_ASSIGNMENT_OPEN_DATE_ANNOUNCED));
+                String openDateAnnouncementId = StringUtils.trimToNull(assignment.getProperties().get(ResourceProperties.PROP_ASSIGNMENT_OPENDATE_ANNOUNCEMENT_MESSAGE_ID));
                 if (openDateAnnounced != null && openDateAnnouncementId != null) {
                     AnnouncementMessage message = null;
 
@@ -8175,14 +8391,14 @@ public class AssignmentAction extends PagedResourceActionII {
                         if (!message.getAnnouncementHeader().getSubject().contains(title))/*whether title has been changed*/ {
                             updatedTitle = true;
                         }
-                        if (!message.getBody().contains(openTime.toString())) /*whether open date has been changed*/ {
+                        if (!message.getBody().contains(assignmentService.getUsersLocalDateTimeString(openTime))) /*whether open date has been changed*/ {
                             updatedOpenDate = true;
                         }
-                        if ((message.getAnnouncementHeader().getAccess().equals(MessageHeader.MessageAccess.CHANNEL) && !a.getTypeOfAccess().equals(Assignment.Access.SITE))
-                                || (!message.getAnnouncementHeader().getAccess().equals(MessageHeader.MessageAccess.CHANNEL) && a.getTypeOfAccess().equals(Assignment.Access.SITE))) {
+                        if ((message.getAnnouncementHeader().getAccess().equals(MessageHeader.MessageAccess.CHANNEL) && !assignment.getTypeOfAccess().equals(Assignment.Access.SITE))
+                                || (!message.getAnnouncementHeader().getAccess().equals(MessageHeader.MessageAccess.CHANNEL) && assignment.getTypeOfAccess().equals(Assignment.Access.SITE))) {
                             updateAccess = true;
-                        } else if (a.getTypeOfAccess() == Assignment.Access.GROUP) {
-                            Collection<String> assnGroups = a.getGroups();
+                        } else if (assignment.getTypeOfAccess() == Assignment.Access.GROUP) {
+                            Collection<String> assnGroups = assignment.getGroups();
                             Collection<String> anncGroups = message.getAnnouncementHeader().getGroups();
                             if (!assnGroups.equals(anncGroups)) {
                                 updateAccess = true;
@@ -8197,7 +8413,7 @@ public class AssignmentAction extends PagedResourceActionII {
                             // if the access level has changed in assignment, remove the original announcement
                             channel.removeAnnouncementMessage(message.getId());
                         } catch (PermissionException e) {
-                            log.warn("PermissionException for remove message id={} for assignment id={}, {}", message.getId(), a.getId(), e.getMessage());
+                            log.warn("PermissionException for remove message id={} for assignment id={}, {}", message.getId(), assignment.getId(), e.getMessage());
                         }
                     }
                 }
@@ -8210,7 +8426,7 @@ public class AssignmentAction extends PagedResourceActionII {
                             AnnouncementMessageHeaderEdit header = message.getAnnouncementHeaderEdit();
 
                             // add assignment id into property, to facilitate assignment lookup in Annoucement tool
-                            message.getPropertiesEdit().addProperty("assignmentReference", AssignmentReferenceReckoner.reckoner().assignment(a).reckon().getReference());
+                            message.getPropertiesEdit().addProperty("assignmentReference", AssignmentReferenceReckoner.reckoner().assignment(assignment).reckon().getReference());
 
                             header.setDraft(/* draft */false);
                             header.replaceAttachments(/* attachment */entityManager.newReferenceList());
@@ -8223,19 +8439,20 @@ public class AssignmentAction extends PagedResourceActionII {
                                 header.setSubject(/* subject */rb.getFormattedMessage("assig5", title));
                             }
 
+			    String formattedOpenTime = assignmentService.getUsersLocalDateTimeString(openTime);
                             if (updatedOpenDate) {
                                 // revised assignment open date
-                                message.setBody(/* body */rb.getFormattedMessage("newope", formattedText.convertPlaintextToFormattedText(title), openTime.toString()));
+                                message.setBody(/* body */ "<p>" + rb.getFormattedMessage("newope", formattedText.convertPlaintextToFormattedText(title), formattedOpenTime) + "</p>");
                             } else {
                                 // assignment open date
-                                message.setBody(/* body */rb.getFormattedMessage("opedat", formattedText.convertPlaintextToFormattedText(title), openTime.toString()));
+                                message.setBody(/* body */ "<p>" + rb.getFormattedMessage("opedat", formattedText.convertPlaintextToFormattedText(title), formattedOpenTime) + "</p>");
                             }
 
                             // group information
-                            if (a.getTypeOfAccess().equals(Assignment.Access.GROUP)) {
+                            if (assignment.getTypeOfAccess().equals(Assignment.Access.GROUP)) {
                                 try {
                                     // get the group ids selected
-                                    Collection groupRefs = a.getGroups();
+                                    Collection groupRefs = assignment.getGroups();
 
                                     // make a collection of Group objects
                                     Collection groups = new ArrayList();
@@ -8281,11 +8498,11 @@ public class AssignmentAction extends PagedResourceActionII {
                         }
 
                         // commit related properties into Assignment object
-                        a.getProperties().put(NEW_ASSIGNMENT_OPEN_DATE_ANNOUNCED, Boolean.TRUE.toString());
+                        assignment.getProperties().put(NEW_ASSIGNMENT_OPEN_DATE_ANNOUNCED, Boolean.TRUE.toString());
                         if (message != null) {
-                            a.getProperties().put(ResourceProperties.PROP_ASSIGNMENT_OPENDATE_ANNOUNCEMENT_MESSAGE_ID, message.getId());
+                            assignment.getProperties().put(ResourceProperties.PROP_ASSIGNMENT_OPENDATE_ANNOUNCEMENT_MESSAGE_ID, message.getId());
                         }
-                        assignmentService.updateAssignment(a);
+                        assignmentService.updateAssignment(assignment);
 
                     } catch (PermissionException ee) {
                         log.warn(this + ":IntegrateWithAnnouncement " + rb.getString("cannotmak"));
@@ -8295,18 +8512,18 @@ public class AssignmentAction extends PagedResourceActionII {
         } // if
     }
 
-    private void integrateWithCalendar(SessionState state, Assignment a, String title, Instant dueTime, String checkAddDueTime, Instant oldDueTime, Map<String, String> properties) {
+    private void integrateWithCalendar(SessionState state, Assignment assignment, String title, Instant dueTime, String checkAddDueTime, Instant oldDueTime, Map<String, String> properties) {
         // Integrate with Sakai calendar tool
         Calendar c = (Calendar) state.getAttribute(CALENDAR);
 
-        integrateWithCalendarTool(state, a, title, dueTime, checkAddDueTime,
+        integrateWithCalendarTool(state, assignment, title, dueTime, checkAddDueTime,
                 oldDueTime, properties, c, ResourceProperties.PROP_ASSIGNMENT_DUEDATE_CALENDAR_EVENT_ID);
 
         // Integrate with additional calendar tool if deployed.
         Calendar additionalCal = (Calendar) state.getAttribute(ADDITIONAL_CALENDAR);
 
         if (additionalCal != null) {
-            integrateWithCalendarTool(state, a, title, dueTime, checkAddDueTime,
+            integrateWithCalendarTool(state, assignment, title, dueTime, checkAddDueTime,
                     oldDueTime, properties, additionalCal, ResourceProperties.PROP_ASSIGNMENT_DUEDATE_ADDITIONAL_CALENDAR_EVENT_ID);
         }
     }
@@ -8314,11 +8531,11 @@ public class AssignmentAction extends PagedResourceActionII {
     // Checks to see if due date event in assignment properties exists on the calendar.
     // If so, remove it and then add a new due date event to the calendar. Then update assignment property
     // with new event id.
-    private void integrateWithCalendarTool(SessionState state, Assignment a, String title, Instant dueTime, String checkAddDueTime, Instant oldDueTime, Map<String, String> properties, Calendar c, String dueDateProperty) {
+    private void integrateWithCalendarTool(SessionState state, Assignment assignment, String title, Instant dueTime, String checkAddDueTime, Instant oldDueTime, Map<String, String> properties, Calendar c, String dueDateProperty) {
         if (c == null) {
             return;
         }
-        String dueDateScheduled = a.getProperties().get(NEW_ASSIGNMENT_DUE_DATE_SCHEDULED);
+        String dueDateScheduled = assignment.getProperties().get(NEW_ASSIGNMENT_DUE_DATE_SCHEDULED);
         String oldEventId = properties.get(dueDateProperty);
         CalendarEvent e = null;
 
@@ -8358,7 +8575,7 @@ public class AssignmentAction extends PagedResourceActionII {
         }
 
         if (checkAddDueTime.equalsIgnoreCase(Boolean.TRUE.toString())) {
-            updateAssignmentWithEventId(state, a, title, dueTime, c, dueDateProperty);
+            updateAssignmentWithEventId(state, assignment, title, dueTime, c, dueDateProperty);
         }
     }
 
@@ -8372,18 +8589,18 @@ public class AssignmentAction extends PagedResourceActionII {
      * @param c               Calendar
      * @param dueDateProperty Property name specifies the appropriate calendar
      */
-    private void updateAssignmentWithEventId(SessionState state, Assignment a, String title, Instant dueTime, Calendar c, String dueDateProperty) {
+    private void updateAssignmentWithEventId(SessionState state, Assignment assignment, String title, Instant dueTime, Calendar c, String dueDateProperty) {
         CalendarEvent e;
         // commit related properties into Assignment object
-        if (a != null) {
+        if (assignment != null) {
             try {
                 e = null;
                 CalendarEvent.EventAccess eAccess = CalendarEvent.EventAccess.SITE;
                 List<Group> eGroups = new ArrayList<>();
 
-                if (a.getTypeOfAccess().equals(Assignment.Access.GROUP)) {
+                if (assignment.getTypeOfAccess().equals(Assignment.Access.GROUP)) {
                     eAccess = CalendarEvent.EventAccess.GROUPED;
-                    Collection<String> groupRefs = a.getGroups();
+                    Collection<String> groupRefs = assignment.getGroups();
 
                     // make a collection of Group objects from the collection of group ref strings
                     Site site = siteService.getSite((String) state.getAttribute(STATE_CONTEXT_STRING));
@@ -8392,21 +8609,22 @@ public class AssignmentAction extends PagedResourceActionII {
                         if (group != null) eGroups.add(group);
                     }
                 }
+		String formattedDueTime = assignmentService.getUsersLocalDateTimeString(dueTime);
                 e = c.addEvent(/* TimeRange */timeService.newTimeRange(dueTime.toEpochMilli(), 0),
 						/* title */rb.getString("gen.due") + " " + title,
-						/* description */rb.getFormattedMessage("assign_due_event_desc", title, dueTime.toString()),
-						/* type */rb.getString("deadl"),
+			       /* description */rb.getFormattedMessage("assign_due_event_desc", title, formattedDueTime),
+						/* type */"Deadline",
 						/* location */"",
 						/* access */ eAccess,
 						/* groups */ eGroups,
 						/* attachments */null /*SAK-27919 do not include assignment attachments.*/);
 
-                a.getProperties().put(NEW_ASSIGNMENT_DUE_DATE_SCHEDULED, Boolean.TRUE.toString());
+                assignment.getProperties().put(NEW_ASSIGNMENT_DUE_DATE_SCHEDULED, Boolean.TRUE.toString());
                 if (e != null) {
-                    a.getProperties().put(dueDateProperty, e.getId());
+                    assignment.getProperties().put(dueDateProperty, e.getId());
 
                     // edit the calendar object and add an assignment id field
-                    addAssignmentIdToCalendar(a, c, e);
+                    addAssignmentIdToCalendar(assignment, c, e);
                 }
                 // TODO do we care if the event is null?
 
@@ -8421,7 +8639,7 @@ public class AssignmentAction extends PagedResourceActionII {
 
 
             try {
-                assignmentService.updateAssignment(a);
+                assignmentService.updateAssignment(assignment);
             } catch (PermissionException e1) {
                 log.warn("Cannot update assignment, {}", e1.getMessage());
             }
@@ -8429,12 +8647,13 @@ public class AssignmentAction extends PagedResourceActionII {
     }
 
     // Persist the assignment id to the calendar
-    private void addAssignmentIdToCalendar(Assignment a, Calendar c, CalendarEvent e) throws IdUnusedException, PermissionException, InUseException {
+    private void addAssignmentIdToCalendar(Assignment assignment, Calendar c, CalendarEvent e) throws IdUnusedException, PermissionException, InUseException {
 
-        if (c != null && e != null && a != null) {
+        if (c != null && e != null && assignment != null) {
             CalendarEventEdit edit = c.getEditEvent(e.getId(), org.sakaiproject.calendar.api.CalendarService.EVENT_ADD_CALENDAR);
 
-            edit.setField(AssignmentConstants.NEW_ASSIGNMENT_DUEDATE_CALENDAR_ASSIGNMENT_ID, a.getId());
+            edit.setField(AssignmentConstants.NEW_ASSIGNMENT_DUEDATE_CALENDAR_ASSIGNMENT_ID, assignment.getId());
+            edit.setField(AssignmentConstants.NEW_ASSIGNMENT_OPEN_DATE_ANNOUNCED, assignmentService.getUsersLocalDateTimeString(assignment.getOpenDate()));
 
             c.commitEvent(edit);
         }
@@ -8456,7 +8675,7 @@ public class AssignmentAction extends PagedResourceActionII {
         }
     }
 
-    private void editAssignmentProperties(Assignment a, String checkAddDueTime, String checkAutoAnnounce, String addtoGradebook, String associateGradebookAssignment, String allowResubmitNumber, Map<String, String> properties, boolean post, Instant closeTime, boolean checkAnonymousGrading) {
+    private void editAssignmentProperties(Assignment assignment, String checkAddDueTime, String checkAutoAnnounce, String addtoGradebook, String associateGradebookAssignment, String allowResubmitNumber, Map<String, String> properties, boolean post, Instant closeTime, boolean checkAnonymousGrading) {
         if (properties.get("newAssignment") != null) {
             if (properties.get("newAssignment").equalsIgnoreCase(Boolean.TRUE.toString())) {
                 // not a newly created assignment, been added.
@@ -8478,7 +8697,7 @@ public class AssignmentAction extends PagedResourceActionII {
         if (post) {
             switch (addtoGradebook) {
                 case GRADEBOOK_INTEGRATION_ADD:
-                    associateGradebookAssignment = AssignmentReferenceReckoner.reckoner().assignment(a).reckon().getReference();
+                    associateGradebookAssignment = AssignmentReferenceReckoner.reckoner().assignment(assignment).reckon().getReference();
                 case GRADEBOOK_INTEGRATION_ASSOCIATE:
                     properties.put(NEW_ASSIGNMENT_ADD_TO_GRADEBOOK, GRADEBOOK_INTEGRATION_ASSOCIATE);
                     properties.put(PROP_ASSIGNMENT_ASSOCIATE_GRADEBOOK_ASSIGNMENT, associateGradebookAssignment);
@@ -8522,6 +8741,7 @@ public class AssignmentAction extends PagedResourceActionII {
                                   Instant closeTime,
                                   boolean hideDueDate,
                                   boolean enableCloseDate,
+                                  boolean emailReminder,
                                   boolean isGroupSubmit,
                                   Collection<Group> groups,
                                   // Peer Assessment options
@@ -8559,7 +8779,7 @@ public class AssignmentAction extends PagedResourceActionII {
         a.setOpenDate(openTime);
         a.setDueDate(dueTime);
         a.setDropDeadDate(dueTime);
-        a.setVisibleDate(visibleTime != null ? visibleTime : openTime);
+        a.setVisibleDate(visibleTime);
         if (closeTime != null) a.setCloseDate(closeTime);
 
         Map<String, String> p = a.getProperties();
@@ -8577,6 +8797,7 @@ public class AssignmentAction extends PagedResourceActionII {
         p.put(NEW_ASSIGNMENT_REVIEW_SERVICE_STUDENT_PREVIEW, Boolean.toString(studentPreview));
         p.put(NEW_ASSIGNMENT_REVIEW_SERVICE_EXCLUDE_TYPE, Integer.toString(excludeType));
         p.put(NEW_ASSIGNMENT_REVIEW_SERVICE_EXCLUDE_VALUE, Integer.toString(excludeValue));
+        p.put(NEW_ASSIGNMENT_REMINDER_EMAIL,Boolean.toString(emailReminder));
 
         if (!enableCloseDate) {
             // remove close date
@@ -8587,7 +8808,10 @@ public class AssignmentAction extends PagedResourceActionII {
         a.setDraft(!post);
 
         if (gradeType == SCORE_GRADE_TYPE) {
-            a.setScaleFactor(assignmentService.getScaleFactor());
+            if (a.getScaleFactor() == null) {
+                // only set the default scale factor if the assignment does not have one
+                a.setScaleFactor(assignmentService.getScaleFactor());
+            }
             try {
                 a.setMaxGradePoint(Integer.parseInt(gradePoints));
             } catch (NumberFormatException e) {
@@ -8603,11 +8827,11 @@ public class AssignmentAction extends PagedResourceActionII {
             a.setAllowAttachments(false);
         }
 
-        if (attachments != null && !attachments.isEmpty()) {
-            Set<String> aAttachments = a.getAttachments();
-            // clear attachments
-            aAttachments.clear();
+        Set<String> aAttachments = a.getAttachments();
+        // clear attachments
+        aAttachments.clear();
 
+        if (attachments != null && !attachments.isEmpty()) {
             // add each attachment
             for (Reference reference : entityManager.newReferenceList(attachments)) {
                 aAttachments.add(reference.getReference());
@@ -8628,9 +8852,51 @@ public class AssignmentAction extends PagedResourceActionII {
         try {
             if (Assignment.Access.SITE.toString().equals(range)) {
                 a.setTypeOfAccess(Assignment.Access.SITE);
+                a.getGroups().clear();
             } else if (Assignment.Access.GROUP.toString().equals(range)) {
                 a.setTypeOfAccess(Assignment.Access.GROUP);
-                a.setGroups(groups.stream().map(Group::getReference).collect(Collectors.toSet()));
+                Set<String> previousGroupRefs = new HashSet<>(a.getGroups());
+                Set<String> currentGroupRefs = groups.stream().map(Group::getReference).collect(Collectors.toSet());
+
+                // if groups have changed
+                if (!previousGroupRefs.equals(currentGroupRefs)) {
+                    previousGroupRefs.removeAll(currentGroupRefs);
+                    Set<String> submitterIds;
+
+                    if (a.getIsGroup()) {
+                        submitterIds = previousGroupRefs.stream().map(ref -> {
+                            String[] parts = StringUtils.split(ref, '/');
+                            return "group".equals(parts[2]) ? parts[3] : null;
+                        }).filter(Objects::nonNull).collect(Collectors.toSet());
+                    } else {
+                        submitterIds = previousGroupRefs.stream().map(ref -> {
+                            try {
+                                return authzGroupService.getAuthzGroup(ref);
+                            } catch (GroupNotDefinedException e) {
+                                return null;
+                            }
+                        }).filter(Objects::nonNull).flatMap(ag -> ag.getMembers().stream()).map(Member::getUserId).collect(Collectors.toSet());
+                    }
+
+                    List<AssignmentSubmission> submissionsToRemove = submitterIds.stream().map(id -> {
+                        try {
+                            return assignmentService.getSubmission(a.getId(), id);
+                        } catch (PermissionException pe) {
+                            return null;
+                        }
+                    }).filter(Objects::nonNull).collect(Collectors.toList());
+
+                    submissionsToRemove.stream()
+                            .filter(s -> !s.getUserSubmission())
+                            .forEach(s -> {
+                                try {
+                                    assignmentService.removeSubmission(s);
+                                } catch (PermissionException pe) {
+                                    log.warn("Group update detected on assignment {}, could not remove submission {}", a.getId(), s);
+                                }
+                            });
+                    a.setGroups(currentGroupRefs);
+                }
             }
 
             // commit the changes
@@ -8649,17 +8915,19 @@ public class AssignmentAction extends PagedResourceActionII {
         }
 
         if (a.getIsGroup()) {
-            Collection<String> dupUsers = usersInMultipleGroups(a);
-            if (!dupUsers.isEmpty()) {
-                addAlert(state, rb.getString("group.user.multiple.error"));
-                log.warn(":post_save_assignment at least one user in multiple groups.");
-            }
+            rangeAndGroups.checkAssignmentForUsersInMultipleGroups(a, state);
         }
 
         if(!a.getDraft() && a.getAllowPeerAssessment()){
             assignmentPeerAssessmentService.schedulePeerReview(a.getId());
         }else{
             assignmentPeerAssessmentService.removeScheduledPeerReview(a.getId());
+        }
+
+        if (!a.getDraft() && emailReminder) {
+            assignmentDueReminderService.scheduleDueDateReminder(a.getId());
+        } else {
+            assignmentDueReminderService.removeScheduledReminder(a.getId());
         }
 
     }
@@ -9067,7 +9335,7 @@ public class AssignmentAction extends PagedResourceActionII {
                 state.setAttribute(NEW_ASSIGNMENT_SECTION, a.getSection());
 
                 state.setAttribute(NEW_ASSIGNMENT_SUBMISSION_TYPE, a.getTypeOfSubmission().ordinal());
-                state.setAttribute(NEW_ASSIGNMENT_CATEGORY, getAssignmentCategoryAsInt(a));
+                state.setAttribute(NEW_ASSIGNMENT_CATEGORY, 0);
                 state.setAttribute(NEW_ASSIGNMENT_GRADE_TYPE, a.getTypeOfGrade().ordinal());
                 if (a.getTypeOfGrade() == SCORE_GRADE_TYPE) {
                     state.setAttribute(NEW_ASSIGNMENT_GRADE_POINTS, a.getMaxGradePoint().toString());
@@ -9079,13 +9347,12 @@ public class AssignmentAction extends PagedResourceActionII {
 
                 state.setAttribute(ResourceProperties.NEW_ASSIGNMENT_CHECK_AUTO_ANNOUNCE, properties.get(ResourceProperties.NEW_ASSIGNMENT_CHECK_AUTO_ANNOUNCE));
 
-                String defaultNotification = serverConfigurationService.getString("announcement.default.notification", "n");
-                if (defaultNotification.equalsIgnoreCase("r")) {
-                    state.setAttribute(AssignmentConstants.ASSIGNMENT_OPENDATE_NOTIFICATION, AssignmentConstants.ASSIGNMENT_OPENDATE_NOTIFICATION_HIGH);
-                } else if (defaultNotification.equalsIgnoreCase("o")) {
-                    state.setAttribute(AssignmentConstants.ASSIGNMENT_OPENDATE_NOTIFICATION, AssignmentConstants.ASSIGNMENT_OPENDATE_NOTIFICATION_LOW);
-                } else {
-                    state.setAttribute(AssignmentConstants.ASSIGNMENT_OPENDATE_NOTIFICATION, AssignmentConstants.ASSIGNMENT_OPENDATE_NOTIFICATION_NONE);
+                if (properties.get(AssignmentConstants.ASSIGNMENT_OPENDATE_NOTIFICATION) != null) {
+                    state.setAttribute(AssignmentConstants.ASSIGNMENT_OPENDATE_NOTIFICATION, properties.get(AssignmentConstants.ASSIGNMENT_OPENDATE_NOTIFICATION));
+                }
+
+                if(properties.get(NEW_ASSIGNMENT_REMINDER_EMAIL) != null){
+                    state.setAttribute(NEW_ASSIGNMENT_REMINDER_EMAIL, Boolean.valueOf(properties.get(NEW_ASSIGNMENT_REMINDER_EMAIL).toString()));
                 }
 
                 state.setAttribute(NEW_ASSIGNMENT_CHECK_ADD_HONOR_PLEDGE, a.getHonorPledge());
@@ -9107,11 +9374,7 @@ public class AssignmentAction extends PagedResourceActionII {
                 }
 
                 // group setting
-                if (a.getTypeOfAccess().equals(Assignment.Access.SITE)) {
-                    state.setAttribute(NEW_ASSIGNMENT_RANGE, Assignment.Access.SITE.toString());
-                } else {
-                    state.setAttribute(NEW_ASSIGNMENT_RANGE, Assignment.Access.GROUP.toString());
-                }
+                rangeAndGroups.doEditAssignment(state, a);
 
                 state.setAttribute(NEW_ASSIGNMENT_CHECK_ANONYMOUS_GRADING, assignmentService.assignmentUsesAnonymousGrading(a));
 
@@ -9166,10 +9429,6 @@ public class AssignmentAction extends PagedResourceActionII {
                 //exclude value
                 state.setAttribute(NEW_ASSIGNMENT_REVIEW_SERVICE_EXCLUDE_VALUE, p.get(NEW_ASSIGNMENT_REVIEW_SERVICE_EXCLUDE_VALUE));
 
-                state.setAttribute(NEW_ASSIGNMENT_GROUPS, a.getGroups());
-
-                state.setAttribute(NEW_ASSIGNMENT_GROUP_SUBMIT, a.getIsGroup() ? "1" : "0");
-
                 // get all supplement item info into state
                 setAssignmentSupplementItemInState(state, a);
 
@@ -9181,6 +9440,37 @@ public class AssignmentAction extends PagedResourceActionII {
 
     } // doEdit_Assignment
 
+    
+	private String getGradeName(final Assignment a, final String assignmentReference) {
+        final Map<String, String> properties = a.getProperties();
+        final String gradebookChoice = StringUtils.defaultIfBlank(properties.get(NEW_ASSIGNMENT_ADD_TO_GRADEBOOK), GRADEBOOK_INTEGRATION_NO);
+        final StringBuffer sb = new StringBuffer();
+
+        switch(gradebookChoice) {
+            case GRADEBOOK_INTEGRATION_ADD:
+                // add new entry to gradebook
+                sb.append(rb.getString("grading.add"))
+                        .append(rb.getString("grading.ofcategory"))
+                        .append(categoryTable().get(0));
+                break;
+            case GRADEBOOK_INTEGRATION_ASSOCIATE:
+			    // associated with one existing entry in Gradebook
+                sb.append(rb.getString("grading.associate"))
+                        .append(": ");
+                if (assignmentReference.equals(properties.get(PROP_ASSIGNMENT_ASSOCIATE_GRADEBOOK_ASSIGNMENT))) {
+                    sb.append(a.getTitle());
+                } else {
+                    sb.append(properties.get(PROP_ASSIGNMENT_ASSOCIATE_GRADEBOOK_ASSIGNMENT));
+                }
+                break;
+            case GRADEBOOK_INTEGRATION_NO:
+            default:
+                // not associating with gradebook
+                sb.append(rb.getString("grading.no"));
+        }
+        return sb.toString();
+	}
+    
     public List<String> getSubmissionRepositoryOptions() {
         List<String> submissionRepoSettings = new ArrayList<String>();
         String[] propertyValues = serverConfigurationService.getStrings("turnitin.repository.setting");
@@ -9211,8 +9501,8 @@ public class AssignmentAction extends PagedResourceActionII {
         if (propertyValues != null && propertyValues.length > 0) {
             for (int i = 0; i < propertyValues.length; i++) {
                 String propertyVal = propertyValues[i];
-                if (propertyVal.equals(NEW_ASSIGNMENT_REVIEW_SERVICE_REPORT_DUE) ||
-                        propertyVal.equals(NEW_ASSIGNMENT_REVIEW_SERVICE_REPORT_IMMEDIATELY)) {
+                if (propertyVal.equals(NEW_ASSIGNMENT_REVIEW_SERVICE_REPORT_IMMEDIATELY) || propertyVal.equals(NEW_ASSIGNMENT_REVIEW_SERVICE_REPORT_IMMEDIATELY_AND_DUE) ||
+                        propertyVal.equals(NEW_ASSIGNMENT_REVIEW_SERVICE_REPORT_DUE)) {
                     reportGenSettings.add(propertyVal);
                 }
             }
@@ -9220,9 +9510,9 @@ public class AssignmentAction extends PagedResourceActionII {
 
         // if there are still no valid settings in the list at this point, use the default
         if (reportGenSettings.isEmpty()) {
-            // add all three
+            // add only the defaults used in original Turnitin integration
+        		reportGenSettings.add(NEW_ASSIGNMENT_REVIEW_SERVICE_REPORT_IMMEDIATELY);                                    
             reportGenSettings.add(NEW_ASSIGNMENT_REVIEW_SERVICE_REPORT_DUE);
-            reportGenSettings.add(NEW_ASSIGNMENT_REVIEW_SERVICE_REPORT_IMMEDIATELY);
         }
 
         return reportGenSettings;
@@ -9389,12 +9679,9 @@ public class AssignmentAction extends PagedResourceActionII {
 
                 String title = assignment.getTitle();
 
-                // remove related event if there is one
-                removeCalendarEvent(state, assignment, properties, title);
-
-                // remove related announcement if there is one
-                removeAnnouncement(state, properties);
-
+                // remove rubric association if there is one
+                rubricsService.deleteRubricAssociation(RubricsConstants.RBCS_TOOL_ASSIGNMENT, id);
+				
                 // remove from Gradebook
                 integrateGradebook(state, ref, associateGradebookAssignment, "remove", null, null, -1, null, null, null, -1);
 
@@ -9409,7 +9696,7 @@ public class AssignmentAction extends PagedResourceActionII {
                 for (String reference : groups) {
                     Group group = site.getGroup(reference);
                     if (group != null) {
-                        group.unlockGroup(group.getReference() + "/assignment/" + assignment.getId());
+                        group.unlockGroup(group.getReference() + "/assignment/" + assignment.getId(), Group.LockMode.ALL);
                         siteService.save(group.getContainingSite());
                     }
                 }
@@ -9434,27 +9721,6 @@ public class AssignmentAction extends PagedResourceActionII {
     } // doDelete_Assignment
 
     /**
-     * private function to remove assignment related announcement
-     *
-     * @param state
-     * @param properties
-     */
-    private void removeAnnouncement(SessionState state, Map<String, String> properties) {
-        AnnouncementChannel channel = (AnnouncementChannel) state.getAttribute(ANNOUNCEMENT_CHANNEL);
-        if (channel != null) {
-            String openDateAnnounced = StringUtils.trimToNull(properties.get(NEW_ASSIGNMENT_OPEN_DATE_ANNOUNCED));
-            String openDateAnnouncementId = StringUtils.trimToNull(properties.get(ResourceProperties.PROP_ASSIGNMENT_OPENDATE_ANNOUNCEMENT_MESSAGE_ID));
-            if (openDateAnnounced != null && openDateAnnouncementId != null) {
-                try {
-                    channel.removeMessage(openDateAnnouncementId);
-                } catch (PermissionException e) {
-                    log.warn("Could not remove Announcement: {}, {}", openDateAnnouncementId, e.getMessage());
-                }
-            }
-        }
-    }
-
-    /**
      * private method to remove assignment and related objects
      *
      * @param state
@@ -9467,64 +9733,6 @@ public class AssignmentAction extends PagedResourceActionII {
         } catch (PermissionException e) {
             addAlert(state, rb.getString("youarenot11") + " " + assignment.getTitle() + ". ");
             log.warn("Could not delete assignment, {}", e.getMessage());
-        }
-    }
-
-    private void removeCalendarEvent(SessionState state, Assignment assignment, Map<String, String> properties, String title) {
-        String isThereEvent = properties.get(NEW_ASSIGNMENT_DUE_DATE_SCHEDULED);
-        if (isThereEvent != null && isThereEvent.equals(Boolean.TRUE.toString())) {
-            // remove the associated calendar event
-            Calendar c = (Calendar) state.getAttribute(CALENDAR);
-            removeCalendarEventFromCalendar(state, assignment, properties, title, c, ResourceProperties.PROP_ASSIGNMENT_DUEDATE_CALENDAR_EVENT_ID);
-
-            // remove the associated event from the additional calendar
-            Calendar additionalCalendar = (Calendar) state.getAttribute(ADDITIONAL_CALENDAR);
-            removeCalendarEventFromCalendar(state, assignment, properties, title, additionalCalendar, ResourceProperties.PROP_ASSIGNMENT_DUEDATE_ADDITIONAL_CALENDAR_EVENT_ID);
-
-        }
-    }
-
-    // Retrieves the calendar event associated with the due date and removes it from the calendar.
-    private void removeCalendarEventFromCalendar(SessionState state, Assignment assignment, Map<String, String> properties, String title, Calendar c, String dueDateProperty) {
-        if (c != null) {
-            // already has calendar object
-            // get the old event
-            CalendarEvent e = null;
-            boolean found = false;
-            String oldEventId = properties.get(dueDateProperty);
-            if (oldEventId != null) {
-                try {
-                    e = c.getEvent(oldEventId);
-                    found = true;
-                } catch (IdUnusedException | PermissionException ee) {
-                    // no action needed for this condition
-                    log.warn("Calendar even not found, {}", ee.getMessage());
-                }
-            } else {
-                Instant b = assignment.getDueDate();
-                // TODO: check- this was new Time(year...), not local! -ggolden
-                LocalDateTime startTime = LocalDateTime.of(b.get(ChronoField.YEAR), b.get(ChronoField.MONTH_OF_YEAR), b.get(ChronoField.DAY_OF_MONTH), 0, 0, 0, 0);
-                LocalDateTime endTime = LocalDateTime.of(b.get(ChronoField.YEAR), b.get(ChronoField.MONTH_OF_YEAR), b.get(ChronoField.DAY_OF_MONTH), 23, 59, 59, 999);
-                try {
-                    Iterator events = c.getEvents(timeService.newTimeRange(timeService.newTime(startTime.atZone(timeService.getLocalTimeZone().toZoneId()).toInstant().toEpochMilli()),
-                            timeService.newTime(endTime.atZone(timeService.getLocalTimeZone().toZoneId()).toInstant().toEpochMilli())), null).iterator();
-                    while ((!found) && (events.hasNext())) {
-                        e = (CalendarEvent) events.next();
-                        if ((e.getDisplayName()).contains(rb.getString("gen.assig") + " " + title)) {
-                            found = true;
-                        }
-                    }
-                } catch (PermissionException pException) {
-                    addAlert(state, rb.getFormattedMessage("cannot_getEvents", c.getReference()));
-                }
-            }
-            // remove the found old event
-            if (found) {
-                // found the old event delete it
-                removeOldEvent(title, c, e);
-                properties.remove(NEW_ASSIGNMENT_DUE_DATE_SCHEDULED);
-                properties.remove(dueDateProperty);
-            }
         }
     }
 
@@ -9595,8 +9803,14 @@ public class AssignmentAction extends PagedResourceActionII {
                     if (a != null) {
                         a.setDeleted(false);
                         assignmentService.updateAssignment(a);
-                    }
 
+                        // restore email reminder only if reminder is set and the due date is after 1 day
+                        if (BooleanUtils.toBoolean(a.getProperties().get(NEW_ASSIGNMENT_REMINDER_EMAIL))
+                                && a.getDueDate() != null
+                                && Instant.now().plus(1, ChronoUnit.DAYS).isBefore(a.getDueDate())) {
+                            assignmentDueReminderService.scheduleDueDateReminder(a.getId());
+                        }
+                    }
                 } catch (IdUnusedException | PermissionException e) {
                     addAlert(state, rb.getFormattedMessage("youarenot_editAssignment", id));
                     log.warn(e.getMessage());
@@ -9702,6 +9916,7 @@ public class AssignmentAction extends PagedResourceActionII {
             AssignmentSubmission s = getSubmission(submissionId, "putSubmissionInfoIntoState", state);
             if (s != null) {
                 state.setAttribute(GRADE_SUBMISSION_FEEDBACK_TEXT, s.getSubmittedText());
+                state.setAttribute(GRADE_SUBMISSION_SUBMITTERS_NAMES, getSubmitterFormattedNames(s, "putSubmissionInfoIntoState"));
 
                 if ((s.getFeedbackText() == null) || (s.getFeedbackText().length() == 0)) {
                     state.setAttribute(GRADE_SUBMISSION_FEEDBACK_TEXT, s.getSubmittedText());
@@ -9715,30 +9930,17 @@ public class AssignmentAction extends PagedResourceActionII {
                 s.getFeedbackAttachments().forEach(f -> v.add(entityManager.newReference(f)));
                 state.setAttribute(ATTACHMENTS, v);
                 state.setAttribute(GRADE_SUBMISSION_FEEDBACK_ATTACHMENT, v);
-                state.setAttribute(GRADE_SUBMISSION_GRADE, s.getGrade());
+                String grade = assignmentService.getGradeDisplay(s.getGrade(), a.getTypeOfGrade(), a.getScaleFactor());
+                state.setAttribute(GRADE_SUBMISSION_GRADE, grade);
 
                 // populate grade overrides if they exist
                 if (a.getIsGroup()) {
-                    Set<AssignmentSubmissionSubmitter> submitters = s.getSubmitters();
-                    Map<String, String> p = a.getProperties();
-                    for (AssignmentSubmissionSubmitter submitter : submitters) {
-                        String grade_override = null;
-                        if (a.getTypeOfGrade() == SCORE_GRADE_TYPE
-                                && StringUtils.isNotBlank(p.get(PROP_ASSIGNMENT_ASSOCIATE_GRADEBOOK_ASSIGNMENT))
-                                && assignmentService.getGradeForUserInGradeBook(a.getId(), submitter.getSubmitter()) != null
-                                && !(assignmentService.getGradeForUserInGradeBook(assignmentId, submitter.getSubmitter()).equals(displayGrade(state, (String) state.getAttribute(GRADE_SUBMISSION_GRADE), a.getScaleFactor())))
-                                && state.getAttribute(GRADE_SUBMISSION_GRADE) != null) {
-                            // grade from gradebook
-                            grade_override = assignmentService.getGradeForUserInGradeBook(a.getId(), submitter.getSubmitter());
-                        } else {
-                            if (submitter.getGrade() != null) {
-                                grade_override = submitter.getGrade();
-                            }
-                        }
-                        if (StringUtils.isNotBlank(grade_override)) {
-                            state.setAttribute(GRADE_SUBMISSION_GRADE + "_" + submitter.getSubmitter(), grade_override);
-                        }
-                    }
+	                for (AssignmentSubmissionSubmitter submitter : s.getSubmitters()) {
+	                    String gradeOverride = assignmentService.getGradeForSubmitter(s, submitter.getSubmitter());
+	                    if (!StringUtils.equals(grade, gradeOverride)) {
+	                        state.setAttribute(GRADE_SUBMISSION_GRADE + "_" + submitter.getSubmitter(), gradeOverride);
+	                    }
+	                }
                 }
 
                 // put the resubmission info into state
@@ -9787,7 +9989,6 @@ public class AssignmentAction extends PagedResourceActionII {
                     // also set the return status
                     s.setReturned(true);
                     s.setDateReturned(Instant.now());
-                    s.setHonorPledge(false);
 
                     try {
                         assignmentService.updateSubmission(s);
@@ -9942,27 +10143,13 @@ public class AssignmentAction extends PagedResourceActionII {
         // whether the user can access the Submission object
         if (s != null) {
             String status = assignmentService.getSubmissionStatus(s.getId());
-            if ("Not Started".equals(status)) {
-                addAlert(state, rb.getString("stuviewsubm.theclodat"));
-            }
 
             // show submission view unless group submission with group error
             Assignment a = s.getAssignment();
             User u = (User) state.getAttribute(STATE_USER);
-            if (a.getIsGroup()) {
-                Collection<Group> groups = null;
-                Site st = null;
-                try {
-                    st = siteService.getSite((String) state.getAttribute(STATE_CONTEXT_STRING));
-                    groups = getGroupsWithUser(u.getId(), a, st);
-                    Collection<String> dupUsers = checkForGroupsInMultipleGroups(a, groups, state, rb.getString("group.user.multiple.warning"));
-                    if (dupUsers.size() > 0) {
-                        mode = MODE_STUDENT_VIEW_GROUP_ERROR;
-                        state.setAttribute(VIEW_SUBMISSION_ASSIGNMENT_REFERENCE, s.getAssignment().getId());
-                    }
-                } catch (IdUnusedException iue) {
-                    log.warn(this + ":doView_grade found!" + iue.getMessage());
-                }
+            if (a.getIsGroup() && !rangeAndGroups.validateUserGroups(state, u.getId(), a)) {
+                mode = MODE_STUDENT_VIEW_GROUP_ERROR;
+                state.setAttribute(VIEW_SUBMISSION_ASSIGNMENT_REFERENCE, s.getAssignment().getId());
             }
             state.setAttribute(STATE_MODE, mode);
         }
@@ -10085,7 +10272,7 @@ public class AssignmentAction extends PagedResourceActionII {
                 doCancel_grade_submission(data);
             } else if ("cancelgrade_review".equals(option)) {
                 // cancel grade review
-                // no need to do anything, session will have original values and refresh
+                doCancel_edit_assignment(data);
             } else if ("cancelreorder".equals(option)) {
                 // cancel reordering
                 doCancel_reorder(data);
@@ -10262,6 +10449,8 @@ public class AssignmentAction extends PagedResourceActionII {
 
         // when content-review is enabled, the inline text will have an associated attachment. It should be omitted from the file picker
         Assignment assignment = null;
+        String assignmentTitle = "";
+        String assignmentUser = "";
         boolean omitInlineAttachments = false;
 
         String mode = (String) state.getAttribute(STATE_MODE);
@@ -10272,6 +10461,7 @@ public class AssignmentAction extends PagedResourceActionII {
             // Restrict file picker configuration if using content-review (Turnitin):
             String assignmentRef = (String) state.getAttribute(VIEW_SUBMISSION_ASSIGNMENT_REFERENCE);
             assignment = getAssignment(assignmentRef, "doAttachments", state);
+            assignmentUser = userDirectoryService.getCurrentUser().getDisplayName();
             if (assignment.getContentReview()) {
                 state.setAttribute(FilePickerHelper.FILE_PICKER_MAX_ATTACHMENTS, FilePickerHelper.CARDINALITY_MULTIPLE);
                 state.setAttribute(FilePickerHelper.FILE_PICKER_SHOW_URL, Boolean.FALSE);
@@ -10294,10 +10484,24 @@ public class AssignmentAction extends PagedResourceActionII {
             omitInlineAttachments = true;
         } else if (MODE_INSTRUCTOR_NEW_EDIT_ASSIGNMENT.equals(mode)) {
             setNewAssignmentParameters(data, false);
+            assignmentTitle = (String) state.getAttribute(NEW_ASSIGNMENT_TITLE);
+            assignmentUser = userDirectoryService.getCurrentUser().getDisplayName();
+        // Submission grading page attachment
         } else if (MODE_INSTRUCTOR_GRADE_SUBMISSION.equals(mode)) {
             readGradeForm(data, state, "read");
+            String assignmentRef = (String) state.getAttribute(GRADE_SUBMISSION_ASSIGNMENT_ID);
+            assignment = getAssignment(assignmentRef, "doAttachments", state);
+            assignmentUser = (String) state.getAttribute(GRADE_SUBMISSION_SUBMITTERS_NAMES);
         } else if (MODE_STUDENT_REVIEW_EDIT.equals(mode)) {
             saveReviewGradeForm(data, state, "save");
+        }
+        
+        //Set the title and override for anonymous assignment
+        if (assignment != null) {
+        	assignmentTitle = assignment.getTitle();
+        	if (assignmentService.assignmentUsesAnonymousGrading(assignment)) {
+        		assignmentUser = rb.getString("grading.anonymous.title");
+        	}
         }
 
         if (state.getAttribute(STATE_MESSAGE) == null) {
@@ -10307,11 +10511,16 @@ public class AssignmentAction extends PagedResourceActionII {
             if (singleAttachment) {
                 // SAK-27595 - added a resources file picker for single uploaded file only assignments; we limit it here to accept a maximum of 1 file
                 state.setAttribute(FilePickerHelper.FILE_PICKER_MAX_ATTACHMENTS, 1);
-                state.setAttribute(FilePickerHelper.FILE_PICKER_TITLE_TEXT, rb.getString("gen.addatttoassig.singular"));
+                state.setAttribute(FilePickerHelper.FILE_PICKER_TITLE_TEXT, rb.getFormattedMessage("gen.addatttoassig.singular", assignmentTitle, assignmentUser));
             } else {
-                state.setAttribute(FilePickerHelper.FILE_PICKER_TITLE_TEXT, rb.getString("gen.addatttoassig"));
+                state.setAttribute(FilePickerHelper.FILE_PICKER_TITLE_TEXT, rb.getFormattedMessage("gen.addatttoassig", assignmentTitle, assignmentUser));
             }
             state.setAttribute(FilePickerHelper.FILE_PICKER_INSTRUCTION_TEXT, rb.getString("gen.addatttoassiginstr"));
+
+            // If there is no title or user set, use the default text
+            if ("".equals(assignmentTitle) && "".equals(assignmentUser)) {
+                state.setAttribute(FilePickerHelper.FILE_PICKER_TITLE_TEXT, rb.getString("gen.addatt"));
+            }
 
             // process existing attachments
             List<Reference> attachments = (List<Reference>) state.getAttribute(ATTACHMENTS);
@@ -10338,14 +10547,15 @@ public class AssignmentAction extends PagedResourceActionII {
      * @param state
      * @param params
      */
-    private void saveSubmitInputs(SessionState state,
-                                  ParameterParser params) {
+    private void saveSubmitInputs(SessionState state, ParameterParser params) {
         // retrieve the submission text (as formatted text)
         String text = processFormattedTextFromBrowser(state, params.getCleanString(VIEW_SUBMISSION_TEXT), true);
-
         state.setAttribute(VIEW_SUBMISSION_TEXT, text);
-        if (params.getString(VIEW_SUBMISSION_HONOR_PLEDGE_YES) != null) {
-            state.setAttribute(VIEW_SUBMISSION_HONOR_PLEDGE_YES, "true");
+
+        if(params.getString(SUBMISSION_REVIEW_SERVICE_EULA_AGREEMENT) != null) {
+            state.setAttribute(SUBMISSION_REVIEW_SERVICE_EULA_AGREEMENT, "true");
+        } else {
+            state.removeAttribute(SUBMISSION_REVIEW_SERVICE_EULA_AGREEMENT);
         }
 
         String assignmentRef = (String) state.getAttribute(VIEW_SUBMISSION_ASSIGNMENT_REFERENCE);
@@ -10414,7 +10624,7 @@ public class AssignmentAction extends PagedResourceActionII {
                     //Grade
                     String g = StringUtils.trimToNull(params.getCleanString(GRADE_SUBMISSION_GRADE));
                     Integer score = item.getScore();
-                    if (g != null && !"".equals(g)) {
+                    if (StringUtils.isNotEmpty(g)) {
                         try {
                             String assignmentId = (String) state.getAttribute(VIEW_ASSIGNMENT_ID);
                             if (assignmentId == null) {
@@ -10426,26 +10636,29 @@ public class AssignmentAction extends PagedResourceActionII {
                                 } else {
                                     int factor = a.getScaleFactor();
                                     int dec = (int) Math.log10(factor);
-                                    String decSeparator = formattedText.getDecimalSeparator();
-                                    g = StringUtils.replace(g, (",".equals(decSeparator) ? "." : ","), decSeparator);
-                                    NumberFormat nbFormat = formattedText.getNumberFormat(dec, dec, false);
-                                    DecimalFormat dcformat = (DecimalFormat) nbFormat;
-                                    Double dScore = dcformat.parse(g).doubleValue();
-
-                                    if (dScore < 0) {
-                                        addAlert(state, rb.getString("peerassessment.alert.saveinvalidscore"));
-                                    } else if (dScore <= a.getMaxGradePoint() / (double) factor) {
-                                        //scores are saved as whole values
-                                        //so a score of 1.3 would be stored as 13
-                                        score = (int) Math.round(dScore * factor);
-                                    } else {
-                                        addAlert(state, rb.getFormattedMessage("plesuse4", g, a.getMaxGradePoint() / (double) factor));
+                                    validPointGrade(state, g, factor);
+                                    if (state.getAttribute(STATE_MESSAGE) == null) {
+	                                    NumberFormat nbFormat = formattedText.getNumberFormat(dec, dec, false);
+	                                    DecimalFormat dcformat = (DecimalFormat) nbFormat;
+	                                    Double dScore = dcformat.parse(g).doubleValue();
+	
+	                                    if (dScore < 0) {
+	                                        addAlert(state, rb.getString("peerassessment.alert.saveinvalidscore"));
+	                                    } else if (dScore <= a.getMaxGradePoint() / (double) factor) {
+	                                        //scores are saved as whole values
+	                                        //so a score of 1.3 would be stored as 13
+	                                        score = (int) Math.round(dScore * factor);
+	                                    } else {
+	                                        addAlert(state, rb.getFormattedMessage("plesuse4", g, a.getMaxGradePoint() / (double) factor));
+	                                    }
                                     }
                                 }
                             }
                         } catch (Exception e) {
                             addAlert(state, rb.getString("peerassessment.alert.saveinvalidscore"));
                         }
+                    } else {
+                        score = null;
                     }
                     boolean scoreChanged = false;
                     if (score != null && item.getScore() == null
@@ -10783,6 +10996,14 @@ public class AssignmentAction extends PagedResourceActionII {
                     grade = (typeOfGrade == SCORE_GRADE_TYPE) ? scalePointGrade(state, grade, factor) : grade;
                     state.setAttribute(GRADE_SUBMISSION_GRADE, grade);
                 }
+
+                if (state.getAttribute(STATE_MESSAGE) != null) {
+                    String rubricStateDetails = params.getString(RUBRIC_STATE_DETAILS);
+                    state.setAttribute(RUBRIC_STATE_DETAILS, rubricStateDetails);
+                } else {
+                    state.removeAttribute(RUBRIC_STATE_DETAILS);
+                }
+
             }
         } else {
             // generate alert
@@ -11122,10 +11343,9 @@ public class AssignmentAction extends PagedResourceActionII {
     private void resetViewSubmission(SessionState state) {
         state.removeAttribute(VIEW_SUBMISSION_ASSIGNMENT_REFERENCE);
         state.removeAttribute(VIEW_SUBMISSION_TEXT);
-        state.setAttribute(VIEW_SUBMISSION_HONOR_PLEDGE_YES, "false");
         state.removeAttribute(GRADE_GREATER_THAN_MAX_ALERT);
         state.removeAttribute(VIEW_SUBMISSION_ASSIGNMENT_INSTRUCTOR);
-
+        state.removeAttribute(PREVIEW_SUBMISSION_TEXT);
     } // resetViewSubmission
 
     /**
@@ -11155,22 +11375,6 @@ public class AssignmentAction extends PagedResourceActionII {
         int month;
         int day;
         int year;
-
-        if (serverConfigurationService.getBoolean("assignment.visible.date.enabled", false)) {
-            Instant tVisible = t.plusSeconds(visibleDateOffset);
-            LocalDateTime ldtVisible = LocalDateTime.ofInstant(tVisible, ZoneId.systemDefault());
-            minute = ldtVisible.getMinute();
-            hour = ldtVisible.getHour();
-            month = ldtVisible.getMonthValue();
-            day = ldtVisible.getDayOfMonth();
-            year = ldtVisible.getYear();
-            state.setAttribute(NEW_ASSIGNMENT_VISIBLEMONTH, month);
-            state.setAttribute(NEW_ASSIGNMENT_VISIBLEDAY, day);
-            state.setAttribute(NEW_ASSIGNMENT_VISIBLEYEAR, year);
-            state.setAttribute(NEW_ASSIGNMENT_VISIBLEHOUR, hour);
-            state.setAttribute(NEW_ASSIGNMENT_VISIBLEMIN, minute);
-            state.setAttribute(NEW_ASSIGNMENT_VISIBLETOGGLE, false);
-        }
 
         // open date is shifted forward by the offset
         Instant tOpen = t.plusSeconds(openDateOffset);
@@ -11219,6 +11423,7 @@ public class AssignmentAction extends PagedResourceActionII {
 
         // enable the close date by default
         state.setAttribute(NEW_ASSIGNMENT_ENABLECLOSEDATE, Boolean.TRUE);
+        state.setAttribute(NEW_ASSIGNMENT_REMINDER_EMAIL, serverConfigurationService.getBoolean("asn.reminder.email.default", true));
 
         // Accept until date is shifted forward by the offset
         Instant tAccept = t.plusSeconds(acceptUntilDateOffset);
@@ -11294,8 +11499,7 @@ public class AssignmentAction extends PagedResourceActionII {
             state.removeAttribute(ALERT_GLOBAL_NAVIGATION);
         }
 
-        state.removeAttribute(NEW_ASSIGNMENT_RANGE);
-        state.removeAttribute(NEW_ASSIGNMENT_GROUPS);
+        rangeAndGroups.initializeAssignment(state);
 
         // remove the edit assignment id if any
         state.removeAttribute(EDIT_ASSIGNMENT_ID);
@@ -11324,6 +11528,8 @@ public class AssignmentAction extends PagedResourceActionII {
 
         // SAK-17606
         state.removeAttribute(NEW_ASSIGNMENT_CHECK_ANONYMOUS_GRADING);
+
+        state.removeAttribute(RUBRIC_STATE_DETAILS);
 
     } // resetNewAssignment
 
@@ -11358,6 +11564,7 @@ public class AssignmentAction extends PagedResourceActionII {
         state.removeAttribute(NEW_ASSIGNMENT_VISIBLETOGGLE);
 
         state.removeAttribute(NEW_ASSIGNMENT_ENABLECLOSEDATE);
+        state.removeAttribute(NEW_ASSIGNMENT_REMINDER_EMAIL);
         state.removeAttribute(NEW_ASSIGNMENT_CLOSEMONTH);
         state.removeAttribute(NEW_ASSIGNMENT_CLOSEDAY);
         state.removeAttribute(NEW_ASSIGNMENT_CLOSEYEAR);
@@ -11385,15 +11592,13 @@ public class AssignmentAction extends PagedResourceActionII {
         state.removeAttribute(NEW_ASSIGNMENT_ATTACHMENT);
         state.removeAttribute(NEW_ASSIGNMENT_FOCUS);
         state.removeAttribute(NEW_ASSIGNMENT_DESCRIPTION_EMPTY);
-        state.removeAttribute(NEW_ASSIGNMENT_GROUP_SUBMIT);
 
         // reset the global navigaion alert flag
         if (state.getAttribute(ALERT_GLOBAL_NAVIGATION) != null) {
             state.removeAttribute(ALERT_GLOBAL_NAVIGATION);
         }
 
-        state.removeAttribute(NEW_ASSIGNMENT_RANGE);
-        state.removeAttribute(NEW_ASSIGNMENT_GROUPS);
+        rangeAndGroups.resetAssignment(state);
 
         // remove the edit assignment id if any
         state.removeAttribute(EDIT_ASSIGNMENT_ID);
@@ -11439,7 +11644,9 @@ public class AssignmentAction extends PagedResourceActionII {
 
         state.removeAttribute(PROP_ASSIGNMENT_ASSOCIATE_GRADEBOOK_ASSIGNMENT);
 
+        state.removeAttribute(RUBRIC_STATE_DETAILS);
 
+        state.removeAttribute(NEW_ASSIGNMENT_PREVIOUSLY_ASSOCIATED);
     } // resetNewAssignment
 
     /**
@@ -11502,10 +11709,8 @@ public class AssignmentAction extends PagedResourceActionII {
     private Map<Long, String> categoryTable() {
         boolean gradebookExists = isGradebookDefined();
         Map<Long, String> catTable = new HashMap<>();
-        if (gradebookExists) {
-
-            String gradebookUid = toolManager.getCurrentPlacement().getContext();
-
+        String gradebookUid = toolManager.getCurrentPlacement().getContext();
+        if (gradebookExists && gradebookExternalAssessmentService.isCategoriesEnabled(gradebookUid)) {
             List<CategoryDefinition> categoryDefinitions = gradebookService.getCategoryDefinitions(gradebookUid);
 
             catTable.put((long) -1, rb.getString("grading.unassigned"));
@@ -11884,7 +12089,7 @@ public class AssignmentAction extends PagedResourceActionII {
                             for (Group group : submitterGroups) {
                                 submitterIds.add(group.getId());
                             }
-                            dupUsers = usersInMultipleGroups(a, true);
+                            dupUsers = rangeAndGroups.defaultMultipleGroupCheck(a).stream().map(mgr -> mgr.user.getId()).collect(Collectors.toList());
                         }
                         // Have we found an anonymous assignment in the list.
                         hasOneAnon = hasOneAnon || assignmentService.assignmentUsesAnonymousGrading(a);
@@ -12109,10 +12314,10 @@ public class AssignmentAction extends PagedResourceActionII {
     } // add2ndToolbarFields
 
     /**
-     * valid grade for point based type
-     * returns a double value in a string from the localized input
+     * Tests the format of the supplied grade and sets alert messages in the
+     * state as required.
      */
-    private String validPointGrade(SessionState state, String grade, int factor) {
+    private void validPointGrade(SessionState state, final String grade, int factor) {
         if (grade != null && !"".equals(grade)) {
             if (grade.startsWith("-")) {
                 // check for negative sign
@@ -12128,7 +12333,7 @@ public class AssignmentAction extends PagedResourceActionII {
                         || (".".equals(decSeparator) && grade.contains(","))
                         || grade.contains(" ")) {
                     addAlert(state, rb.getString("plesuse1"));
-                    return grade;
+                    return;
                 }
 
                 // parse grade from localized number format
@@ -12188,8 +12393,6 @@ public class AssignmentAction extends PagedResourceActionII {
                 }
             }
         }
-        return grade;
-
     }
 
     /**
@@ -12239,62 +12442,17 @@ public class AssignmentAction extends PagedResourceActionII {
         }
     }
 
-    /**
-     * display grade properly
-     *
-     * TODO can this use assignmentService.getGradeDisplay
-     */
-    private String displayGrade(SessionState state, String grade, int factor) {
-        if (state.getAttribute(STATE_MESSAGE) == null) {
-            if (grade != null && (grade.length() >= 1)) {
-                int dec = (int) Math.log10(factor);
-                NumberFormat nbFormat = formattedText.getNumberFormat(dec, dec, false);
-                DecimalFormat dcformat = (DecimalFormat) nbFormat;
-                String decSeparator = formattedText.getDecimalSeparator();
-
-                if (grade.contains(decSeparator)) {
-                    if (grade.startsWith(decSeparator)) {
-                        grade = "0".concat(grade);
-                    } else if (grade.endsWith(decSeparator)) {
-                        for (int i = 0; i < dec; i++) {
-                            grade = grade.concat("0");
-                        }
-                    }
-                } else {
-                    try {
-                        Integer.parseInt(grade);
-                        int length = grade.length();
-                        if (length > dec) {
-                            grade = grade.substring(0, grade.length() - dec) + decSeparator + grade.substring(grade.length() - dec);
-                        } else {
-                            String newGrade = "0".concat(decSeparator);
-                            for (int i = length; i < dec; i++) {
-                                newGrade = newGrade.concat("0");
-                            }
-                            grade = newGrade.concat(grade);
-                        }
-                    } catch (NumberFormatException e) {
-                        // alert
-                        alertInvalidPoint(state, grade, factor);
-                        log.warn(this + ":displayGrade cannot parse grade into integer grade = " + grade + e.getMessage());
-                    }
-                }
-                try {
-                    // show grade in localized number format
-                    Double dblGrade = dcformat.parse(grade).doubleValue();
-                    grade = nbFormat.format(dblGrade);
-                } catch (Exception e) {
-                    // alert
-                    alertInvalidPoint(state, grade, factor);
-                    log.warn(this + ":displayGrade cannot parse grade into integer grade = " + grade + e.getMessage());
-                }
+    private String displayGrade(SessionState state, String grade, Integer factor) {
+        String currentStateMessage = (String) state.getAttribute(STATE_MESSAGE);
+        if (currentStateMessage == null || currentStateMessage.startsWith(rb.getString("pleasee6"))) {
+            if (StringUtils.isNotBlank(grade)) {
+                grade = assignmentService.getGradeDisplay(grade, Assignment.GradeType.SCORE_GRADE_TYPE, factor);
             } else {
                 grade = "";
             }
         }
         return grade;
-
-    } // displayGrade
+    }
 
     /**
      * scale the point value by "factor" if there is a valid point grade
@@ -12303,53 +12461,51 @@ public class AssignmentAction extends PagedResourceActionII {
         String decSeparator = formattedText.getDecimalSeparator();
         int dec = (int) Math.log10(factor);
 
-        point = validPointGrade(state, point, factor);
+        validPointGrade(state, point, factor);
 
-        if (state.getAttribute(STATE_MESSAGE) == null) {
-            if (point != null && (point.length() >= 1)) {
-                // when there is decimal points inside the grade, scale the number by "factor"
-                // but only one decimal place is supported
-                // for example, change 100.0 to 1000
-                int index = point.indexOf(decSeparator);
-                if (index != -1) {
-                    if (index == 0) {
-                        int trailingData = point.substring(1).length();
-                        // if the point is the first char, add a 0 for the integer part
-                        point = "0".concat(point.substring(1));
-                        // ensure that the point value has the correct # of decimals
-                        // by padding with zeros
-                        if (trailingData < dec) {
-                            for (int i = trailingData; i < dec; i++) {
-                                point = point + "0";
-                            }
-                        }
-                    } else if (index < point.length() - 1) {
-                        // adjust the number of decimals, adding 0's to the end
-                        int length = point.length() - index - 1;
-                        for (int i = length; i < dec; i++) {
-                            point = point + "0";
-                        }
-
-                        // use scale integer for gradePoint
-                        point = point.substring(0, index) + point.substring(index + 1);
-                    } else {
-                        // decimal point is the last char
-                        point = point.substring(0, index);
-                        for (int i = 0; i < dec; i++) {
+        if (point != null && (point.length() >= 1)) {
+            // when there is decimal points inside the grade, scale the number by "factor"
+            // but only one decimal place is supported
+            // for example, change 100.0 to 1000
+            int index = point.indexOf(decSeparator);
+            if (index != -1) {
+                if (index == 0) {
+                    int trailingData = point.substring(1).length();
+                    // if the point is the first char, add a 0 for the integer part
+                    point = "0".concat(point.substring(1));
+                    // ensure that the point value has the correct # of decimals
+                    // by padding with zeros
+                    if (trailingData < dec) {
+                        for (int i = trailingData; i < dec; i++) {
                             point = point + "0";
                         }
                     }
+                } else if (index < point.length() - 1) {
+                    // adjust the number of decimals, adding 0's to the end
+                    int length = point.length() - index - 1;
+                    for (int i = length; i < dec; i++) {
+                        point = point + "0";
+                    }
+
+                    // use scale integer for gradePoint
+                    point = point.substring(0, index) + point.substring(index + 1);
                 } else {
-                    // if there is no decimal place, scale up the integer by "factor"
+                    // decimal point is the last char
+                    point = point.substring(0, index);
                     for (int i = 0; i < dec; i++) {
                         point = point + "0";
                     }
                 }
-
-                // filter out the "zero grade"
-                if ("00".equals(point)) {
-                    point = "0";
+            } else {
+                // if there is no decimal place, scale up the integer by "factor"
+                for (int i = 0; i < dec; i++) {
+                    point = point + "0";
                 }
+            }
+
+            // filter out the "zero grade"
+            if ("00".equals(point)) {
+                point = "0";
             }
         }
 
@@ -12423,7 +12579,7 @@ public class AssignmentAction extends PagedResourceActionII {
         String mode = (String) state.getAttribute(STATE_MODE);
         ParameterParser params = data.getParameters();
 
-        if (MODE_STUDENT_VIEW_SUBMISSION.equals(mode) || MODE_STUDENT_PREVIEW_SUBMISSION.equals(mode)
+        if (MODE_STUDENT_VIEW_SUBMISSION.equals(mode) || MODE_STUDENT_PREVIEW_SUBMISSION.equals(mode) || MODE_STUDENT_CONFIRM_SUBMISSION.equals(mode)
                 || MODE_STUDENT_VIEW_GRADE.equals(mode) || MODE_INSTRUCTOR_NEW_EDIT_ASSIGNMENT.equals(mode)
                 || MODE_INSTRUCTOR_DELETE_ASSIGNMENT.equals(mode) || MODE_INSTRUCTOR_GRADE_SUBMISSION.equals(mode)
                 || MODE_INSTRUCTOR_PREVIEW_GRADE_SUBMISSION.equals(mode) || MODE_INSTRUCTOR_PREVIEW_ASSIGNMENT.equals(mode)
@@ -12462,6 +12618,14 @@ public class AssignmentAction extends PagedResourceActionII {
         if ("cancel".equals(option)) {
             // cancel
             doCancel_show_submission(data);
+        } else if ("confirm".equals(option)) {
+            if (StringUtils.isNotBlank(data.getParameters().get("submit_on_behalf_of"))) {
+                // instructor submitting on behalf of a student go straight to posting submission
+                doPost_submission(data);
+            } else {
+                // students go to confirmation screen
+                doConfirm_submission(data);
+            }
         } else if ("preview".equals(option)) {
             // preview
             doPreview_submission(data);
@@ -12584,7 +12748,7 @@ public class AssignmentAction extends PagedResourceActionII {
         SessionState state = ((JetspeedRunData) data).getPortletSessionState(((JetspeedRunData) data).getJs_peid());
         ParameterParser params = data.getParameters();
 
-        String grade = StringUtils.trimToNull(params.getString("defaultGrade"));
+        String grade = StringUtils.trimToNull(params.getString(DEFAULT_GRADE));
         if (grade == null) {
             addAlert(state, rb.getString("plespethe2"));
         }
@@ -12594,6 +12758,7 @@ public class AssignmentAction extends PagedResourceActionII {
         if (a != null) {
             if (a.getTypeOfGrade() == SCORE_GRADE_TYPE) {
                 //for point-based grades
+                if (a.getScaleFactor() == null) a.setScaleFactor(assignmentService.getScaleFactor());
                 validPointGrade(state, grade, a.getScaleFactor());
 
                 if (state.getAttribute(STATE_MESSAGE) == null) {
@@ -12604,6 +12769,7 @@ public class AssignmentAction extends PagedResourceActionII {
                                 // alert user first when he enters grade bigger than max scale
                                 addAlert(state, rb.getFormattedMessage("grad2", grade, displayGrade(state, String.valueOf(maxGrade), a.getScaleFactor())));
                                 state.setAttribute(GRADE_GREATER_THAN_MAX_ALERT, Boolean.TRUE);
+                                state.setAttribute(DEFAULT_GRADE, grade);
                             } else {
                                 // remove the alert once user confirms he wants to give student higher grade
                                 state.removeAttribute(GRADE_GREATER_THAN_MAX_ALERT);
@@ -12617,11 +12783,10 @@ public class AssignmentAction extends PagedResourceActionII {
 
                 // Only record the default grade setting for no-submission if there were no errors produced
                 if (state.getAttribute(STATE_MESSAGE) == null) {
-                    grade = scalePointGrade(state, grade, a.getScaleFactor());
 
                     try {
-                        a.getProperties().put(GRADE_NO_SUBMISSION_DEFAULT_GRADE, grade);
                         assignmentService.updateAssignment(a);
+                        state.setAttribute(DEFAULT_GRADE, StringUtils.EMPTY);
                     } catch (PermissionException e) {
                         log.warn("Could not update assignment: {}, {}", a.getId(), e.getMessage());
                     }
@@ -12630,6 +12795,10 @@ public class AssignmentAction extends PagedResourceActionII {
 
 
             if (grade != null && state.getAttribute(STATE_MESSAGE) == null) {
+                if (a.getTypeOfGrade() == SCORE_GRADE_TYPE) {
+                    grade = scalePointGrade(state, grade, a.getScaleFactor());
+                }
+
                 // get the user list
                 String aRef = AssignmentReferenceReckoner.reckoner().assignment(a).reckon().getReference();
                 List<AssignmentSubmission> submissions = getFilteredSubmitters(state, aRef);
@@ -12663,7 +12832,7 @@ public class AssignmentAction extends PagedResourceActionII {
         SessionState state = ((JetspeedRunData) data).getPortletSessionState(((JetspeedRunData) data).getJs_peid());
         ParameterParser params = data.getParameters();
 
-        String grade = StringUtils.trimToNull(params.getString("defaultGrade"));
+        String grade = StringUtils.trimToNull(params.getString(DEFAULT_GRADE));
         if (grade == null) {
             addAlert(state, rb.getString("plespethe2"));
         }
@@ -12673,6 +12842,7 @@ public class AssignmentAction extends PagedResourceActionII {
         if (a != null) {
             if (a.getTypeOfGrade() == SCORE_GRADE_TYPE) {
                 //for point-based grades
+                if (a.getScaleFactor() == null) a.setScaleFactor(assignmentService.getScaleFactor());
                 validPointGrade(state, grade, a.getScaleFactor());
 
                 if (state.getAttribute(STATE_MESSAGE) == null) {
@@ -12683,6 +12853,7 @@ public class AssignmentAction extends PagedResourceActionII {
                                 // alert user first when he enters grade bigger than max scale
                                 addAlert(state, rb.getFormattedMessage("grad2", grade, displayGrade(state, String.valueOf(maxGrade), a.getScaleFactor())));
                                 state.setAttribute(GRADE_GREATER_THAN_MAX_ALERT, Boolean.TRUE);
+                                state.setAttribute(DEFAULT_GRADE, grade);
                             } else {
                                 // remove the alert once user confirms he wants to give student higher grade
                                 state.removeAttribute(GRADE_GREATER_THAN_MAX_ALERT);
@@ -12696,11 +12867,9 @@ public class AssignmentAction extends PagedResourceActionII {
 
                 // Only record the default grade setting for no-submission if there were no errors produced
                 if (state.getAttribute(STATE_MESSAGE) == null) {
-                    grade = scalePointGrade(state, grade, a.getScaleFactor());
-
                     try {
-                        a.getProperties().put(GRADE_NO_SUBMISSION_DEFAULT_GRADE, grade);
                         assignmentService.updateAssignment(a);
+                        state.setAttribute(DEFAULT_GRADE, StringUtils.EMPTY);
                     } catch (PermissionException e) {
                         log.warn("Could not update assignment: {}, {}", a.getId(), e.getMessage());
                     }
@@ -12709,6 +12878,10 @@ public class AssignmentAction extends PagedResourceActionII {
 
 
             if (grade != null && state.getAttribute(STATE_MESSAGE) == null) {
+                if (a.getTypeOfGrade() == SCORE_GRADE_TYPE) {
+                    grade = scalePointGrade(state, grade, a.getScaleFactor());
+                }
+
                 // get the submission list
                 String aRef = AssignmentReferenceReckoner.reckoner().assignment(a).reckon().getReference();
                 List<AssignmentSubmission> submissions = getFilteredSubmitters(state, aRef);
@@ -12732,157 +12905,6 @@ public class AssignmentAction extends PagedResourceActionII {
                 }
             }
         }
-    }
-
-    /**
-     * A utility method to determine users listed in multiple groups
-     * eligible to submit an assignment.  This is a bad situation.
-     * Current mechanism is to error out assignments with this situation
-     * to prevent affected groups from submitting and viewing feedback
-     * and prevent instructors from grading or sending feedback to
-     * affected groups until the conflict is resolved (by altering
-     * membership or perhaps by designating a resolution).
-     *
-     * @param assignmentorstate
-     * @param specify_groups
-     * @param ingroups
-     * @param populate_ids
-     * @param users
-     * @return
-     */
-    public Collection<String> usersInMultipleGroups(
-            Object assignmentorstate, // an assignment object or state object to find data
-            boolean specify_groups,   // don't use all site groups
-            String[] ingroups,        // limit to looking at specific groups
-            boolean populate_ids,     // return collection of user ids instead of message strings
-            Collection<String> users  // optional list of users to check instead of ALL site users
-    ) {
-        List<String> retVal = new ArrayList<>();
-
-        try {
-            Site s = null;
-            Collection<String> assignmentGroups = new HashSet<>();
-            if (ingroups != null) {
-                Collections.addAll(assignmentGroups, ingroups);
-            }
-            if (assignmentorstate instanceof SessionState) {
-                s = siteService.getSite((String) ((SessionState) assignmentorstate).getAttribute(STATE_CONTEXT_STRING));
-            } else {
-                Assignment a = (Assignment) assignmentorstate;
-                s = siteService.getSite(a.getContext());
-                if (a.getTypeOfAccess().equals(Assignment.Access.SITE)) {
-                    specify_groups = false;
-                } else {
-                    assignmentGroups = a.getGroups();
-                    specify_groups = true;
-                }
-            }
-
-            Iterator<String> it = users == null ? s.getUsers().iterator() : users.iterator();
-            while (it.hasNext()) {
-                String userRef = it.next();
-                Collection<Group> userGroups = s.getGroupsWithMember(userRef);
-                int count = 0;
-                StringBuilder sb = new StringBuilder();
-                for (Group checkGroup : userGroups) {
-                    // exclude Sections from eligible groups
-                    //if (_checkGroup.getProperties().get(GROUP_SECTION_PROPERTY) == null) {
-                    if (!specify_groups) {
-                        count++;
-                        if (count > 1) {
-                            sb.append(", ");
-                        }
-                        sb.append(checkGroup.getTitle());
-                    } else {
-                        if (assignmentGroups != null) {
-                            for (String ref : assignmentGroups) {
-                                Group group = s.getGroup(ref);
-                                if (group != null && group.getId().equals(checkGroup.getId())) {
-                                    count++;
-                                    if (count > 1) {
-                                        sb.append(", ");
-                                    }
-                                    sb.append(checkGroup.getTitle());
-                                }
-                            }
-                        }
-                    }
-                    //}
-                }
-                if (count > 1) {
-                    try {
-                        User user = userDirectoryService.getUser(userRef);
-                        // SAK-23697 Allow user to be in multiple groups if
-                        // no SECURE_ADD_ASSIGNMENT_SUBMISSION permission or
-                        // if user has both SECURE_ADD_ASSIGNMENT_SUBMISSION
-                        // and SECURE_GRADE_ASSIGNMENT_SUBMISSION permission (TAs and Instructors)
-                        if (securityService.unlock(user, SECURE_ADD_ASSIGNMENT_SUBMISSION, s.getReference()) && !securityService.unlock(user, SECURE_GRADE_ASSIGNMENT_SUBMISSION, s.getReference())) {
-                            retVal.add(populate_ids ? user.getId() : user.getDisplayName() + " (" + sb.toString() + ")");
-                        }
-                    } catch (UserNotDefinedException unde) {
-                        retVal.add("UNKNOWN USER (" + sb.toString() + ")");
-                    }
-                }
-            }
-        } catch (IdUnusedException te) {
-            throw new IllegalStateException("Could not find the site for assignment/state " + assignmentorstate + ": " + te, te);
-        }
-        return retVal;
-    }
-
-    public Collection<String> usersInMultipleGroups(Assignment _a, boolean populate_ids) {
-        return usersInMultipleGroups(_a, false, null, populate_ids, null);
-    }
-
-    public Collection<String> usersInMultipleGroups(Assignment _a) {
-        return usersInMultipleGroups(_a, false, null, false, null);
-    }
-
-    public Collection<String> checkForUsersInMultipleGroups(
-            Assignment a,
-            Collection<String> ids,
-            SessionState state,
-            String base_message) {
-        Collection<String> _dupUsers = usersInMultipleGroups(a, false, null, false, ids);
-        if (_dupUsers.size() > 0) {
-            StringBuilder _sb = new StringBuilder(base_message + " ");
-            Iterator<String> _it = _dupUsers.iterator();
-            if (_it.hasNext()) {
-                _sb.append(_it.next());
-            }
-            while (_it.hasNext()) {
-                _sb.append(", " + _it.next());
-            }
-            addAlert(state, _sb.toString());
-        }
-        return _dupUsers;
-    }
-
-    public Collection<String> checkForGroupsInMultipleGroups(
-            Assignment a,
-            Collection<Group> groups,
-            SessionState state,
-            String base_message) {
-        Collection<String> retVal = new ArrayList<String>();
-        if (securityService.isSuperUser()) {//don't check this for admin users
-            return retVal;
-        }
-        if (groups != null && groups.size() > 0) {
-            ArrayList<String> check_users = new ArrayList<String>();
-            Iterator<Group> it_groups = groups.iterator();
-            while (it_groups.hasNext()) {
-                Group _group = it_groups.next();
-                Iterator<String> it_strings = _group.getUsers().iterator();
-                while (it_strings.hasNext()) {
-                    String _id = it_strings.next();
-                    if (!check_users.contains(_id)) {
-                        check_users.add(_id);
-                    }
-                }
-            }
-            retVal = checkForUsersInMultipleGroups(a, check_users, state, rb.getString("group.user.multiple.warning"));
-        }
-        return retVal;
     }
 
     public void doDownload_all(RunData data) {
@@ -12973,7 +12995,7 @@ public class AssignmentAction extends PagedResourceActionII {
 
                     // SAK-17606
                     Map<String, String> anonymousSubmissionAndEidTable = new HashMap<>();
-
+                    String anonTitle = rb.getString("grading.anonymous.title");
                     // constructor the hashmap for all submission objects
                     Map<String, UploadGradeWrapper> submissionTable = new HashMap<>();
                     Set<AssignmentSubmission> submissions = null;
@@ -12982,16 +13004,27 @@ public class AssignmentAction extends PagedResourceActionII {
                         associateGradebookAssignment = assignment.getProperties().get(PROP_ASSIGNMENT_ASSOCIATE_GRADEBOOK_ASSIGNMENT);
                         submissions = assignmentService.getSubmissions(assignment);
                         for (AssignmentSubmission s : submissions) {
-                            String eid = s.getSubmitters().toArray(new AssignmentSubmissionSubmitter[0])[0].getSubmitter();
-                            List<Reference> attachments = entityManager.newReferenceList();
-                            attachments.addAll(s.getAttachments().stream().map(entityManager::newReference).collect(Collectors.toList()));
-                            List<Reference> feedbackAttachments = entityManager.newReferenceList();
-                            feedbackAttachments.addAll(s.getFeedbackAttachments().stream().map(entityManager::newReference).collect(Collectors.toList()));
-                            submissionTable.put(eid, new UploadGradeWrapper(s.getGrade(), s.getSubmittedText(), s.getFeedbackComment(), hasSubmissionAttachment ? new ArrayList() : attachments, hasFeedbackAttachment ? new ArrayList() : feedbackAttachments, (s.getSubmitted() && s.getDateSubmitted() != null) ? Long.toString(s.getDateSubmitted().toEpochMilli()) : "", s.getFeedbackText()));
-                            anonymousSubmissionAndEidTable.put(s.getId(), eid);
+                            String eid = null;
+                            if (assignment.getIsGroup()) {
+                                eid = s.getGroupId();
+                            } else {
+                                Optional<AssignmentSubmissionSubmitter> submitter = s.getSubmitters().stream().findAny();
+                                if (submitter.isPresent()) {
+                                    eid = submitter.get().getSubmitter();
+                                }
+                            }
+                            if (eid != null) {
+                                List<Reference> attachments = entityManager.newReferenceList();
+                                attachments.addAll(s.getAttachments().stream().map(entityManager::newReference).collect(Collectors.toList()));
+                                List<Reference> feedbackAttachments = entityManager.newReferenceList();
+                                feedbackAttachments.addAll(s.getFeedbackAttachments().stream().map(entityManager::newReference).collect(Collectors.toList()));
+                                submissionTable.put(eid, new UploadGradeWrapper(s.getGrade(), s.getSubmittedText(), s.getFeedbackComment(), hasSubmissionAttachment ? new ArrayList() : attachments, hasFeedbackAttachment ? new ArrayList() : feedbackAttachments, (s.getSubmitted() && s.getDateSubmitted() != null) ? Long.toString(s.getDateSubmitted().toEpochMilli()) : "", s.getFeedbackText()));
+                                anonymousSubmissionAndEidTable.put(s.getId() + " " + anonTitle, eid);
+                            } else {
+                                log.warn("Upload missing submitter for submission {}", s.getId());
+                            }
                         }
                     }
-
                     InputStream fileContentStream = fileFromUpload.getInputStream();
                     if (fileContentStream != null) {
                         submissionTable = uploadAll_parseZipFile(state,
@@ -13069,22 +13102,22 @@ public class AssignmentAction extends PagedResourceActionII {
             ZipFile zipFile = new ZipFile(tempFile, StandardCharsets.UTF_8);
             Enumeration<? extends ZipEntry> zipEntries = zipFile.entries();
             ZipEntry entry;
+            // SAK-17606
+            String anonTitle = rb.getString("grading.anonymous.title");
+            boolean isAnon = assignmentService.assignmentUsesAnonymousGrading(assignment);
             while (zipEntries.hasMoreElements() && validZipFormat) {
                 entry = zipEntries.nextElement();
                 String entryName = entry.getName();
                 if (!entry.isDirectory() && !entryName.contains("/.")) {
-                    // SAK-17606
-                    String anonTitle = rb.getString("grading.anonymous.title");
-
                     if (entryName.endsWith("grades.csv") || entryName.endsWith("grades.xls")) {
                         if (hasGradeFile && entryName.endsWith("grades.csv") && "csv".equals(gradeFileFormat)) {
                             // at least the zip file has a grade.csv
                             zipHasGradeFile = true;
 
                             // read grades.cvs from zip
-
                             String csvSep = assignmentService.getCsvSeparator();
-                            CSVReader reader = new CSVReader(new InputStreamReader(zipFile.getInputStream(entry)), csvSep.charAt(0));
+                            CSVParser parser = new CSVParserBuilder().withSeparator(csvSep.charAt(0)).build();
+                            CSVReader reader = new CSVReaderBuilder(new InputStreamReader(zipFile.getInputStream(entry))).withCSVParser(parser).build();
 
                             List<String[]> lines = reader.readAll();
 
@@ -13100,7 +13133,7 @@ public class AssignmentAction extends PagedResourceActionII {
                                                 // SAK-17606
                                                 User u = null;
                                                 // check for anonymous grading
-                                                if (!assignmentService.assignmentUsesAnonymousGrading(assignment)) {
+                                                if (!isAnon) {
                                                     u = userDirectoryService.getUserByEid(items[IDX_GRADES_CSV_EID]);
                                                 } else { // anonymous so pull the real eid out of our hash table
                                                     String anonId = items[IDX_GRADES_CSV_EID];
@@ -13128,7 +13161,6 @@ public class AssignmentAction extends PagedResourceActionII {
                                                     w.setGrade(gradeType == SCORE_GRADE_TYPE ? scalePointGrade(state, itemString, assignment.getScaleFactor()) : itemString);
                                                     submissionTable.put(eid, w);
                                                 }
-
                                             }
 
                                         } catch (Exception e) {
@@ -13161,7 +13193,7 @@ public class AssignmentAction extends PagedResourceActionII {
                                     try {
                                         String eid = hssfRow.getCell(1).getStringCellValue();
                                         if (!assignment.getIsGroup()) {
-                                            if (!assignmentService.assignmentUsesAnonymousGrading(assignment)) {
+                                            if (!isAnon) {
                                                 User u = userDirectoryService.getUserByEid(hssfRow.getCell(1).getStringCellValue()/*user eid*/);
                                                 if (u == null) throw new Exception("User not found!");
                                                 eid = u.getId();
@@ -13233,8 +13265,9 @@ public class AssignmentAction extends PagedResourceActionII {
                                     userEid = userEid.substring(0, userEid.indexOf("/"));
                                 }
                                 // SAK-17606 - get the eid part
-                                if ((userEid.contains("(")) && !userEid.contains(anonTitle)) {
-                                    userEid = userEid.substring(userEid.indexOf("(") + 1, userEid.indexOf(")"));
+                                if (userEid.contains("(") && userEid.endsWith(")") && !userEid.contains(anonTitle)) {
+                                    //The user will be at the end, grab this last set of parenthesis
+                                    userEid = userEid.substring(userEid.lastIndexOf("(") + 1, userEid.lastIndexOf(")"));
                                 }
                                 if (userEid.contains(anonTitle)) { // anonymous grading so we have to figure out the eid
                                     //get eid out of this slick table we made earlier
@@ -13242,7 +13275,7 @@ public class AssignmentAction extends PagedResourceActionII {
                                 }
 
                                 userEid = StringUtils.trimToNull(userEid);
-                                if (!assignment.getIsGroup()) {
+                                if (!assignment.getIsGroup() && !isAnon) {
                                     try {
                                         User u = userDirectoryService.getUserByEid(userEid);
                                         if (u != null) userEid = u.getId();
@@ -13348,6 +13381,16 @@ public class AssignmentAction extends PagedResourceActionII {
 
         boolean zipError = false;
 
+        // generate error when there is no grade file yet it was selected
+        if (!zipHasGradeFile && hasGradeFile) {
+            if ("csv".equals(gradeFileFormat)) {
+                addAlert(state, rb.getString("uploadall.alert.nocsv"));
+            } else {
+                addAlert(state, rb.getString("uploadall.alert.noexcel"));
+            }
+            zipError = true;
+        }
+
         // generate error when there is no grade file and no folder structure
         if (!zipHasGradeFile && !zipHasFolder) {
             addAlert(state, rb.getString("uploadall.alert.incorrectFormat"));
@@ -13399,10 +13442,20 @@ public class AssignmentAction extends PagedResourceActionII {
                                              Map<String, UploadGradeWrapper> submissionTable, Set<AssignmentSubmission> submissions, Assignment assignment) {
         if (assignment != null && submissions != null) {
             for (AssignmentSubmission submission : submissions) {
-                if (submissionTable.containsKey(submission.getSubmitters().toArray(new AssignmentSubmissionSubmitter[0])[0].getSubmitter())) {
-                    // update the AssignmetnSubmission record
-                    UploadGradeWrapper w = submissionTable.get(submission.getSubmitters().toArray(new AssignmentSubmissionSubmitter[0])[0].getSubmitter());
-
+                String eid;
+                if (assignment.getIsGroup()) {
+                    eid = submission.getGroupId();
+                } else {
+                    Optional<AssignmentSubmissionSubmitter> submitter = submission.getSubmitters().stream().findAny();
+                    if (submitter.isPresent()) {
+                        eid = submitter.get().getSubmitter();
+                    } else {
+                        log.warn("Upload while updating submission missing submitter for submission {}", submission.getId());
+                        continue;
+                    }
+                }
+                UploadGradeWrapper w = submissionTable.get(eid);
+                if (w != null) {
                     // the submission text
                     if (hasSubmissionText) {
                         submission.setSubmittedText(w.getText());
@@ -14129,25 +14182,6 @@ public class AssignmentAction extends PagedResourceActionII {
         };
     }
 
-    /**
-     * Categories are represented as Integers. Right now this feature only will
-     * be active for new assignments, so we'll just always return 0 for the
-     * unassigned category. In the future we may (or not) want to update this
-     * to return categories for existing gradebook items.
-     *
-     * @param assignment
-     * @return
-     */
-    private int getAssignmentCategoryAsInt(Assignment assignment) {
-        int categoryAsInt;
-        categoryAsInt = 0; // zero for unassigned
-
-        return categoryAsInt;
-    }
-
-    /*
-	 * (non-Javadoc)
-	 */
     public void doOptions(RunData data, Context context) {
         doOptions(data);
     } // doOptions
@@ -14328,20 +14362,6 @@ public class AssignmentAction extends PagedResourceActionII {
         return new LRS_Statement(actor, verb, lrsObject);
     }
 
-    private LRS_Statement getStatementForSubmitAssignment(String reference, String accessUrl, String assignmentName) {
-    	LRS_Actor actor = learningResourceStoreService.getActor(sessionManager.getCurrentSessionUserId());
-        LRS_Verb verb = new LRS_Verb(SAKAI_VERB.attempted);
-        LRS_Object lrsObject = new LRS_Object(accessUrl + reference, "submit-assignment");
-        HashMap<String, String> nameMap = new HashMap<String, String>();
-        nameMap.put("en-US", "User submitted an assignment");
-        lrsObject.setActivityName(nameMap);
-        // Add description
-        HashMap<String, String> descMap = new HashMap<String, String>();
-        descMap.put("en-US", "User submitted an assignment: " + assignmentName);
-        lrsObject.setDescription(descMap);
-        return new LRS_Statement(actor, verb, lrsObject);
-    }
-
     /**
      * Validates the ungraded/pass/fail grade values provided in the upload file are valid.
      * Values must be present in the appropriate language property file.
@@ -14425,16 +14445,22 @@ public class AssignmentAction extends PagedResourceActionII {
      */
     protected void setScoringAgentProperties(Context context, Assignment assignment, AssignmentSubmission submission, boolean gradeView) {
         String associatedGbItem = assignment.getProperties().get(PROP_ASSIGNMENT_ASSOCIATE_GRADEBOOK_ASSIGNMENT);
-        if (submission != null && StringUtils.isNotBlank(associatedGbItem) && assignment.getTypeOfGrade() == SCORE_GRADE_TYPE) {
+        if (!assignment.getIsGroup() && submission != null && StringUtils.isNotBlank(associatedGbItem) && assignment.getTypeOfGrade() == SCORE_GRADE_TYPE) {
             ScoringService scoringService = (ScoringService) ComponentManager.get("org.sakaiproject.scoringservice.api.ScoringService");
             ScoringAgent scoringAgent = scoringService.getDefaultScoringAgent();
 
             String gradebookUid = toolManager.getCurrentPlacement().getContext();
             boolean scoringAgentEnabled = scoringAgent != null && scoringAgent.isEnabled(gradebookUid, null);
-            String studentId = submission.getSubmitters().toArray(new AssignmentSubmissionSubmitter[0])[0].getSubmitter();
+            Set<AssignmentSubmissionSubmitter> submitters = submission.getSubmitters();
+            String currentUser = sessionManager.getCurrentSessionUserId();
+            AssignmentSubmissionSubmitter submitter = submitters.stream()
+                    .filter(s -> s.getSubmitter().equals(currentUser)).findAny() // If in student context, get student's specific submission
+                    .orElseGet(() -> submitters.stream().findAny() // If in instructor context, just get the first available submission (group assignments don't show the icon anyway)
+                            .orElse(null));
 
-            if (scoringAgentEnabled) {
+            if (scoringAgentEnabled && submitter != null) {
                 String gbItemName;
+                String studentId = submitter.getSubmitter();
                 String aRef = AssignmentReferenceReckoner.reckoner().assignment(assignment).reckon().getReference();
                 if (aRef.equals(associatedGbItem)) {
                     // this gb item is controlled by this tool
@@ -14548,6 +14574,19 @@ public class AssignmentAction extends PagedResourceActionII {
         }
     }
 
+    void sortGroupList(List<Group> groups, SessionState state) {
+        String sort = (String) state.getAttribute(SORTED_BY);
+        String asc = (String) state.getAttribute(SORTED_ASC);
+        if (sort == null || (!sort.equals(SORTED_BY_GROUP_TITLE) && !sort.equals(SORTED_BY_GROUP_DESCRIPTION))) {
+            sort = SORTED_BY_GROUP_TITLE;
+            asc = Boolean.TRUE.toString();
+            state.setAttribute(SORTED_BY, sort);
+            state.setAttribute(SORTED_ASC, asc);
+        }
+        AssignmentComparator comp = new AssignmentComparator(state, sort, asc);
+        Collections.sort(groups, comp);
+    }
+
     /**
      * This is a type of backing bean for the ui it is used by sizeResources
      */
@@ -14572,23 +14611,8 @@ public class AssignmentAction extends PagedResourceActionII {
             reference = AssignmentReferenceReckoner.reckoner().submission(submission).reckon().getReference();
         }
 
-        String getGradeForUser(String id) {
-            String grade = null;
-
-            if (submission != null) {
-                Assignment a = submission.getAssignment();
-                String g = a.getProperties().get(PROP_ASSIGNMENT_ASSOCIATE_GRADEBOOK_ASSIGNMENT);
-                if (StringUtils.isNotBlank(g) && a.getTypeOfGrade() == SCORE_GRADE_TYPE) {
-                    // check if they already have a gb entry
-                    grade = assignmentService.getGradeForUserInGradeBook(a.getId(), id);
-                }
-                if (grade == null) {
-                    AssignmentSubmissionSubmitter submitter = submission.getSubmitters().stream().filter(sbm -> StringUtils.equals(sbm.getSubmitter(), id)).findFirst().get();
-                    // if the submitter has a specific grade then use that one first
-                    grade = StringUtils.isNotBlank(submitter.getGrade()) ? submitter.getGrade() : submission.getGrade();
-                }
-            }
-            return grade;
+        public String getGradeForUser(String id) {
+            return assignmentService.getGradeForSubmitter(submission, id);
         }
     }
 

@@ -19,8 +19,6 @@
  *
  **********************************************************************************/
 
-
-
 package org.sakaiproject.tool.assessment.ui.bean.evaluation;
 import org.sakaiproject.tool.assessment.ui.bean.util.Validator;
 
@@ -31,20 +29,20 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.ArrayList;
 import java.util.List;
+
+import javax.faces.bean.ManagedBean;
+import javax.faces.bean.SessionScoped;
 import javax.faces.model.SelectItem;
 
 import org.sakaiproject.tool.assessment.data.dao.assessment.PublishedSectionData;
 import org.sakaiproject.tool.assessment.data.ifc.assessment.EvaluationModelIfc;
 import org.sakaiproject.tool.assessment.data.ifc.assessment.SectionDataIfc;
-
 import org.sakaiproject.tool.assessment.ui.listener.util.ContextUtil;
 
-/**
- * <p>JSF bean for displaying the Histogram page.</p>
- */
-public class HistogramScoresBean
-  implements Serializable
-{
+/* For evaluation: Histogram Scores backing bean. */
+@ManagedBean(name="histogramScores")
+@SessionScoped
+public class HistogramScoresBean implements Serializable {
   private String assessmentName;
 
   /** Use serialVersionUID for interoperability. */
@@ -1055,8 +1053,8 @@ publishedId = ppublishedId;
         String defaultStr = ContextUtil.getLocalizedString("org.sakaiproject.tool.assessment.bundle.CommonMessages","default");
         String partStr = ContextUtil.getLocalizedString("org.sakaiproject.tool.assessment.bundle.EvaluationMessages","part") + " ";
         String poolStr = ", " + ContextUtil.getLocalizedString("org.sakaiproject.tool.assessment.bundle.EvaluationMessages","pool") + ": ";
-        StringBuilder text = new StringBuilder();
         for(PublishedSectionData section: assesmentParts){
+            StringBuilder text = new StringBuilder();
             text.append(partStr + String.valueOf(section.getSequence()));
             if(!defaultStr.equals(section.getTitle())){
                 text.append(": " + section.getTitle());

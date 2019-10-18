@@ -34,7 +34,7 @@
 			</li>
 			<li style="display:inline;color:#000">
 				<span id="failedValidMessage" style="display:none">$tlang.getString("sort.fail.valid.message")</span>
-				<span id="messageHolder" class="messageSuccess" style="display:none"></span>
+				<span id="messageHolder" class="sak-banner-success-inline" style="display:none"></span>
 			</li>
 		</ul>	
 		<span id="lastMoveArray" style="display:none"></span>
@@ -48,7 +48,7 @@
 				#set($collectionMembers = $root.members)
 				#set($count = 1)
 				#foreach($member in $collectionMembers)
-					<li class="sortable row well" tabindex="0" id="listitem.orderable$count">
+					<li class="sortable row well reorder-element" tabindex="0" id="listitem.orderable$count">
 						<span style="display:none" class="grabHandle">
 							<input type="text" size="3" value="$count" id="index$count"/>
 							<input type="hidden"  size="3" id="holder$count"  value="$count" tabindex="-2"/>

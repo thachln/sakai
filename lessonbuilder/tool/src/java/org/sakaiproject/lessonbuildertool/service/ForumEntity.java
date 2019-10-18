@@ -123,6 +123,8 @@ public class ForumEntity extends HibernateDaoSupport implements LessonEntity, Fo
 	ComponentManager.get("org.sakaiproject.api.app.messageforums.MessageForumsTypeManager");
 
     private LessonEntity nextEntity = null;
+    private SimplePageBean simplePageBean;
+
     public void setNextEntity(LessonEntity e) {
 	nextEntity = e;
     }
@@ -378,6 +380,10 @@ public class ForumEntity extends HibernateDaoSupport implements LessonEntity, Fo
 		return null;
 	    return forum.getTitle();
 	}
+    }
+
+    public String getDescription(){
+        return "";
     }
 
     public String getUrl() {
@@ -849,7 +855,7 @@ public class ForumEntity extends HibernateDaoSupport implements LessonEntity, Fo
 		ourTopic.setExtendedDescription(FormattedText.convertPlaintextToFormattedText(text));
 		shortText = text;
 	    }
-	    shortText = org.apache.commons.lang.StringUtils.abbreviate(shortText,254);
+	    shortText = org.apache.commons.lang3.StringUtils.abbreviate(shortText,254);
 
 	    ourTopic.setShortDescription(shortText);
 
@@ -887,14 +893,40 @@ public class ForumEntity extends HibernateDaoSupport implements LessonEntity, Fo
     public boolean notPublished() {
 	if (!objectExists())
 	    return true;
+	boolean isDraft = false;
 	if (type == TYPE_FORUM_TOPIC) {
-	    return topic.getOpenForum().getDraft();
+		isDraft = topic.getOpenForum().getDraft();
+		if(isDraft){
+			return true;
+		}
+		boolean topicVisibleByDate = !topic.getAvailabilityRestricted() || isResourceVisibleByDate(topic.getOpenDate(), topic.getCloseDate());
+		boolean forumVisibleByDate = !topic.getOpenForum().getAvailabilityRestricted() || isResourceVisibleByDate(topic.getOpenForum().getOpenDate(), topic.getOpenForum().getCloseDate());
+	    return !topicVisibleByDate || !forumVisibleByDate;
 	} else {
-	    return ((DiscussionForum)forum).getDraft();
+		isDraft = ((DiscussionForum)forum).getDraft();
+		if(isDraft){
+			return true;
+		}
+		boolean forumVisibleByDate = !((DiscussionForum)forum).getAvailabilityRestricted() || isResourceVisibleByDate(((DiscussionForum)forum).getOpenDate(), ((DiscussionForum)forum).getCloseDate());
+		
+	    return !forumVisibleByDate;
 	}
 
     }
 
+	private static boolean isResourceVisibleByDate(Date openDate, Date closeDate){
+		Date currentDate = new Date();
+
+		if(openDate != null && closeDate != null){
+			return currentDate.after(openDate) && currentDate.before(closeDate);
+		} else if(openDate != null && closeDate == null){
+			return currentDate.after(openDate);
+		} else if(openDate == null && closeDate != null){
+			return currentDate.before(closeDate);
+		}
+
+		return true;
+	}
     // return the list of groups if the item is only accessible to specific groups
     // null if it's accessible to the whole site.
     public List<String> getGroups(boolean nocache) {
@@ -1211,5 +1243,9 @@ public class ForumEntity extends HibernateDaoSupport implements LessonEntity, Fo
 	return null;
 
     }
+	@Override
+	public void setSimplePageBean(SimplePageBean simplePageBean) {
+		this.simplePageBean = simplePageBean;
+	}
 
 }

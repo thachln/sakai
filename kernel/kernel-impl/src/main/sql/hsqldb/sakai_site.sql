@@ -281,7 +281,7 @@ INSERT INTO SAKAI_SITE_USER VALUES('!admin', 'admin', -1);
 -- Create the !error site to be displayed when there is a problem accessing a site.
 
 INSERT INTO SAKAI_SITE VALUES('!error', 'Site Unavailable', null, null, 'The site you requested is not available.', null, null, null, 1, 0, 0, '', 'admin', 'admin', NOW(), NOW(), 1, 0, 0, 0, null);
-INSERT INTO SAKAI_SITE_PAGE VALUES('!error-100', '!error', 'Site Unavailable', '1', 1, '0' );
+INSERT INTO SAKAI_SITE_PAGE VALUES('!error-100', '!error', 'Site Unavailable', '0', 1, '0' );
 INSERT INTO SAKAI_SITE_TOOL VALUES('!error-110', '!error-100', '!error', 'sakai.iframe.site', 1, 'Site Unavailable', NULL );
 INSERT INTO SAKAI_SITE_TOOL_PROPERTY VALUES('!error', '!error-110', 'height', '400px' );
 
@@ -294,7 +294,7 @@ INSERT INTO SAKAI_SITE_PROPERTY VALUES ('!error', 'display-users-present', 'fals
 INSERT INTO SAKAI_SITE VALUES('!urlError', 'Invalid URL', null, null, 'The URL you entered is invalid.  SOLUTIONS: Please check for spelling errors or typos.  Make sure you are using the right URL.  Type a URL to try again.', null, null, null, 1, 0, 0, '', 'admin', 'admin', NOW(), NOW(), 1, 0, 0, 0, null);
 --UPDATE SAKAI_SITE SET MODIFIEDON=TO_TIMESTAMP('20030624121053597','YYYYMMDDHHMISSFF3') WHERE SITE_ID = '!urlError';
 --UPDATE SAKAI_SITE SET CREATEDON=TO_TIMESTAMP('20030624041508851','YYYYMMDDHHMISSFF3') WHERE SITE_ID = '!urlError';
-INSERT INTO SAKAI_SITE_PAGE VALUES('!urlError-100', '!urlError', 'Invalid URL', '1', 1, '0' );
+INSERT INTO SAKAI_SITE_PAGE VALUES('!urlError-100', '!urlError', 'Invalid URL', '0', 1, '0' );
 INSERT INTO SAKAI_SITE_TOOL VALUES('!urlError-110', '!urlError-100', '!urlError', 'sakai.iframe.site', 1, 'Invalid URL', NULL );
 INSERT INTO SAKAI_SITE_TOOL_PROPERTY VALUES('!urlError', '!urlError-110', 'height', '400px' );
 
@@ -307,29 +307,24 @@ INSERT INTO SAKAI_SITE_TOOL VALUES('!gateway-120', '!gateway-100', '!gateway', '
 INSERT INTO SAKAI_SITE_PAGE VALUES('!gateway-200', '!gateway', 'About', '0', 2, '0' );
 INSERT INTO SAKAI_SITE_PAGE_PROPERTY VALUES ('!gateway','!gateway-200','sitePage.customTitle','true');
 INSERT INTO SAKAI_SITE_TOOL VALUES('!gateway-210', '!gateway-200', '!gateway', 'sakai.iframe', 1, 'About', NULL );
-INSERT INTO SAKAI_SITE_TOOL_PROPERTY VALUES('!gateway', '!gateway-210', 'height', '500px' );
+INSERT INTO SAKAI_SITE_TOOL_PROPERTY VALUES('!gateway', '!gateway-210', 'height', '770px' );
 INSERT INTO SAKAI_SITE_TOOL_PROPERTY VALUES('!gateway', '!gateway-210', 'source', '/library/content/gateway/about.html' );
 INSERT INTO SAKAI_SITE_PAGE VALUES('!gateway-300', '!gateway', 'Features', '0', 3, '0' );
 INSERT INTO SAKAI_SITE_PAGE_PROPERTY VALUES ('!gateway','!gateway-300','sitePage.customTitle','true');
 INSERT INTO SAKAI_SITE_TOOL VALUES('!gateway-310', '!gateway-300', '!gateway', 'sakai.iframe', 1, 'Features', NULL );
-INSERT INTO SAKAI_SITE_TOOL_PROPERTY VALUES('!gateway', '!gateway-310', 'height', '500px' );
+INSERT INTO SAKAI_SITE_TOOL_PROPERTY VALUES('!gateway', '!gateway-310', 'height', '770px' );
 INSERT INTO SAKAI_SITE_TOOL_PROPERTY VALUES('!gateway', '!gateway-310', 'source', '/library/content/gateway/features.html' );
 INSERT INTO SAKAI_SITE_PAGE VALUES('!gateway-400', '!gateway', 'Sites', '0', 4, '0' );
 INSERT INTO SAKAI_SITE_TOOL VALUES('!gateway-410', '!gateway-400', '!gateway', 'sakai.sitebrowser', 1, 'Sites', NULL );
-INSERT INTO SAKAI_SITE_PAGE VALUES('!gateway-500', '!gateway', 'Training', '0', 5, '0' );
+INSERT INTO SAKAI_SITE_PAGE VALUES('!gateway-500', '!gateway', 'Acknowledgements', '0', 5, '0' );
 INSERT INTO SAKAI_SITE_PAGE_PROPERTY VALUES ('!gateway','!gateway-500','sitePage.customTitle','true');
-INSERT INTO SAKAI_SITE_TOOL VALUES('!gateway-510', '!gateway-500', '!gateway', 'sakai.iframe', 1, 'Training', NULL );
-INSERT INTO SAKAI_SITE_TOOL_PROPERTY VALUES('!gateway', '!gateway-510', 'height', '500px' );
-INSERT INTO SAKAI_SITE_TOOL_PROPERTY VALUES('!gateway', '!gateway-510', 'source', '/library/content/gateway/training.html' );
-INSERT INTO SAKAI_SITE_PAGE VALUES('!gateway-600', '!gateway', 'Acknowledgments', '0', 6, '0' );
-INSERT INTO SAKAI_SITE_PAGE_PROPERTY VALUES ('!gateway','!gateway-600','sitePage.customTitle','true');
-INSERT INTO SAKAI_SITE_TOOL VALUES('!gateway-610', '!gateway-600', '!gateway', 'sakai.iframe', 1, 'Acknowledgments', NULL );
-INSERT INTO SAKAI_SITE_TOOL_PROPERTY VALUES('!gateway', '!gateway-610', 'height', '500px' );
-INSERT INTO SAKAI_SITE_TOOL_PROPERTY VALUES('!gateway', '!gateway-610', 'source', '/library/content/gateway/acknowledgments.html' );
-INSERT INTO SAKAI_SITE_PAGE VALUES('!gateway-700', '!gateway', 'New Account', '0', 7, '0' );
-INSERT INTO SAKAI_SITE_TOOL VALUES('!gateway-710', '!gateway-700', '!gateway', 'sakai.createuser', 1, 'New Account', NULL );
-INSERT INTO SAKAI_SITE_PAGE VALUES('!gateway-800', '!gateway', 'Reset Password', '0', 8, '0' );
-INSERT INTO SAKAI_SITE_TOOL VALUES('!gateway-810', '!gateway-800', '!gateway', 'sakai.resetpass', 1, 'Reset Password', NULL );
+INSERT INTO SAKAI_SITE_TOOL VALUES('!gateway-510', '!gateway-500', '!gateway', 'sakai.iframe', 1, 'Acknowledgements', NULL );
+INSERT INTO SAKAI_SITE_TOOL_PROPERTY VALUES('!gateway', '!gateway-510', 'height', '770px' );
+INSERT INTO SAKAI_SITE_TOOL_PROPERTY VALUES('!gateway', '!gateway-510', 'source', '/library/content/gateway/acknowledgements.html' );
+INSERT INTO SAKAI_SITE_PAGE VALUES('!gateway-600', '!gateway', 'New Account', '0', 6, '0' );
+INSERT INTO SAKAI_SITE_TOOL VALUES('!gateway-610', '!gateway-600', '!gateway', 'sakai.createuser', 1, 'New Account', NULL );
+INSERT INTO SAKAI_SITE_PAGE VALUES('!gateway-700', '!gateway', 'Reset Password', '0', 7, '0' );
+INSERT INTO SAKAI_SITE_TOOL VALUES('!gateway-710', '!gateway-700', '!gateway', 'sakai.resetpass', 1, 'Reset Password', NULL );
 
 -- Create the !user site to be used as the template for a new user's site.
 

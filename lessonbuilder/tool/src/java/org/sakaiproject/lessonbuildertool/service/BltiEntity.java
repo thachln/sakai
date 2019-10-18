@@ -236,6 +236,7 @@ public class BltiEntity implements LessonEntity, BltiInterface {
 	    if ( id == -1 ) continue;
 	    BltiEntity entity = new BltiEntity(TYPE_BLTI, id.toString());
 	    entity.content = content;
+	    entity.setSimplePageBean(bean);
 	    ret.add(entity);
 	}
 	return ret;
@@ -282,6 +283,14 @@ public class BltiEntity implements LessonEntity, BltiInterface {
 	loadContent();
 	if ( content == null ) return null;
 	return (String) content.get(LTIService.LTI_TITLE);
+    }
+
+    public String getDescription() {
+        if(tool != null){
+            return (String) tool.get(LTIService.LTI_DESCRIPTION);
+        }
+        loadContent();
+        return tool == null ? null : (String) tool.get(LTIService.LTI_DESCRIPTION);
     }
 
     private String getErrorUrl() {
@@ -378,7 +387,7 @@ public class BltiEntity implements LessonEntity, BltiInterface {
 		Long ls = getLong(tool.get(LTIService.LTI_PL_LINKSELECTION));
 		Boolean selector = (new Long(1)).equals(ls);
 
-		list.add(new UrlItem(url, (String) tool.get(LTIService.LTI_TITLE), fa_icon, selector));
+		list.add(new UrlItem(url, (String) tool.get(LTIService.LTI_TITLE), (String) tool.get(LTIService.LTI_DESCRIPTION), fa_icon, selector));
 	}
 
 	String url = ServerConfigurationService.getToolUrl() + "/" + toolId + "/sakai.basiclti.admin.helper.helper?panel=Main" + 
@@ -522,11 +531,11 @@ public class BltiEntity implements LessonEntity, BltiInterface {
 		props.setProperty(LTIService.LTI_LAUNCH,launchUrl);
 		props.setProperty(LTIService.LTI_XMLIMPORT,strXml);
 		if ( custom != null ) props.setProperty(LTIService.LTI_CUSTOM,custom);
-		Object result = ltiService.insertContent(props, getSiteId());
+		Object result = ltiService.insertContent(props, simplePageBean.getCurrentSiteId());
 		if ( result instanceof String ) {
 			log.info("Could not insert content - "+result);
 		}
-		if ( result instanceof Long ) theContent = ltiService.getContent((Long) result, getSiteId());
+		if ( result instanceof Long ) theContent = ltiService.getContent((Long) result, simplePageBean.getCurrentSiteId());
 	}
 
 	String sakaiId = null;

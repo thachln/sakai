@@ -30,10 +30,13 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 
-import javax.faces.event.ValueChangeEvent;
 import javax.faces.application.FacesMessage;
+import javax.faces.bean.ManagedBean;
+import javax.faces.bean.ManagedProperty;
+import javax.faces.bean.SessionScoped;
 import javax.faces.context.ExternalContext;
 import javax.faces.context.FacesContext;
+import javax.faces.event.ValueChangeEvent;
 import javax.servlet.ServletContext;
 import javax.servlet.http.HttpServletRequest;
 
@@ -68,9 +71,9 @@ import org.w3c.dom.Document;
  * <p>Bean for QTI Import Data</p>
  */
 @Slf4j
-public class XMLImportBean implements Serializable
-{
-	
+@ManagedBean(name="xmlImport")
+@SessionScoped
+public class XMLImportBean implements Serializable {
 	  /** Use serialVersionUID for interoperability. */
 	  private final static long serialVersionUID = 418920360211039758L;
 	  
@@ -78,10 +81,15 @@ public class XMLImportBean implements Serializable
   private String uploadFileName;
   private String importType;
   private String pathToData;
+  @ManagedProperty(value="#{author}")
   private AuthorBean authorBean;
+  @ManagedProperty(value="#{assessmentBean}")
   private AssessmentBean assessmentBean;
+  @ManagedProperty(value="#{itemauthor}")
   private ItemAuthorBean itemAuthorBean;
+  @ManagedProperty(value="#{authorization}")
   private AuthorizationBean authorizationBean;
+  @ManagedProperty(value="#{questionpool}")
   private QuestionPoolBean questionPoolBean;
   private boolean isCP;
   private String importType2;
@@ -109,18 +117,9 @@ public class XMLImportBean implements Serializable
 	  String uploadFile = (String) e.getNewValue();
 
 	  if (uploadFile!= null && uploadFile.startsWith("SizeTooBig:")) {
-		  FacesContext context = FacesContext.getCurrentInstance();
-		  ExternalContext external = context.getExternalContext();
-		  String paramValue = ((Long)((ServletContext)external.getContext()).getAttribute("FILEUPLOAD_SIZE_MAX")).toString();
-		  Long sizeMax = null;
-		  float sizeMax_float = 0f;
-		  if (paramValue != null) {
-			  sizeMax = Long.parseLong(paramValue);
-			  sizeMax_float = sizeMax.floatValue()/1024;
-		  } 
-		  int sizeMax_int = Math.round(sizeMax_float);
+		  Long sizeMax = Long.valueOf(ServerConfigurationService.getString("samigo.sizeMax", "40960"));
 		  ResourceLoader rb =new ResourceLoader("org.sakaiproject.tool.assessment.bundle.AuthorImportExport");
-		  String sizeTooBigMessage = MessageFormat.format(rb.getString("import_size_too_big"), uploadFile.substring(11), sizeMax_int);
+		  String sizeTooBigMessage = MessageFormat.format(rb.getString("import_size_too_big"), uploadFile.substring(11), Math.round(sizeMax.floatValue()/1024));
 	      FacesMessage message = new FacesMessage(sizeTooBigMessage);
 	      FacesContext.getCurrentInstance().addMessage(null, message);
 	      // remove unsuccessful file

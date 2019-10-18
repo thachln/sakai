@@ -57,7 +57,9 @@ import org.apache.wicket.model.Model;
 import org.apache.wicket.model.PropertyModel;
 import org.apache.wicket.model.ResourceModel;
 import org.apache.wicket.model.StringResourceModel;
+import org.apache.wicket.request.handler.resource.ResourceStreamRequestHandler;
 import org.apache.wicket.request.mapper.parameter.PageParameters;
+import org.apache.wicket.request.resource.ContentDisposition;
 import org.apache.wicket.util.resource.FileResourceStream;
 import org.apache.wicket.util.resource.IResourceStream;
 
@@ -308,6 +310,7 @@ public class UserPageSiteSearch extends BasePage {
 			}
 			
 		};
+		Map<String, String> realmRoleDisplay = projectLogic.getRealmRoleDisplay(false);
 		final Form<?> form = new Form("form"){
 			@Override
 			protected void onSubmit() {
@@ -315,6 +318,11 @@ public class UserPageSiteSearch extends BasePage {
 				if(provider != null){
 					provider.detachManually();
 				}
+			}
+
+			@Override
+			public boolean isVisible() {
+				return !realmRoleDisplay.isEmpty();
 			}
 		};
 		form.add(new TextField<String>("search", searchModel));
@@ -757,7 +765,12 @@ public class UserPageSiteSearch extends BasePage {
 					}
 				});
 				String access = isShoppingPeriodTool() ? siteSearchResult.getAccessRoleString() :siteSearchResult.getAccessString(); 
-				item.add(new Label("access", access));
+				item.add(new Label("access", access) {
+					@Override
+					public boolean isVisible() {
+						return !realmRoleDisplay.isEmpty();
+					}
+				});
 				item.add(new Label("startDate", siteSearchResult.getShoppingPeriodStartDateStr()){
 					@Override
 					public boolean isVisible() {
@@ -997,9 +1010,12 @@ public class UserPageSiteSearch extends BasePage {
 				if(fileObj != null && fileObj instanceof File){
 					File file = (File) fileObj;
 					IResourceStream resourceStream = new FileResourceStream(new org.apache.wicket.util.file.File(file));
-					//TODO: FIX THIS
-					log.error("TODO: Fix code to exportData removed in migration.");
-//					getRequestCycle().setRequestTarget(new ResourceStreamRequestTarget(resourceStream, file.getName()).setFileName(new StringResourceModel("searchExportFileName", null).getObject() + ".csv"));
+					
+					ResourceStreamRequestHandler handler = new ResourceStreamRequestHandler(resourceStream, file.getName());
+					handler.setFileName(new StringResourceModel("searchExportFileName", null).getString() + ".csv");
+					handler.setContentDisposition(ContentDisposition.ATTACHMENT);
+					
+					getRequestCycle().scheduleRequestHandlerAfterCurrent(handler);
 				}
 			}
 		});

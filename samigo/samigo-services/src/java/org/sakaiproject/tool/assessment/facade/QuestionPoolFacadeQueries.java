@@ -731,7 +731,7 @@ public class QuestionPoolFacadeQueries
     int retryCount = PersistenceService.getInstance().getPersistenceHelper().getRetryCount();
     while (retryCount > 0){
       try {
-        getHibernateTemplate().delete(qpi);
+        getHibernateTemplate().delete(getHibernateTemplate().merge(qpi));
         retryCount = 0;
       }
       catch (Exception e) {
@@ -752,7 +752,7 @@ public class QuestionPoolFacadeQueries
     int retryCount = PersistenceService.getInstance().getPersistenceHelper().getRetryCount();
     while (retryCount > 0){
       try {
-        getHibernateTemplate().delete(qpi);
+        getHibernateTemplate().delete(getHibernateTemplate().merge(qpi));
         retryCount = 0;
       }
       catch (Exception e) {
@@ -1243,6 +1243,7 @@ public class QuestionPoolFacadeQueries
       item.setAnswerOptionsRichCount(itemData.getAnswerOptionsRichCount());
       item.setAnswerOptionsSimpleOrRich(itemData.getAnswerOptionsSimpleOrRich());
       item.setDescription(itemData.getDescription());
+      item.setIsExtraCredit(itemData.getIsExtraCredit());
 
       item.setItemTextSet(copyItemText(item.getData(), itemData));
       item.setItemMetaDataSet(copyMetaData(item.getData(), itemData));
@@ -1280,7 +1281,7 @@ public class QuestionPoolFacadeQueries
 	    	  Iterator answerIter = fromAnswerSet.iterator();
 	    	  while (answerIter.hasNext()) {
 	    		  Answer fromAnswer = (Answer) answerIter.next();
-	    		  Answer toAnswer = new Answer(toItemText, fromAnswer.getText(), fromAnswer.getSequence(), fromAnswer.getLabel(),
+	    		  Answer toAnswer = new Answer(toItemText, AssessmentService.copyStringAttachment(fromAnswer.getText()), fromAnswer.getSequence(), fromAnswer.getLabel(),
 	    				  fromAnswer.getIsCorrect(), fromAnswer.getGrade(), fromAnswer.getScore(), fromAnswer.getPartialCredit(), fromAnswer.getDiscount(), 
 	    				  //fromAnswer.getCorrectOptionLabels(), 
 	    				  null);
@@ -1387,7 +1388,7 @@ public class QuestionPoolFacadeQueries
   public void removeQuestionPoolAccess(Tree tree, String user, final Long questionPoolId, Long accessTypeId) {	  
 	  QuestionPoolAccessData qpad = new QuestionPoolAccessData(questionPoolId, user, accessTypeId);
 
-	  getHibernateTemplate().delete(qpad);
+	  getHibernateTemplate().delete(getHibernateTemplate().merge(qpad));
 
 	  Iterator citer = (tree.getChildList(questionPoolId)).iterator();
 	  while (citer.hasNext()) {

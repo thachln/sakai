@@ -21,6 +21,8 @@
 
 package org.sakaiproject.poll.tool.producers;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.text.NumberFormat;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -49,7 +51,6 @@ import uk.org.ponder.rsf.components.UIContainer;
 import uk.org.ponder.rsf.components.UIForm;
 import uk.org.ponder.rsf.components.UIInternalLink;
 import uk.org.ponder.rsf.components.UILink;
-import uk.org.ponder.rsf.components.UIMessage;
 import uk.org.ponder.rsf.components.UIOutput;
 import uk.org.ponder.rsf.components.UISelect;
 import uk.org.ponder.rsf.components.UIVerbatim;
@@ -136,21 +137,23 @@ public class ResultsProducer implements ViewComponentProducer,NavigationCaseRepo
 		
 		//get the number of votes
 		int voters = pollVoteManager.getDisctinctVotersForPoll(poll);
-		//Object[] args = new Object[] { Integer.valueOf(voters).toString()};
-		if (poll.getMaxOptions()>1)
-			UIOutput.make(tofill,"poll-size",messageLocator.getMessage("results_poll_size",Integer.valueOf(voters).toString()));
+		int totalVoters = externalLogic.getNumberUsersCanVote();
+		BigDecimal percentVoters = new BigDecimal(voters).divide(new BigDecimal(totalVoters),4, RoundingMode.HALF_UP).multiply(new BigDecimal(100));
+		String statsVoters = String.format("%d / %d (%.02f %%)",voters,totalVoters,percentVoters);
+
+		UIOutput.make(tofill,"poll-size",messageLocator.getMessage("results_poll_size",statsVoters));
 
 		log.debug(voters + " have voted on this poll");
 
 		UIOutput.make(tofill,"question",poll.getText());
 		log.debug("got poll " + poll.getText());
-		List<Option> pollOptions = poll.getPollOptions();
+		List<Option> pollOptions = poll.getOptions();
 
 		log.debug("got a list of " + pollOptions.size() + " options");
 		//Append an option for no votes
 		if (poll.getMinOptions()==0) {
 			Option noVote = new Option(Long.valueOf(0));
-			noVote.setOptionText(messageLocator.getMessage("result_novote"));
+			noVote.setText(messageLocator.getMessage("result_novote"));
 			noVote.setPollId(poll.getPollId());
 			pollOptions.add(noVote);
 		}
@@ -165,7 +168,7 @@ public class ResultsProducer implements ViewComponentProducer,NavigationCaseRepo
 			Option option = (Option) pollOptions.get(i);
 			log.debug("collating option " + option.getOptionId());
 			collatedVote.setoptionId(option.getOptionId());
-			collatedVote.setOptionText(option.getOptionText());
+			collatedVote.setOptionText(option.getText());
 			collatedVote.setDeleted(option.getDeleted());
 			for (int q=0; q <votes.size(); q++ ) {
 				Vote vote = (Vote)votes.get(q);

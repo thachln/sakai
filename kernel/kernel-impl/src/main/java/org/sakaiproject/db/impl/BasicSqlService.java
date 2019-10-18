@@ -39,6 +39,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Timestamp;
 import java.sql.Types;
+import java.time.Instant;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.GregorianCalendar;
@@ -74,9 +75,6 @@ public abstract class BasicSqlService implements SqlService
 
 	/** The "shared", "common" database connection pool */
 	protected DataSource defaultDataSource;
-
-	/** The "slow" connection pool for file uploads/downloads */
-	protected DataSource longDataSource;
 
 	/** Should we do a commit after a single statement read? */
 	protected boolean m_commitAfterRead = false;
@@ -2180,6 +2178,10 @@ public abstract class BasicSqlService implements SqlService
 					Date d = (Date) field;
 					sqlServiceSql.setTimestamp(pstmt, new Timestamp(d.getTime()), m_cal, pos);
 				}
+				else if (field instanceof Instant) {
+					Instant instant = (Instant) field;
+					sqlServiceSql.setTimestamp(pstmt, new Timestamp(instant.toEpochMilli()), m_cal, pos);
+				}
 				else if (field instanceof Long) {
 					long l = (Long) field;
 					pstmt.setLong(pos, l);
@@ -2451,20 +2453,6 @@ public abstract class BasicSqlService implements SqlService
 		}
 
 		this.defaultDataSource = defaultDataSource;
-	}
-
-	/**
-	 * @param slowDataSource
-	 *        The slowDataSource to set.
-	 */
-	public void setLongDataSource(DataSource slowDataSource)
-	{
-		if (log.isDebugEnabled())
-		{
-			log.debug("setLongDataSource(DataSource " + slowDataSource + ")");
-		}
-
-		this.longDataSource = slowDataSource;
 	}
 
 	/**

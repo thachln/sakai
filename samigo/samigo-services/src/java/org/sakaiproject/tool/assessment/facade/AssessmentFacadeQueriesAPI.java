@@ -225,7 +225,7 @@ public interface AssessmentFacadeQueriesAPI {
 
     public void copyAllAssessments(String fromContext, String toContext, Map<String,String> transversalMap);
 	
-	public void copyAssessment(String assessmentId, String apepndCopyTitle);
+	public void copyAssessment(String assessmentId, String appendCopyTitle);
 	
 	public List getAllActiveAssessmentsByAgent(String fromContext);
 
@@ -244,4 +244,7 @@ public interface AssessmentFacadeQueriesAPI {
 	public Set prepareItemAttachmentSet(ItemData newItem,
 										Set itemAttachmentSet, String protocol, String toContext);
 
+    public List<AssessmentData> getDeletedAssessments(String siteId);
+
+    public void restoreAssessment(Long assessmentId);
 }

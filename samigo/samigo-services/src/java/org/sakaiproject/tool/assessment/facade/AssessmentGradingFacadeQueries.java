@@ -33,6 +33,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Objects;
 import java.util.Random;
 import java.util.Set;
 import java.util.TreeMap;
@@ -142,7 +143,6 @@ public class AssessmentGradingFacadeQueries extends HibernateDaoSupport implemen
     public void setPersistenceHelper(PersistenceHelper persistenceHelper) {
         this.persistenceHelper = persistenceHelper;
     }
-
 
     /**
      * @param publishedId
@@ -717,27 +717,19 @@ public class AssessmentGradingFacadeQueries extends HibernateDaoSupport implemen
 
     public void removeMediaById(Long mediaId, Long itemGradingId) {
         String mediaLocation = null;
-        Session session = null;
-        try {
-            session = getSessionFactory().openSession();
-            String query0 = "select LOCATION from SAM_MEDIA_T where MEDIAID = :id";
-            mediaLocation = (String) session.createSQLQuery(query0).setLong("id", mediaId).uniqueResult();
-            log.debug("****mediaLocation=" + mediaLocation);
-
-            String query = "delete from SAM_MEDIA_T where MEDIAID = :id";
-            session.createSQLQuery(query).setLong("id", mediaId).executeUpdate();
-        } catch (HibernateException e) {
-            log.warn(e.getMessage());
-        } finally {
-            if (session != null) {
-                try {
-                    session.flush();
-                    session.close();
-                } catch (Exception e1) {
-                    log.warn(e1.getMessage(), e1);
-                }
+        int retryCount = persistenceHelper.getRetryCount();
+        while (retryCount > 0) {
+            try {
+                MediaData mediaData = this.getMedia(mediaId);
+                mediaLocation = mediaData.getLocation();
+                getHibernateTemplate().delete(mediaData);
+                retryCount = 0;
+            } catch (Exception e) {
+                log.warn("Problem deleting media with Id {}",  mediaId);
+                retryCount = persistenceHelper.retryDeadlock(e, retryCount);
             }
         }
+
         if (mediaLocation != null) {
             File mediaFile = new File(mediaLocation);
             if (mediaFile.delete()) {
@@ -1058,13 +1050,15 @@ public class AssessmentGradingFacadeQueries extends HibernateDaoSupport implemen
             }
         }
 
-        // get AssessmentGradingAttachments
-        Map<Long, List<AssessmentGradingAttachment>> map = getAssessmentGradingAttachmentMap(publishedAssessmentId);
-        List<AssessmentGradingAttachment> attachments = map.get(ag.getAssessmentGradingId());
-        if (attachments != null) {
-            ag.setAssessmentGradingAttachmentList(attachments);
-        } else {
-            ag.setAssessmentGradingAttachmentList(new ArrayList<AssessmentGradingAttachment>());
+        if (ag != null) {
+	        // get AssessmentGradingAttachments
+	        Map<Long, List<AssessmentGradingAttachment>> map = getAssessmentGradingAttachmentMap(publishedAssessmentId);
+	        List<AssessmentGradingAttachment> attachments = map.get(ag.getAssessmentGradingId());
+	        if (attachments != null) {
+	            ag.setAssessmentGradingAttachmentList(attachments);
+	        } else {
+	            ag.setAssessmentGradingAttachmentList(new ArrayList<AssessmentGradingAttachment>());
+	        }
         }
 
         return ag;
@@ -1426,24 +1420,25 @@ public class AssessmentGradingFacadeQueries extends HibernateDaoSupport implemen
     }
 
     public Map<Long, AssessmentGradingData> getAssessmentGradingByItemGradingId(final Long publishedAssessmentId) {
-        List<AssessmentGradingData> aList = getAllSubmissions(publishedAssessmentId.toString());
-        Map<Long, AssessmentGradingData> aHash = aList.stream()
+        Map<Long, AssessmentGradingData> submissionDataMap = getAllSubmissions(publishedAssessmentId.toString()).stream()
+                .filter(Objects::nonNull)
                 .collect(Collectors.toMap(AssessmentGradingData::getAssessmentGradingId, a -> a));
 
         final HibernateCallback<List<ItemGradingData>> hcb = session -> {
             Query q = session.createQuery(
                     "select new ItemGradingData(i.itemGradingId, a.assessmentGradingId) " +
                             " from ItemGradingData i, AssessmentGradingData a " +
-                            " where i.assessmentGradingId=a.assessmentGradingId " +
-                            " and a.publishedAssessmentId = :id");
+                            " where i.assessmentGradingId = a.assessmentGradingId " +
+                            " and a.publishedAssessmentId = :id " +
+                            " and a.forGrade = :forgrade ");
             q.setLong("id", publishedAssessmentId);
+            q.setBoolean("forgrade", true);
             return q.list();
         };
         List<ItemGradingData> l = getHibernateTemplate().execute(hcb);
 
-        return l.stream()
-                .collect(Collectors.toMap(ItemGradingData::getItemGradingId,
-                        p -> aHash.get(p.getAssessmentGradingId())));
+        return l.stream().filter(i -> Objects.nonNull(submissionDataMap.get(i.getAssessmentGradingId())))
+                .collect(Collectors.toMap(ItemGradingData::getItemGradingId, g -> submissionDataMap.get(g.getAssessmentGradingId())));
     }
 
     public void deleteAll(Collection c) {
@@ -1453,12 +1448,22 @@ public class AssessmentGradingFacadeQueries extends HibernateDaoSupport implemen
                 getHibernateTemplate().deleteAll(c);
                 retryCount = 0;
             } catch (Exception e) {
-                log.warn("problem inserting assessmentGrading: " + e.getMessage());
-                retryCount = persistenceHelper.retryDeadlock(e, retryCount);
+                try {
+                    getHibernateTemplate().deleteAll(mergeAll(c));
+                    retryCount = 0;
+                } catch (Exception ex) {
+                    log.warn("problem inserting assessmentGrading: " + ex.getMessage());
+                    retryCount = persistenceHelper.retryDeadlock(ex, retryCount);
+                }
             }
         }
     }
 
+    private Collection mergeAll(Collection entities) {
+        List merged = new ArrayList();
+        entities.forEach(ent->merged.add(getHibernateTemplate().merge(ent)));
+        return merged;
+    }
 
     public void saveOrUpdateAll(Collection<ItemGradingData> c) {
         int retryCount = persistenceHelper.getRetryCount();
@@ -1687,6 +1692,7 @@ public class AssessmentGradingFacadeQueries extends HibernateDaoSupport implemen
                 .setBoolean("forgrade", true)
                 .setString("fid", "OWN_PUBLISHED_ASSESSMENT")
                 .setString("agent", siteId)
+                .setCacheable(true)
                 .list();
 
         List<Object[]> countList = getHibernateTemplate().execute(hcb);
@@ -1723,6 +1729,7 @@ public class AssessmentGradingFacadeQueries extends HibernateDaoSupport implemen
                 .setString("agent", siteId)
                 .setInteger("status1", 0)
                 .setInteger("status2", 6)
+                .setCacheable(true)
                 .list();
 
         List<Object[]> countList = getHibernateTemplate().execute(hcb);
@@ -1801,8 +1808,8 @@ public class AssessmentGradingFacadeQueries extends HibernateDaoSupport implemen
         return actualNumberRetakeHash;
     }
 
-    public Map<Long, Long> getActualNumberRetakeHash(final String agentIdString) {
-        Map<Long, Long> actualNumberRetakeHash = new HashMap<>();
+    public Map<Long, Integer> getActualNumberRetakeHash(final String agentIdString) {
+        Map<Long, Integer> actualNumberRetakeHash = new HashMap<>();
         final HibernateCallback<List<Object[]>> hcb = session -> {
             Query q = session.createQuery(
                     "select a.publishedAssessmentId, count(*) from AssessmentGradingData a, StudentGradingSummaryData s " +
@@ -1816,7 +1823,8 @@ public class AssessmentGradingFacadeQueries extends HibernateDaoSupport implemen
         };
         List<Object[]> countList = getHibernateTemplate().execute(hcb);
         for (Object[] o : countList) {
-            actualNumberRetakeHash.put((Long) o[0], (Long) o[1]);
+            Long l = (Long) o[1];
+            actualNumberRetakeHash.put((Long) o[0], l.intValue());
         }
         return actualNumberRetakeHash;
     }
@@ -2037,6 +2045,12 @@ public class AssessmentGradingFacadeQueries extends HibernateDaoSupport implemen
             }
 
             if (canBeExported) {
+
+                Date attempt = assessmentGradingData.getAttemptDate();
+                Date submitted = assessmentGradingData.getSubmittedDate();
+                responseList.add(attempt == null ? "" : attempt);
+                responseList.add(submitted == null ? "" : submitted);
+
                 int sectionScoreColumnStart = responseList.size();
                 if (showPartAndTotalScoreSpreadsheetColumns) {
                     Double finalScore = assessmentGradingData.getFinalScore();
@@ -3088,19 +3102,16 @@ public class AssessmentGradingFacadeQueries extends HibernateDaoSupport implemen
                 PublishedAssessmentFacade publishedAssessment = publishedAssessmentService.getPublishedAssessment(adata.getPublishedAssessmentId()
                         .toString());
                 // this call happens in a separate transaction, so a rollback only affects this iteration
-                
                 boolean success = saveOrUpdateAssessmentGrading(adata);
                 
-                if (success && updateGrades == true) {
+                if (success && updateGrades && autoSubmitCurrent) {
                     GradingService gs = new GradingService();
-                	gs.updateAutosubmitEventLog(adata);
+                    gs.updateAutosubmitEventLog(adata);
                     gs.notifyGradebookByScoringType(adata, publishedAssessment);
                 }
-                else {
+                else if (!success) {
                     ++failures;
                 }
-                
-                adata = null;
             } catch (Exception e) {
                 ++failures;
                 if (adata != null) {
@@ -3109,6 +3120,9 @@ public class AssessmentGradingFacadeQueries extends HibernateDaoSupport implemen
                 } else {
                     log.error(e.getMessage(), e);
                 }
+            }
+            finally {
+                adata = null;
             }
         }
 

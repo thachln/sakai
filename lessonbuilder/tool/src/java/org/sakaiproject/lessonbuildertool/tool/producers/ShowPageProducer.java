@@ -39,6 +39,7 @@ import java.net.ProtocolException;
 import java.net.URL;
 import java.net.URLEncoder;
 import java.text.DateFormat;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Calendar;
@@ -52,19 +53,76 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
-import java.text.SimpleDateFormat;
 import java.util.TimeZone;
 
+import javax.crypto.Cipher;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-import javax.crypto.Cipher;
 import javax.xml.bind.DatatypeConverter;
 
+import org.apache.commons.lang3.StringUtils;
+import org.sakaiproject.authz.api.AuthzGroup;
+import org.sakaiproject.authz.api.AuthzGroupService;
+import org.sakaiproject.authz.api.Member;
+import org.sakaiproject.authz.api.SecurityService;
+import org.sakaiproject.component.cover.ComponentManager;
+import org.sakaiproject.component.cover.ServerConfigurationService;
+import org.sakaiproject.content.api.ContentHostingService;
+import org.sakaiproject.content.api.ContentResource;
+import org.sakaiproject.entity.api.ResourceProperties;
+import org.sakaiproject.event.api.UsageSession;
+import org.sakaiproject.event.cover.UsageSessionService;
+import org.sakaiproject.exception.IdUnusedException;
+import org.sakaiproject.lessonbuildertool.ChecklistItemStatus;
+import org.sakaiproject.lessonbuildertool.ChecklistItemStatusImpl;
+import org.sakaiproject.lessonbuildertool.SimpleChecklistItem;
+import org.sakaiproject.lessonbuildertool.SimplePage;
+import org.sakaiproject.lessonbuildertool.SimplePageComment;
+import org.sakaiproject.lessonbuildertool.SimplePageItem;
+import org.sakaiproject.lessonbuildertool.SimplePageLogEntry;
+import org.sakaiproject.lessonbuildertool.SimplePagePeerEvalResult;
+import org.sakaiproject.lessonbuildertool.SimplePageQuestionAnswer;
+import org.sakaiproject.lessonbuildertool.SimplePageQuestionResponse;
+import org.sakaiproject.lessonbuildertool.SimplePageQuestionResponseTotals;
+import org.sakaiproject.lessonbuildertool.SimpleStudentPage;
+import org.sakaiproject.lessonbuildertool.model.SimplePageToolDao;
+import org.sakaiproject.lessonbuildertool.service.BltiInterface;
+import org.sakaiproject.lessonbuildertool.service.LessonBuilderAccessService;
+import org.sakaiproject.lessonbuildertool.service.LessonEntity;
+import org.sakaiproject.lessonbuildertool.tool.beans.SimplePageBean;
+import org.sakaiproject.lessonbuildertool.tool.beans.SimplePageBean.BltiTool;
+import org.sakaiproject.lessonbuildertool.tool.beans.SimplePageBean.GroupEntry;
+import org.sakaiproject.lessonbuildertool.tool.beans.SimplePageBean.Status;
+import org.sakaiproject.lessonbuildertool.tool.evolvers.SakaiFCKTextEvolver;
+import org.sakaiproject.lessonbuildertool.tool.view.CommentsGradingPaneViewParameters;
+import org.sakaiproject.lessonbuildertool.tool.view.CommentsViewParameters;
+import org.sakaiproject.lessonbuildertool.tool.view.ExportCCViewParameters;
+import org.sakaiproject.lessonbuildertool.tool.view.FilePickerViewParameters;
+import org.sakaiproject.lessonbuildertool.tool.view.GeneralViewParameters;
+import org.sakaiproject.lessonbuildertool.tool.view.QuestionGradingPaneViewParameters;
+import org.sakaiproject.lessonbuildertool.util.SimplePageItemUtilities;
+import org.sakaiproject.memory.api.Cache;
+import org.sakaiproject.memory.api.MemoryService;
+import org.sakaiproject.portal.util.CSSUtils;
+import org.sakaiproject.portal.util.PortalUtils;
+import org.sakaiproject.site.api.SiteService;
+import org.sakaiproject.time.api.UserTimeService;
+import org.sakaiproject.tool.api.Placement;
+import org.sakaiproject.tool.api.Session;
+import org.sakaiproject.tool.api.ToolManager;
+import org.sakaiproject.tool.api.ToolSession;
+import org.sakaiproject.tool.cover.SessionManager;
+import org.sakaiproject.user.api.User;
+import org.sakaiproject.user.api.UserNotDefinedException;
+import org.sakaiproject.user.cover.UserDirectoryService;
+import org.sakaiproject.util.FormattedText;
+import org.sakaiproject.util.ResourceLoader;
+import org.sakaiproject.util.Web;
+
+import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
-
-import org.apache.commons.lang.StringUtils;
-
 import uk.org.ponder.localeutil.LocaleGetter;
 import uk.org.ponder.messageutil.MessageLocator;
 import uk.org.ponder.rsf.builtin.UVBProducer;
@@ -98,64 +156,6 @@ import uk.org.ponder.rsf.viewstate.SimpleViewParameters;
 import uk.org.ponder.rsf.viewstate.ViewParameters;
 import uk.org.ponder.rsf.viewstate.ViewParamsReporter;
 
-import org.sakaiproject.component.cover.ComponentManager;
-import org.sakaiproject.component.cover.ServerConfigurationService;
-import org.sakaiproject.content.api.ContentHostingService;
-import org.sakaiproject.content.api.ContentResource;
-import org.sakaiproject.entity.api.ResourceProperties;
-import org.sakaiproject.event.api.UsageSession;
-import org.sakaiproject.event.cover.UsageSessionService;
-import org.sakaiproject.authz.api.AuthzGroup;
-import org.sakaiproject.authz.api.AuthzGroupService;
-import org.sakaiproject.authz.api.SecurityService;
-import org.sakaiproject.authz.api.Member;
-import org.sakaiproject.exception.IdUnusedException;
-import org.sakaiproject.lessonbuildertool.ChecklistItemStatus;
-import org.sakaiproject.lessonbuildertool.ChecklistItemStatusImpl;
-import org.sakaiproject.lessonbuildertool.SimplePage;
-import org.sakaiproject.lessonbuildertool.SimplePageComment;
-import org.sakaiproject.lessonbuildertool.SimplePageItem;
-import org.sakaiproject.lessonbuildertool.SimplePageLogEntry;
-import org.sakaiproject.lessonbuildertool.SimplePageQuestionAnswer;
-import org.sakaiproject.lessonbuildertool.SimplePageQuestionResponse;
-import org.sakaiproject.lessonbuildertool.SimplePageQuestionResponseTotals;
-import org.sakaiproject.lessonbuildertool.SimplePagePeerEvalResult;
-import org.sakaiproject.lessonbuildertool.SimpleStudentPage;
-import org.sakaiproject.lessonbuildertool.SimpleChecklistItem;
-import org.sakaiproject.lessonbuildertool.model.SimplePageToolDao;
-import org.sakaiproject.lessonbuildertool.service.BltiInterface;
-import org.sakaiproject.lessonbuildertool.service.LessonBuilderAccessService;
-import org.sakaiproject.lessonbuildertool.service.LessonEntity;
-import org.sakaiproject.lessonbuildertool.tool.beans.SimplePageBean;
-import org.sakaiproject.lessonbuildertool.tool.beans.SimplePageBean.GroupEntry;
-import org.sakaiproject.lessonbuildertool.tool.beans.SimplePageBean.Status;
-import org.sakaiproject.lessonbuildertool.tool.beans.SimplePageBean.BltiTool;
-import org.sakaiproject.lessonbuildertool.tool.evolvers.SakaiFCKTextEvolver;
-import org.sakaiproject.lessonbuildertool.tool.view.CommentsGradingPaneViewParameters;
-import org.sakaiproject.lessonbuildertool.tool.view.CommentsViewParameters;
-import org.sakaiproject.lessonbuildertool.tool.view.FilePickerViewParameters;
-import org.sakaiproject.lessonbuildertool.tool.view.GeneralViewParameters;
-import org.sakaiproject.lessonbuildertool.tool.view.QuestionGradingPaneViewParameters;
-import org.sakaiproject.lessonbuildertool.tool.view.ExportCCViewParameters;
-import org.sakaiproject.lessonbuildertool.util.SimplePageItemUtilities;
-import org.sakaiproject.memory.api.Cache;
-import org.sakaiproject.memory.api.MemoryService;
-import org.sakaiproject.portal.util.CSSUtils;
-import org.sakaiproject.portal.util.PortalUtils;
-import org.sakaiproject.site.api.SiteService;
-import org.sakaiproject.time.api.TimeService;
-import org.sakaiproject.tool.api.Placement;
-import org.sakaiproject.tool.api.Session;
-import org.sakaiproject.tool.api.ToolManager;
-import org.sakaiproject.tool.api.ToolSession;
-import org.sakaiproject.tool.cover.SessionManager;
-import org.sakaiproject.user.api.User;
-import org.sakaiproject.user.api.UserNotDefinedException;
-import org.sakaiproject.user.cover.UserDirectoryService;
-import org.sakaiproject.util.FormattedText;
-import org.sakaiproject.util.ResourceLoader;
-import org.sakaiproject.util.Web;
-
 /**
  * This produces the primary view of the page. It also handles the editing of
  * the properties of most of the items (through JQuery dialogs).
@@ -172,7 +172,7 @@ public class ShowPageProducer implements ViewComponentProducer, DefaultView, Nav
 	private SecurityService securityService;
 	private SiteService siteService;
 	private FormatAwareDateInputEvolver dateevolver;
-	private TimeService timeService;
+	@Setter private UserTimeService userTimeService;
 	private HttpServletRequest httpServletRequest;
 	private HttpServletResponse httpServletResponse;
 	// have to do it here because we need it in urlCache. It has to happen before Spring initialization
@@ -180,6 +180,8 @@ public class ShowPageProducer implements ViewComponentProducer, DefaultView, Nav
 	private ToolManager toolManager;
 	public TextInputEvolver richTextEvolver;
 	private static LessonBuilderAccessService lessonBuilderAccessService;
+	
+	private List<Long> printedSubpages;
 	
 	private Map<String,String> imageToMimeMap;
 	public void setImageToMimeMap(Map<String,String> map) {
@@ -401,8 +403,7 @@ public class ShowPageProducer implements ViewComponentProducer, DefaultView, Nav
                 UIOutput.make(tofill, "html").decorate(new UIFreeAttributeDecorator("lang", localegetter.get().getLanguage()))
 		    .decorate(new UIFreeAttributeDecorator("xml:lang", localegetter.get().getLanguage()));        
 
-		UIOutput.make(tofill, "datepicker").decorate(new UIFreeAttributeDecorator("src", 
-		  (majorVersion >= 10 ? "/library" : "/lessonbuilder-tool") + "/js/lang-datepicker/lang-datepicker.js" + PortalUtils.getCDNQuery()));
+		UIOutput.make(tofill, "datepicker").decorate(new UIFreeAttributeDecorator("src", "/library/js/lang-datepicker/lang-datepicker.js" + PortalUtils.getCDNQuery()));
 
 		UIOutput.make(tofill, "portletBody").decorate(new UIFreeAttributeDecorator("sakaimajor", Integer.toString(majorVersion)))
 		    .decorate(new UIFreeAttributeDecorator("sakaiversion", fullVersion));
@@ -445,7 +446,7 @@ public class ShowPageProducer implements ViewComponentProducer, DefaultView, Nav
 		
 		boolean cameFromGradingPane = params.getPath().equals("none");
 
-		TimeZone localtz = timeService.getLocalTimeZone();
+		TimeZone localtz = userTimeService.getLocalTimeZone();
 		isoDateFormat.setTimeZone(localtz);
 
 		if (!canReadPage) {
@@ -581,7 +582,7 @@ public class ShowPageProducer implements ViewComponentProducer, DefaultView, Nav
 		// potentially need time zone for setting release date
 		if (!canSeeAll && currentPage.getReleaseDate() != null && currentPage.getReleaseDate().after(new Date()) && !currentPage.isHidden()) {
 			DateFormat df = DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT, M_locale);
-			TimeZone tz = timeService.getLocalTimeZone();
+			TimeZone tz = userTimeService.getLocalTimeZone();
 			df.setTimeZone(tz);
 			String releaseDate = df.format(currentPage.getReleaseDate());
 			String releaseMessage = messageLocator.getMessage("simplepage.not_yet_available_releasedate").replace("{}", releaseDate);
@@ -600,8 +601,6 @@ public class ShowPageProducer implements ViewComponentProducer, DefaultView, Nav
 		    UIOutput.make(tofill, "error", messageLocator.getMessage("simplepage.not_available_hidden"));
 		    return;
 		}
-
-
 
 		// I believe we've now checked all the args for permissions issues. All
 		// other item and
@@ -718,13 +717,15 @@ public class ShowPageProducer implements ViewComponentProducer, DefaultView, Nav
 		showAll.setSource("summary");
 		UIInternalLink.make(tofill, "print-view", showAll)
 		    .decorate(new UITooltipDecorator(messageLocator.getMessage("simplepage.print_view")));
+		UIInternalLink.make(tofill, "print-all", showAll)
+		    .decorate(new UITooltipDecorator(messageLocator.getMessage("simplepage.print_all")));
 		UIInternalLink.make(tofill, "show-pages", showAll)
 		    .decorate(new UITooltipDecorator(messageLocator.getMessage("simplepage.showallpages")));
 		
 		if (canEditPage) {
 			// show tool bar, but not if coming from grading pane
 			if(!cameFromGradingPane) {
-				createToolBar(tofill, currentPage, (pageItem.getType() == SimplePageItem.STUDENT_CONTENT));
+				createToolBar(tofill, currentPage);
 			}
 			
 			UIOutput.make(tofill, "title-descrip");
@@ -741,7 +742,8 @@ public class ShowPageProducer implements ViewComponentProducer, DefaultView, Nav
 			else
 			    descrip = messageLocator.getMessage("simplepage.title-descrip");
 
-			UIOutput.make(tofill, "edit-title").decorate(new UIFreeAttributeDecorator("title", descrip));
+			UIComponent edittitlelink = UIInternalLink.makeURL(tofill, "edit-title", "#");
+			edittitlelink.decorate(new UIFreeAttributeDecorator("title", descrip));
 			UIOutput.make(tofill, "edit-title-text", label);
 			UIOutput.make(tofill, "title-descrip-text", descrip);
 
@@ -951,7 +953,9 @@ public class ShowPageProducer implements ViewComponentProducer, DefaultView, Nav
 			
 			// Make sure this is a top level student page
 			if(student != null && pageItem.getGradebookId() != null) {
-				UIOutput.make(tofill, "gradingSpan");
+				if (simplePageBean.getEditPrivs() == 0 && !simplePageBean.getCurrentUserId().equals(currentPage.getOwner())) {
+					UIOutput.make(tofill, "gradingSpan");
+				}
 				UIOutput.make(tofill, "commentsUUID", String.valueOf(student.getId()));
 				UIOutput.make(tofill, "commentPoints", String.valueOf((student.getPoints() != null? student.getPoints() : "")));
 				UIOutput pointsBox = UIOutput.make(tofill, "studentPointsBox");
@@ -1079,8 +1083,17 @@ public class ShowPageProducer implements ViewComponentProducer, DefaultView, Nav
 		    } catch (Exception e) {}
 		}
 
+		List<SimplePageItem> itemList = null;
+		
 		// items to show
-		List<SimplePageItem> itemList = (List<SimplePageItem>) simplePageBean.getItemsOnPage(currentPage.getPageId());
+		if(httpServletRequest.getParameter("printall") != null && currentPage.getTopParent() != null)
+		{
+			itemList = (List<SimplePageItem>) simplePageBean.getItemsOnPage(currentPage.getTopParent());
+		}
+		else
+		{
+			itemList = (List<SimplePageItem>) simplePageBean.getItemsOnPage(currentPage.getPageId());
+		}
 		
 		// Move all items with sequence <= 0 to the end of the list.
 		// Count is necessary to guarantee we don't infinite loop over a
@@ -1116,7 +1129,8 @@ public class ShowPageProducer implements ViewComponentProducer, DefaultView, Nav
 		// Is anything visible?
 		// Note that we don't need to check whether any item is available, since the first visible
 		// item is always available.
-		boolean anyItemVisible = false;
+		boolean[] anyItemVisible = new boolean[1];
+		anyItemVisible[0]=false;
 
 		if (itemList.size() > 0) {
 			UIBranchContainer container = UIBranchContainer.make(tofill, "itemContainer:");
@@ -1134,7 +1148,135 @@ public class ShowPageProducer implements ViewComponentProducer, DefaultView, Nav
 			UIBranchContainer tableContainer = null;
 
 			boolean first = true;
+					
+			printedSubpages = new ArrayList<Long>();
+			
+			printSubpage(itemList, first, sectionWrapper, sectionContainer, columnContainer, tableContainer, 
+					container, cols, colnum, canEditPage, currentPage, anyItemVisible, newItemId, showRefresh, canSeeAll, 
+					M_locale, ieVersion, showDownloads, iframeJavascriptDone, tofill, placement, params, postedCommentId, 
+					addedCommentsScript, cameFromGradingPane, pageItem, noEditor, commentsCount, textboxcount);
 
+			// end of items. This is the end for normal users. Following is
+			// special
+			// checks and putting out the dialogs for the popups, for
+			// instructors.
+
+			boolean showBreak = false;
+
+			// I believe refresh is now done automatically in all cases
+			// if (showRefresh) {
+			// UIOutput.make(tofill, "refreshAlert");
+			//
+			// // Should simply refresh
+			// GeneralViewParameters p = new GeneralViewParameters(VIEW_ID);
+			// p.setSendingPage(currentPage.getPageId());
+			// UIInternalLink.make(tofill, "refreshLink", p);
+			// showBreak = true;
+			// }
+
+			// stuff goes on the page in the order in the HTML file. So the fact
+			// that it's here doesn't mean it shows
+			// up at the end. This code produces errors and other odd stuff.
+
+			if (canSeeAll) {
+				// if the page is hidden, warn the faculty [students get stopped
+				// at
+				// the top]
+				if (currentPage.isHidden()) {
+					UIOutput.make(tofill, "hiddenAlert").decorate(new UIFreeAttributeDecorator("title", messageLocator.getMessage("simplepage.pagehidden")));
+					UIVerbatim.make(tofill, "hidden-text", messageLocator.getMessage("simplepage.pagehidden.text"));
+
+					showBreak = true;
+					// similarly warn them if it isn't released yet
+				} else if (currentPage.getReleaseDate() != null && currentPage.getReleaseDate().after(new Date())) {
+					DateFormat df = DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT, M_locale);
+					TimeZone tz = userTimeService.getLocalTimeZone();
+					df.setTimeZone(tz);
+					String releaseDate = df.format(currentPage.getReleaseDate());
+					UIOutput.make(tofill, "hiddenAlert").decorate(new UIFreeAttributeDecorator("title", messageLocator.getMessage("simplepage.notreleased")));
+					UIVerbatim.make(tofill, "hidden-text", messageLocator.getMessage("simplepage.notreleased.text").replace("{}", releaseDate));
+					showBreak = true;
+				}
+			}
+
+			if (showBreak) {
+				UIOutput.make(tofill, "breakAfterWarnings");
+			}
+		}
+
+		// more warnings: if no item on the page, give faculty instructions,
+		// students an error
+		if (!anyItemVisible[0]) {
+			if (canEditPage) {
+				String helpUrl = null;
+				// order:
+				// localized placedholder
+				// localized general
+				// default placeholder
+				// we know the defaults exist because we include them, so
+				// we never need to consider default general
+				if (simplePageBean.isStudentPage(currentPage)) {
+				    helpUrl = getLocalizedURL("student.html", true);
+				}
+				else {
+				    helpUrl = getLocalizedURL("placeholder.html", false);
+				    if (helpUrl == null)
+					helpUrl = getLocalizedURL("general.html", false);
+				    if (helpUrl == null)
+					helpUrl = getLocalizedURL("placeholder.html", true);
+				}
+
+				UIOutput.make(tofill, "startupHelp")
+				    .decorate(new UIFreeAttributeDecorator("src", helpUrl))
+				    .decorate(new UIFreeAttributeDecorator("id", "iframe"))
+					.decorate(new UIFreeAttributeDecorator("allow", String.join(";",
+							Optional.ofNullable(ServerConfigurationService.getStrings("browser.feature.allow"))
+									.orElseGet(() -> new String[]{}))));
+				if (!iframeJavascriptDone) {
+				    UIOutput.make(tofill, "iframeJavascript");
+				    iframeJavascriptDone = true;
+				}
+			} else {
+				UIOutput.make(tofill, "error-div");
+				UIOutput.make(tofill, "error", messageLocator.getMessage("simplepage.noitems_error_user"));
+			}
+		}
+
+		// now output the dialogs. but only for faculty (to avoid making the
+		// file bigger)
+		if (canEditPage) {
+			createSubpageDialog(tofill, currentPage);
+		}
+
+		createDialogs(tofill, currentPage, pageItem, cssLink);
+
+		// Add pageids to the page so the portal lessons subnav menu can update its state
+		List<SimplePageBean.PathEntry> path = simplePageBean.getHierarchy();
+		if (path.size() > 2) {
+			SimplePageBean.PathEntry topLevelSubPage = path.get(1);
+			UIOutput.make(tofill, "lessonsSubnavTopLevelPageId")
+				.decorate(new UIFreeAttributeDecorator("value", String.valueOf(topLevelSubPage.pageId)));
+		} else {
+			UIOutput.make(tofill, "lessonsSubnavPageId")
+				.decorate(new UIFreeAttributeDecorator("value", String.valueOf(simplePageBean.getCurrentPage().getPageId())));
+		}
+		UIOutput.make(tofill, "lessonsSubnavToolId")
+			.decorate(new UIFreeAttributeDecorator("value", String.valueOf(placement.getId())));
+		UIOutput.make(tofill, "lessonsSubnavItemId")
+			.decorate(new UIFreeAttributeDecorator("value", String.valueOf(pageItem.getId())));
+
+		UIOutput.make(tofill, "lessonsCurrentPageId")
+			.decorate(new UIFreeAttributeDecorator("value", String.valueOf(simplePageBean.getCurrentPage().getPageId())));
+	}
+
+	public void printSubpage(List<SimplePageItem> itemList, boolean first, UIBranchContainer sectionWrapper, UIBranchContainer sectionContainer, UIBranchContainer columnContainer, UIBranchContainer tableContainer, 
+			UIBranchContainer container, int cols, int colnum, boolean canEditPage, SimplePage currentPage, boolean[] anyItemVisible, long newItemId, boolean showRefresh, boolean canSeeAll, 
+			Locale M_locale, int ieVersion, boolean showDownloads, boolean iframeJavascriptDone, UIContainer tofill, Placement placement, GeneralViewParameters params, long postedCommentId, 
+			boolean addedCommentsScript, boolean cameFromGradingPane, SimplePageItem pageItem, boolean noEditor, int commentsCount, int textboxcount) {
+			
+			boolean subPageTitleIncluded = false;
+			boolean subPageTitleContinue = false;
+		
 			for (SimplePageItem i : itemList) {
 
 				// break is not a normal item. handle it first
@@ -1176,7 +1318,7 @@ public class ShowPageProducer implements ViewComponentProducer, DefaultView, Nav
 					cols = colCount(itemList, i.getId());
 					sectionbreak = true;
 					colnum = 0;
-				    } else if ("colunn".equals(i.getFormat()))
+				    } else if ("column".equals(i.getFormat()))
 					colnum++;
 				    columnContainer = UIBranchContainer.make(sectionContainer, "column:");				    
 				    tableContainer = UIBranchContainer.make(columnContainer, "itemTable:");
@@ -1220,6 +1362,28 @@ public class ShowPageProducer implements ViewComponentProducer, DefaultView, Nav
 				    continue;
 				    // for first item, if wasn't break, process it
 				}
+				
+				if (!simplePageBean.isItemVisible(i, currentPage)) {
+					continue;
+				}
+
+				if(httpServletRequest.getParameter("printall") != null && i.getSakaiId() != null && !"".equals(i.getSakaiId()) && StringUtils.isNumeric(i.getSakaiId())
+						&& !printedSubpages.contains(Long.valueOf(i.getSakaiId())))			
+				{
+					// is a subpage		
+															
+					printedSubpages.add(Long.valueOf(i.getSakaiId()));
+					
+					List<SimplePageItem> subitemList = (List<SimplePageItem>) simplePageBean.getItemsOnPage(Long.valueOf(i.getSakaiId()));
+					printSubpage(subitemList, first, sectionWrapper, sectionContainer, columnContainer, tableContainer, 
+							container, cols, colnum, canEditPage, currentPage, anyItemVisible, newItemId, showRefresh, canSeeAll, 
+							M_locale, ieVersion, showDownloads, iframeJavascriptDone, tofill, placement, params, postedCommentId,
+							addedCommentsScript, cameFromGradingPane, pageItem, noEditor, commentsCount, textboxcount);
+					
+					subPageTitleContinue = true;					
+				}
+				else
+				{
 
 				// listitem is mostly historical. it uses some shared HTML, but
 				// if I were
@@ -1236,12 +1400,9 @@ public class ShowPageProducer implements ViewComponentProducer, DefaultView, Nav
 				// (i.getType() == SimplePageItem.PAGE &&
 				// "button".equals(i.getFormat())))
 
-				if (!simplePageBean.isItemVisible(i, currentPage)) {
-					continue;
-				}
 				// break isn't a real item. probably don't want to count it
 				if (i.getType() != SimplePageItem.BREAK)
-				    anyItemVisible = true;
+				    anyItemVisible[0] = true;
 
 				UIBranchContainer tableRow = UIBranchContainer.make(tableContainer, "item:");
 
@@ -1839,12 +2000,15 @@ public class ShowPageProducer implements ViewComponentProducer, DefaultView, Nav
 						    // allowfullscreen="true" allowScriptAccess="always"
 						    // width="640" height="390"></object>
 
-						    item = UIOutput.make(tableRow, "youtubeIFrame");
+						    item = UIOutput.make(tableRow, "youtubeIFrame")
+									.decorate(new UIFreeAttributeDecorator("allow", String.join(";",
+											Optional.ofNullable(ServerConfigurationService.getStrings("browser.feature.allow"))
+													.orElseGet(() -> new String[]{}))));
 						    // youtube seems ok with length and width
 						    if(lengthOk(height)) {
 							    item.decorate(new UIFreeAttributeDecorator("height", height.getOld()));
 						    }
-						    else if(!lengthOk(height) && lengthOk(width)) {
+						    else if(!lengthOk(height) && lengthOk(width) && ("px".equals(width.unit) || "".equals(width.unit))) {
 							    // Youtube seems to use aspect ratio of 16*9 from 2015 on
 							    int youtubeDerivedHeight = (int) Math.ceil(new Double(width.getOld()) * 9 / 16);
 							    item.decorate(new UIFreeAttributeDecorator("height", youtubeDerivedHeight + ""));
@@ -2153,7 +2317,11 @@ public class ShowPageProducer implements ViewComponentProducer, DefaultView, Nav
 						} else  {
 						    UIOutput.make(tableRow, "iframe-link-div");
 						    UILink.make(tableRow, "iframe-link-link", messageLocator.getMessage("simplepage.open_new_window"), itemUrl);
-						    item = UIOutput.make(tableRow, "iframe").decorate(new UIFreeAttributeDecorator("src", itemUrl));
+						    item = UIOutput.make(tableRow, "iframe")
+									.decorate(new UIFreeAttributeDecorator("src", itemUrl))
+									.decorate(new UIFreeAttributeDecorator("allow", String.join(";",
+											Optional.ofNullable(ServerConfigurationService.getStrings("browser.feature.allow"))
+													.orElseGet(() -> new String[]{}))));
 						    // if user specifies auto, use Javascript to resize the
 						    // iframe when the
 						    // content changes. This only works for URLs with the
@@ -2356,19 +2524,14 @@ public class ShowPageProducer implements ViewComponentProducer, DefaultView, Nav
 
 						List<String>groupMembers = simplePageBean.studentPageGroupMembers(i, null);
 
-						boolean evalIndividual = (i.isGroupOwned() && "true".equals(i.getAttribute("group-eval-individual")));
-
-						//If groupMembers is empty this should be true (individual) even if this is set to being in a group
-						if (groupMembers == null || groupMembers.isEmpty()) {
-							evalIndividual = true;
-						}
+						boolean groupOwnedIndividual = (i.isGroupOwned() && "true".equals(i.getAttribute("group-eval-individual")));
 
 						// if we should show form. 
 						// individual owned
 						// group owned and eval group
 						// group owned and eval individual and we're in the group
 						// i.e. not eval individual and we're outside group
-						if(!(evalIndividual && !groupMembers.contains(currentUser))) {
+						if(!(groupOwnedIndividual && !groupMembers.contains(currentUser))) {
 						    UIOutput.make(tableRow, "peerReviewRubricStudent");
 						    UIOutput.make(tableRow, "peer-eval-title-student", String.valueOf(i.getAttribute("rubricTitle")));
 						    UIForm peerForm = UIForm.make(tableRow, "peer-review-form");
@@ -2393,7 +2556,7 @@ public class ShowPageProducer implements ViewComponentProducer, DefaultView, Nav
 						    }
 
 						    List<Target>evalTargets = new ArrayList<Target>();
-						    if (evalIndividual) {
+						    if (groupOwnedIndividual) {
 							String group = simplePageBean.getCurrentPage().getGroup();
 							if (group != null)
 							    group = "/site/" + simplePageBean.getCurrentSiteId() + "/group/" + group;
@@ -2426,7 +2589,7 @@ public class ShowPageProducer implements ViewComponentProducer, DefaultView, Nav
 						    // for old format entries always need page owner or evaluee
 						    // for new format when evaluating page need groupId
 						    String groupId = null;
-						    if (i.isGroupOwned() && !evalIndividual)
+						    if (i.isGroupOwned() && !groupOwnedIndividual)
 							groupId = simplePageBean.getCurrentPage().getGroup();
 
 						    for (Target target: evalTargets) {
@@ -2437,7 +2600,7 @@ public class ShowPageProducer implements ViewComponentProducer, DefaultView, Nav
 							// current data to show to target, all evaluations of target
 							// But first see if we should show current data. Only show
 							// user data evaluating him
-							if ((i.isGroupOwned() && !evalIndividual && groupMembers.contains(currentUser)) ||
+							if ((i.isGroupOwned() && !groupOwnedIndividual && groupMembers.contains(currentUser)) ||
 							    target.id.equals(currentUser)) {
 							
 							    List<SimplePagePeerEvalResult> evaluations = simplePageToolDao.findPeerEvalResultByOwner(pageId.longValue(), target.id, groupId);
@@ -2445,7 +2608,7 @@ public class ShowPageProducer implements ViewComponentProducer, DefaultView, Nav
 							    if(evaluations!=null) {
 								for(SimplePagePeerEvalResult eval : evaluations) {
 								    // for individual eval only show results for that one
-									if (evalIndividual && !currentUser.equals(eval.getGradee()))
+									if (groupOwnedIndividual && !currentUser.equals(eval.getGradee()))
 									    continue;
 									Long rowId = eval.getRowId();
 									if (rowId == 0L)
@@ -2490,8 +2653,8 @@ public class ShowPageProducer implements ViewComponentProducer, DefaultView, Nav
 
 							// keep this is sync with canSubmit in SimplePageBean.savePeerEvalResult
 							boolean canSubmit = (!i.isGroupOwned() && (!owner.equals(currentUser) || gradingSelf) ||
-									     i.isGroupOwned() && !evalIndividual && (!groupMembers.contains(currentUser) || peerEvalAllowSelfGrade) ||
-									     evalIndividual && groupMembers.contains(currentUser) && (peerEvalAllowSelfGrade || !target.id.equals(currentUser)));
+									     i.isGroupOwned() && !groupOwnedIndividual && (!groupMembers.contains(currentUser) || peerEvalAllowSelfGrade) ||
+									     groupOwnedIndividual && groupMembers.contains(currentUser) && (peerEvalAllowSelfGrade || !target.id.equals(currentUser)));
 
 							makePeerRubric(entry, i, makeStudentRubric, selectedCells, 
 								       dataMap, canSubmit);
@@ -2503,8 +2666,8 @@ public class ShowPageProducer implements ViewComponentProducer, DefaultView, Nav
 						    // group and (not in group or gradingself)
 						    // group individual eval and in group
 						    if(!i.isGroupOwned() && (!owner.equals(currentUser) || gradingSelf) ||
-						       i.isGroupOwned() && !evalIndividual && (!groupMembers.contains(currentUser) || peerEvalAllowSelfGrade) ||
-						       evalIndividual && groupMembers.contains(currentUser)) {
+						       i.isGroupOwned() && !groupOwnedIndividual && (!groupMembers.contains(currentUser) || peerEvalAllowSelfGrade) ||
+						       groupOwnedIndividual && groupMembers.contains(currentUser)) {
 
 							// can actually submit
 
@@ -3355,8 +3518,27 @@ public class ShowPageProducer implements ViewComponentProducer, DefaultView, Nav
 					if (canSeeAll) {
 					    String itemGroupString = simplePageBean.getItemGroupString(i, null, true);
 					    String itemGroupTitles = simplePageBean.getItemGroupTitles(itemGroupString, i);
+					    String subPagePath = null;
+					    if(!subPageTitleIncluded && httpServletRequest.getParameter("printall") != null)
+					    {
+					    	subPagePath = simplePageBean.getSubPagePath(i, false);
+					    	subPageTitleIncluded = true;					    	
+					    }
+					    if(subPageTitleContinue && httpServletRequest.getParameter("printall") != null)
+					    {
+					    	subPagePath = simplePageBean.getSubPagePath(i, true);
+					    	subPageTitleContinue = false;					    	
+					    }
+					    if (itemGroupTitles != null && subPagePath != null) {
+					    	itemGroupTitles = subPagePath +" - "+itemGroupTitles;
+					    }
+					    else if(subPagePath != null)
+					    {
+					    	itemGroupTitles = subPagePath;
+					    }
+					    
 					    if (itemGroupTitles != null) {
-						itemGroupTitles = "[" + itemGroupTitles + "]";
+					    	itemGroupTitles = "[" + itemGroupTitles + "]";
 					    }
 					    
 					    UIOutput.make(tableRow, "item-groups-titles-text", itemGroupTitles);
@@ -3388,117 +3570,10 @@ public class ShowPageProducer implements ViewComponentProducer, DefaultView, Nav
 						textboxcount++;
 					}
 				}
+				} // else - is not a subpage
 			}
-
-			// end of items. This is the end for normal users. Following is
-			// special
-			// checks and putting out the dialogs for the popups, for
-			// instructors.
-
-			boolean showBreak = false;
-
-			// I believe refresh is now done automatically in all cases
-			// if (showRefresh) {
-			// UIOutput.make(tofill, "refreshAlert");
-			//
-			// // Should simply refresh
-			// GeneralViewParameters p = new GeneralViewParameters(VIEW_ID);
-			// p.setSendingPage(currentPage.getPageId());
-			// UIInternalLink.make(tofill, "refreshLink", p);
-			// showBreak = true;
-			// }
-
-			// stuff goes on the page in the order in the HTML file. So the fact
-			// that it's here doesn't mean it shows
-			// up at the end. This code produces errors and other odd stuff.
-
-			if (canSeeAll) {
-				// if the page is hidden, warn the faculty [students get stopped
-				// at
-				// the top]
-				if (currentPage.isHidden()) {
-					UIOutput.make(tofill, "hiddenAlert").decorate(new UIFreeAttributeDecorator("title", messageLocator.getMessage("simplepage.pagehidden")));
-					UIVerbatim.make(tofill, "hidden-text", messageLocator.getMessage("simplepage.pagehidden.text"));
-
-					showBreak = true;
-					// similarly warn them if it isn't released yet
-				} else if (currentPage.getReleaseDate() != null && currentPage.getReleaseDate().after(new Date())) {
-					DateFormat df = DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT, M_locale);
-					TimeZone tz = timeService.getLocalTimeZone();
-					df.setTimeZone(tz);
-					String releaseDate = df.format(currentPage.getReleaseDate());
-					UIOutput.make(tofill, "hiddenAlert").decorate(new UIFreeAttributeDecorator("title", messageLocator.getMessage("simplepage.notreleased")));
-					UIVerbatim.make(tofill, "hidden-text", messageLocator.getMessage("simplepage.notreleased.text").replace("{}", releaseDate));
-					showBreak = true;
-				}
-			}
-
-			if (showBreak) {
-				UIOutput.make(tofill, "breakAfterWarnings");
-			}
-		}
-
-		// more warnings: if no item on the page, give faculty instructions,
-		// students an error
-		if (!anyItemVisible) {
-			if (canEditPage) {
-				String helpUrl = null;
-				// order:
-				// localized placedholder
-				// localized general
-				// default placeholder
-				// we know the defaults exist because we include them, so
-				// we never need to consider default general
-				if (simplePageBean.isStudentPage(currentPage)) {
-				    helpUrl = getLocalizedURL("student.html", true);
-				}
-				else {
-				    helpUrl = getLocalizedURL("placeholder.html", false);
-				    if (helpUrl == null)
-					helpUrl = getLocalizedURL("general.html", false);
-				    if (helpUrl == null)
-					helpUrl = getLocalizedURL("placeholder.html", true);
-				}
-
-				UIOutput.make(tofill, "startupHelp")
-				    .decorate(new UIFreeAttributeDecorator("src", helpUrl))
-				    .decorate(new UIFreeAttributeDecorator("id", "iframe"));
-				if (!iframeJavascriptDone) {
-				    UIOutput.make(tofill, "iframeJavascript");
-				    iframeJavascriptDone = true;
-				}
-			} else {
-				UIOutput.make(tofill, "error-div");
-				UIOutput.make(tofill, "error", messageLocator.getMessage("simplepage.noitems_error_user"));
-			}
-		}
-
-		// now output the dialogs. but only for faculty (to avoid making the
-		// file bigger)
-		if (canEditPage) {
-			createSubpageDialog(tofill, currentPage);
-		}
-
-		createDialogs(tofill, currentPage, pageItem, cssLink);
-
-		// Add pageids to the page so the portal lessons subnav menu can update its state
-		List<SimplePageBean.PathEntry> path = simplePageBean.getHierarchy();
-		if (path.size() > 2) {
-			SimplePageBean.PathEntry topLevelSubPage = path.get(1);
-			UIOutput.make(tofill, "lessonsSubnavTopLevelPageId")
-				.decorate(new UIFreeAttributeDecorator("value", String.valueOf(topLevelSubPage.pageId)));
-		} else {
-			UIOutput.make(tofill, "lessonsSubnavPageId")
-				.decorate(new UIFreeAttributeDecorator("value", String.valueOf(simplePageBean.getCurrentPage().getPageId())));
-		}
-		UIOutput.make(tofill, "lessonsSubnavToolId")
-			.decorate(new UIFreeAttributeDecorator("value", String.valueOf(placement.getId())));
-		UIOutput.make(tofill, "lessonsSubnavItemId")
-			.decorate(new UIFreeAttributeDecorator("value", String.valueOf(pageItem.getId())));
-
-		UIOutput.make(tofill, "lessonsCurrentPageId")
-			.decorate(new UIFreeAttributeDecorator("value", String.valueOf(simplePageBean.getCurrentPage().getPageId())));
 	}
+			
 	
 	public void makeCsrf(UIContainer tofill, String rsfid) {
 	    Object sessionToken = SessionManager.getCurrentSession().getAttribute("sakai.csrf.token");
@@ -3798,7 +3873,10 @@ public class ShowPageProducer implements ViewComponentProducer, DefaultView, Nav
 			if (i.getHeight() != null && !i.getHeight().equals(""))
 			    height = i.getHeight().replace("px","");  // just in case
 			
-			UIComponent iframe = UIOutput.make(container, "blti-iframe");
+			UIComponent iframe = UIOutput.make(container, "blti-iframe")
+					.decorate(new UIFreeAttributeDecorator("allow", String.join(";",
+							Optional.ofNullable(ServerConfigurationService.getStrings("browser.feature.allow"))
+									.orElseGet(() -> new String[]{}))));
 			if (lessonEntity != null)
 			    iframe.decorate(new UIFreeAttributeDecorator("src", lessonEntity.getUrl()));
 			
@@ -3962,10 +4040,6 @@ public class ShowPageProducer implements ViewComponentProducer, DefaultView, Nav
 		this.dateevolver = dateevolver;
 	}
 
-	public void setTimeService(TimeService ts) {
-		timeService = ts;
-	}
-
 	public void setLocaleGetter(LocaleGetter localegetter) {
 		this.localegetter = localegetter;
 	}
@@ -4080,7 +4154,7 @@ public class ShowPageProducer implements ViewComponentProducer, DefaultView, Nav
 		//		return ieVersion;
 	}
 
-	private void createToolBar(UIContainer tofill, SimplePage currentPage, boolean isStudent) {
+	private void createToolBar(UIContainer tofill, SimplePage currentPage) {
 		UIBranchContainer toolBar = UIBranchContainer.make(tofill, "tool-bar:");
 		boolean studentPage = simplePageBean.isStudentPage(currentPage);
 
@@ -5001,6 +5075,8 @@ public class ShowPageProducer implements ViewComponentProducer, DefaultView, Nav
 		UIInput.make(form, "open_date_string", "#{simplePageBean.peerEvalOpenDate}");
 		UIOutput.make(form, "open_date_dummy");
 
+		UIOutput.make(form, "peer_eval_due_date_label", messageLocator.getMessage("simplepage.peer-eval.due_date"));
+       
 		UIOutput dueDateField = UIOutput.make(form, "peer_eval_due_date:");
 		UIInput.make(form, "due_date_string", "#{simplePageBean.peerEvalDueDate}");
 		UIOutput.make(form, "due_date_dummy");
@@ -5554,4 +5630,11 @@ public class ShowPageProducer implements ViewComponentProducer, DefaultView, Nav
 		return itemText;
 	}
 
+	public List<Long> getPrintedSubpages() {
+		return printedSubpages;
+	}
+
+	public void setPrintedSubpages(List<Long> printedSubpages) {
+		this.printedSubpages = printedSubpages;
+	}
 }

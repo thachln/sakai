@@ -22,12 +22,14 @@
 package org.sakaiproject.util;
 
 import java.io.UnsupportedEncodingException;
+import java.nio.charset.StandardCharsets;
 import java.net.URLEncoder;
 import java.util.Enumeration;
 
 import javax.servlet.http.HttpServletRequest;
 
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 
 import org.sakaiproject.component.cover.ServerConfigurationService;
 import org.sakaiproject.exception.IdInvalidException;
@@ -96,6 +98,8 @@ public class Validator
 	/** Valid special email local id characters (- those that are invalid resource ids) */
 	protected static final String VALID_EMAIL = "abcdefghijklmnopqrstuvwxyz1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ!#$&'*+-=?^_`{|}~.";
 
+	protected static final String INVALID_CHARS_IN_FILENAME = "[\\/:\"*?<>|]+";
+
 	/**
 	 * Escape a plaintext string so that it can be output as part of an HTML document. Amperstand, greater-than, less-than, newlines, etc, will be escaped so that they display (instead of being interpreted as formatting).
 	 * 
@@ -150,7 +154,7 @@ public class Validator
      */
     public static String escapeJavascript(String value)
     {
-        if (value == null || "".equals(value)) return "";
+        if (StringUtils.isEmpty(value)) return StringUtils.EMPTY;
         try
         {
             StringBuilder buf = new StringBuilder();
@@ -207,7 +211,7 @@ public class Validator
 		try
 		{
 			// convert the string to bytes in UTF-8
-			byte[] bytes = id.getBytes("UTF-8");
+			byte[] bytes = id.getBytes(StandardCharsets.UTF_8.name());
 
 			StringBuilder buf = new StringBuilder();
 			for (int i = 0; i < bytes.length; i++)
@@ -922,5 +926,31 @@ public class Validator
 		}
 		if ( sb.length() < 1 ) return null;
 		return sb.substring(0, sb.length()-1);
+	}
+
+	/**
+	 * Return a safe filename by replacing all whitespace and invalid characters
+	 *
+	 * @param filename
+	 *        The string to clean
+	 * @return safe filename string
+	 */
+	public static String cleanFilename(String filename) {
+		// replace all whitespace
+		String cleanFilename = filename.replaceAll("\\s", "_");
+
+		// replace all invalid characters
+		final int len = cleanFilename.length();
+		StringBuilder buf = new StringBuilder();
+		for (int i = 0; i < len; i++) {
+			char c = cleanFilename.charAt(i);
+			if (INVALID_CHARS_IN_FILENAME.indexOf(c) != -1) {
+				buf.append("_");
+			} else {
+				buf.append(c);
+			}
+		}
+
+		return buf.toString();
 	}
 }

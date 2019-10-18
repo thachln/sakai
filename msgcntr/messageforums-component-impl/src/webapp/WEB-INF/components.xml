@@ -64,6 +64,7 @@
         <property name="toolManager">
             <ref bean="org.sakaiproject.tool.api.ToolManager"/>
         </property>
+        <property name="sessionManager" ref="org.sakaiproject.tool.api.SessionManager" />
     </bean>
 	    
     <bean id="org.sakaiproject.api.app.messageforums.MessageForumsTypeManager" 
@@ -258,6 +259,7 @@
 		        <property name="serverConfigurationService" ref="org.sakaiproject.component.api.ServerConfigurationService" />
 		        <property name="siteService" ref="org.sakaiproject.site.api.SiteService"/>
 		        <property name="toolManager" ref="org.sakaiproject.tool.api.ToolManager"/>
+		        <property name="rubricsService" ref="org.sakaiproject.rubrics.logic.RubricsService"/>
 	       	</bean>
 		</property>
 		
@@ -409,6 +411,7 @@
 		        <property name="eventTrackingService" ref="org.sakaiproject.event.api.EventTrackingService"/>
 		        <property name="threadLocalManager" ref="org.sakaiproject.thread_local.api.ThreadLocalManager"/>
 		        <property name="toolManager" ref="org.sakaiproject.tool.api.ToolManager"/>
+		        <property name="learningResourceStoreService" ref="org.sakaiproject.event.api.LearningResourceStoreService"/>
             </bean>           
         </property>
          <property name="transactionAttributes">

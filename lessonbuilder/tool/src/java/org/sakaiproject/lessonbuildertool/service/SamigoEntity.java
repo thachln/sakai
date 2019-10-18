@@ -349,6 +349,10 @@ public class SamigoEntity implements LessonEntity, QuizEntity {
 	return FormattedText.convertFormattedTextToPlaintext(assessment.getTitle());
     }
 
+    public String getDescription(){
+        return "";
+    }
+
     public String getAssessmentAlias(Long publishedId) {
 	try {
 	    PublishedAssessmentData a = getPublishedAssessment(publishedId);
@@ -504,7 +508,7 @@ public class SamigoEntity implements LessonEntity, QuizEntity {
 
     public LessonSubmission getSubmission(String user) {
 	if (assessment == null)
-	    assessment = getPublishedAssessment(id);
+	    assessment = getPublishedAssessment(id, true);
 	if (assessment == null) {
 	    log.warn("can't find published " + id);
 	    return null;
@@ -586,7 +590,7 @@ public class SamigoEntity implements LessonEntity, QuizEntity {
 	}
 
 	if (samigo_linked)
-	    return ServerConfigurationService.getToolUrl() + "/" + tool + "/jsf/author/editLink?publishedAssessmentId=" + id;
+	    return ServerConfigurationService.getToolUrl() + "/" + tool + "/jsf/author/editLink?publishedId=" + id;
 	else
 	    return ServerConfigurationService.getToolUrl() + "/" + tool + "/jsf/index/mainIndex";
     }
@@ -600,7 +604,7 @@ public class SamigoEntity implements LessonEntity, QuizEntity {
 	    return null;
     
 	if (samigo_linked)
-	    return ServerConfigurationService.getToolUrl() + "/" + tool + "/jsf/author/editLink?publishedAssessmentId=" + id + "&settings=true";
+	    return ServerConfigurationService.getToolUrl() + "/" + tool + "/jsf/author/editLink?publishedId=" + id + "&settings=true";
 	else
 	    return ServerConfigurationService.getToolUrl() + "/" + tool + "/jsf/index/mainIndex";
 

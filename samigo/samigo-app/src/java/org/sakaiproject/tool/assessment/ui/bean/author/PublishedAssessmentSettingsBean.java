@@ -35,17 +35,30 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
 
+import javax.annotation.Resource;
 import javax.faces.application.FacesMessage;
+import javax.faces.bean.ManagedBean;
+import javax.faces.bean.SessionScoped;
 import javax.faces.context.ExternalContext;
 import javax.faces.context.FacesContext;
 import javax.faces.model.SelectItem;
 
+import lombok.Getter;
+import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 
 import org.sakaiproject.exception.IdUnusedException;
+import org.sakaiproject.tool.api.SessionManager;
+import org.sakaiproject.tool.api.ToolManager;
 import org.sakaiproject.tool.assessment.facade.*;
+import org.sakaiproject.component.cover.ComponentManager;
+import org.sakaiproject.exception.IdUnusedException;
+import org.sakaiproject.service.gradebook.shared.Assignment;
+import org.sakaiproject.service.gradebook.shared.CategoryDefinition;
+import org.sakaiproject.service.gradebook.shared.GradebookInformation;
+import org.sakaiproject.service.gradebook.shared.GradebookService;
 import org.sakaiproject.site.api.Group;
 import org.sakaiproject.site.api.Site;
 import org.sakaiproject.site.cover.SiteService;
@@ -81,14 +94,16 @@ import org.sakaiproject.tool.assessment.shared.api.assessment.SecureDeliveryServ
 import org.sakaiproject.tool.assessment.ui.listener.author.SaveAssessmentAttachmentListener;
 import org.sakaiproject.tool.assessment.ui.listener.util.ContextUtil;
 import org.sakaiproject.tool.assessment.ui.listener.util.TimeUtil;
-import org.sakaiproject.tool.cover.ToolManager;
-import org.sakaiproject.tool.cover.SessionManager;
 import org.sakaiproject.util.ResourceLoader;
 import org.sakaiproject.util.FormattedText;
+import org.springframework.web.context.ContextLoader;
+import org.springframework.web.context.WebApplicationContext;
 
+/* For author: Assessment Settings backing bean.*/
 @Slf4j
-public class PublishedAssessmentSettingsBean
-  implements Serializable {
+@ManagedBean(name="publishedSettings")
+@SessionScoped
+public class PublishedAssessmentSettingsBean implements Serializable {
   
   private static final IntegrationContextFactory integrationContextFactory =
     IntegrationContextFactory.getInstance();
@@ -120,6 +135,9 @@ public class PublishedAssessmentSettingsBean
   private Date dueDate;
   private Date retractDate;
   private Date feedbackDate;
+  @Getter @Setter private Date feedbackEndDate;
+  private boolean feedbackScoreThresholdEnabled = false;
+  @Getter @Setter private String feedbackScoreThreshold;
   private Integer timeLimit; // in seconds, calculated from timedHours & timedMinutes
   private Integer timedHours;
   private Integer timedMinutes;
@@ -181,11 +199,13 @@ public class PublishedAssessmentSettingsBean
   private boolean isValidDueDate = true;
   private boolean isValidRetractDate = true;
   private boolean isValidFeedbackDate = true;
+  private boolean isValidFeedbackEndDate = true;
   
   private String originalStartDateString;
   private String originalDueDateString;
   private String originalRetractDateString;
   private String originalFeedbackDateString;
+  @Getter @Setter private String originalFeedbackEndDateString;
   private boolean updateMostCurrentSubmission = false;
   
   private boolean isMarkForReview;
@@ -194,6 +214,10 @@ public class PublishedAssessmentSettingsBean
   private boolean editPubAnonyGradingRestricted = false;
   private String releaseToGroupsAsString;
   private String blockDivs;
+
+  private boolean categoriesEnabled;
+  private List<SelectItem> categoriesSelectList;
+  private String categorySelected;
   
   private String bgColorSelect;
   private String bgImageSelect;
@@ -209,13 +233,26 @@ public class PublishedAssessmentSettingsBean
   private final String HIDDEN_END_DATE_FIELD = "endDateISO8601";
   private final String HIDDEN_RETRACT_DATE_FIELD = "retractDateISO8601";
   private final String HIDDEN_FEEDBACK_DATE_FIELD = "feedbackDateISO8601";
+  private final String HIDDEN_FEEDBACK_END_DATE_FIELD = "feedbackEndDateISO8601";
 
   private ResourceLoader assessmentSettingMessages;
-  
+
+  @Resource(name = "org.sakaiproject.service.gradebook.GradebookService")
+  private GradebookService gradebookService;
+  @Resource(name = "org.sakaiproject.tool.api.SessionManager")
+  private SessionManager sessionManager;
+  @Resource(name = "org.sakaiproject.tool.api.ToolManager")
+  private ToolManager toolManager;
+
   /*
    * Creates a new AssessmentBean object.
    */
   public PublishedAssessmentSettingsBean() {
+    this(ContextLoader.getCurrentWebApplicationContext());
+  }
+
+  public PublishedAssessmentSettingsBean(WebApplicationContext context) {
+    context.getAutowireCapableBeanFactory().autowireBean(this);
     this.assessmentSettingMessages = new ResourceLoader("org.sakaiproject.tool.assessment.bundle.AssessmentSettingsMessages");
   }
 
@@ -272,6 +309,9 @@ public class PublishedAssessmentSettingsBean
         this.dueDate = accessControl.getDueDate();
         this.retractDate = accessControl.getRetractDate();
         this.feedbackDate = accessControl.getFeedbackDate();
+        this.feedbackEndDate = accessControl.getFeedbackEndDate();
+        this.feedbackScoreThreshold = accessControl.getFeedbackScoreThreshold() != null ? String.valueOf(accessControl.getFeedbackScoreThreshold()) : StringUtils.EMPTY;
+        this.feedbackScoreThresholdEnabled = StringUtils.isNotBlank(this.feedbackScoreThreshold);
 
         // deal with releaseTo
         this.releaseTo = accessControl.getReleaseTo(); // list of String
@@ -358,6 +398,10 @@ public class PublishedAssessmentSettingsBean
         
         String currentSiteId = AgentFacade.getCurrentSiteId();
         this.gradebookExists = gbsHelper.isGradebookExist(currentSiteId);
+
+        this.categoriesSelectList = populateCategoriesSelectList();
+        this.categorySelected = getCategoryForAssessmentName(assessment.getTitle());
+
       }
 
       //set IPAddresses
@@ -396,6 +440,67 @@ public class PublishedAssessmentSettingsBean
     catch (RuntimeException ex) {
       log.warn(ex.getMessage());
     }
+  }
+
+  private String getCategoryForAssessmentName(String assessmentName) {
+    List<Assignment> gbAssignments;
+    Long categoryId = null;
+
+    if (this.gradebookExists) {
+      String gradebookUid = toolManager.getCurrentPlacement().getContext();
+      gbAssignments = gradebookService.getAssignments(gradebookUid);
+      for (Assignment assignment : gbAssignments) {
+        if (StringUtils.equals(assessmentName, assignment.getName())) {
+          categoryId = assignment.getCategoryId();
+        }
+      }
+    }
+    String catSelected = "-1";
+    if (categoryId != null) {
+      String catId;
+      for (SelectItem catIdAndName : categoriesSelectList) {
+        catId = catIdAndName.getValue().toString();
+        if (StringUtils.equals(catId, categoryId.toString())) {
+          catSelected = catId;
+        }
+      }
+    }
+    return catSelected;
+  }
+
+  /**
+   * Populate the categoriesSelectList property with a list of string names
+   * of the categories in the gradebook
+   */
+  private List<SelectItem> populateCategoriesSelectList() {
+    List<CategoryDefinition> categoryDefinitions;
+    List<SelectItem> selectList = new ArrayList<>();
+
+    if (this.gradebookExists) {
+      String gradebookUid = toolManager.getCurrentPlacement().getContext();
+      categoryDefinitions = gradebookService.getCategoryDefinitions(gradebookUid);
+
+      selectList.add(new SelectItem("-1","Uncategorized")); // -1 for a cat id means unassigned
+      for (CategoryDefinition categoryDefinition: categoryDefinitions) {
+        selectList.add(new SelectItem(categoryDefinition.getId().toString(), categoryDefinition.getName()));
+      }
+      // Also set if categories are enabled based on category type
+      GradebookInformation gbInfo = gradebookService.getGradebookInformation(gradebookUid);
+      if (gbInfo != null) {
+        this.categoriesEnabled = gbInfo.getCategoryType() != GradebookService.CATEGORY_TYPE_NO_CATEGORY;
+      } else {
+        this.categoriesEnabled = false;
+      }
+    }
+    return selectList;
+  }
+
+  public void setCategoriesEnabled(boolean categoriesEnabled) {
+    this.categoriesEnabled = categoriesEnabled;
+  }
+
+  public boolean getCategoriesEnabled() {
+    return categoriesEnabled;
   }
 
   // properties from Assessment
@@ -1149,7 +1254,42 @@ public void setFeedbackComponentOption(String feedbackComponentOption) {
       }
     }
   }
-  
+
+  public String getFeedbackEndDateString() {
+    if (!this.isValidFeedbackEndDate) {
+      return this.originalFeedbackEndDateString;
+    } else {
+      return getDisplayFormatFromDate(feedbackEndDate);
+    }
+  }
+
+  public void setFeedbackEndDateString(String feedbackEndDateString) {
+    if (StringUtils.isBlank(feedbackEndDateString)) {
+      this.isValidFeedbackEndDate = true;
+      this.feedbackEndDate = null;
+    } else {
+
+      Date tempDate = tu.parseISO8601String(ContextUtil.lookupParam(HIDDEN_FEEDBACK_END_DATE_FIELD));
+
+      if (tempDate != null) {
+        this.isValidFeedbackEndDate = true;
+        this.feedbackEndDate = tempDate;
+      } else {
+        log.error("setFeedbackEndDateString could not parse hidden date field {}.", ContextUtil.lookupParam(HIDDEN_FEEDBACK_DATE_FIELD));
+        this.isValidFeedbackEndDate = false;
+        this.originalFeedbackEndDateString = feedbackEndDateString;
+      }
+    }
+  }
+
+  public boolean getFeedbackScoreThresholdEnabled() {
+    return feedbackScoreThresholdEnabled;
+  }
+
+  public void setFeedbackScoreThresholdEnabled(boolean feedbackScoreThresholdEnabled) {
+    this.feedbackScoreThresholdEnabled = feedbackScoreThresholdEnabled;
+  }
+
   public String getPublishedUrl() {
     return this.publishedUrl;
   }
@@ -1266,12 +1406,17 @@ public void setFeedbackComponentOption(String feedbackComponentOption) {
 	public boolean getIsValidFeedbackDate() {
 		return this.isValidFeedbackDate;
 	}
-	
+
+	public boolean getIsValidFeedbackEndDate() {
+		return this.isValidFeedbackEndDate;
+	}
+
 	public void resetIsValidDate() {
 		this.isValidStartDate = true;
 		this.isValidDueDate = true;
 		this.isValidRetractDate = true;
 		this.isValidFeedbackDate = true;
+		this.isValidFeedbackEndDate = true;
 	}
 	  
 	public void resetOriginalDateString() {
@@ -1279,6 +1424,7 @@ public void setFeedbackComponentOption(String feedbackComponentOption) {
 		this.originalDueDateString = "";
 		this.originalRetractDateString = "";
 		this.originalFeedbackDateString = "";
+		this.originalFeedbackEndDateString = "";
 	 }
 
 	public boolean getupdateMostCurrentSubmission() {
@@ -1304,7 +1450,7 @@ public void setFeedbackComponentOption(String feedbackComponentOption) {
 		TreeMap sortedSelectItems = new TreeMap();
 		Site site;
 		try {
-			site = SiteService.getSite(ToolManager.getCurrentPlacement()
+			site = SiteService.getSite(toolManager.getCurrentPlacement()
 					.getContext());
 			Collection groups = site.getGroups();
 			if (groups != null && groups.size() > 0) {
@@ -1348,7 +1494,7 @@ public void setFeedbackComponentOption(String feedbackComponentOption) {
 	public int getNumberOfGroupsForSite() {
 		int numGroups = 0;
 		try {
-			Site site = SiteService.getSite(ToolManager.getCurrentPlacement()
+			Site site = SiteService.getSite(toolManager.getCurrentPlacement()
 					.getContext());
 			Collection groups = site.getGroups();
 			if (groups != null) {
@@ -1430,7 +1576,7 @@ public void setFeedbackComponentOption(String feedbackComponentOption) {
 			if (attachmentList != null){
 				filePickerList = prepareReferenceList(attachmentList);
 			}
-			ToolSession currentToolSession = SessionManager.getCurrentToolSession();
+			ToolSession currentToolSession = sessionManager.getCurrentToolSession();
 			currentToolSession.setAttribute(FilePickerHelper.FILE_PICKER_ATTACHMENTS, filePickerList);
 			ExternalContext context = FacesContext.getCurrentInstance().getExternalContext();
 			context.redirect("sakai.filepicker.helper/tool");
@@ -1563,40 +1709,32 @@ public void setFeedbackComponentOption(String feedbackComponentOption) {
 		Site site;
 
 		try {
-			site = SiteService.getSite(ToolManager.getCurrentPlacement().getContext());
+			site = SiteService.getSite(toolManager.getCurrentPlacement().getContext());
 			SectionAwareness sectionAwareness = PersistenceService.getInstance().getSectionAwareness();
-			// List sections = sectionAwareness.getSections(site.getId());
 			List enrollments = sectionAwareness.getSiteMembersInRole(site.getId(), Role.STUDENT);
-
-			// Treemaps are used here because they auto-sort
-			TreeMap studentTargets = new TreeMap<>();
+			Map<String, String> studentTargets = new HashMap<>();
+			Map<String, String> orderedStudents = new HashMap<>();
 
 			// Add students to target set
 			if (enrollments != null && enrollments.size() > 0) {
 				for (Iterator iter = enrollments.iterator(); iter.hasNext();) {
 					EnrollmentRecord enrollmentRecord = (EnrollmentRecord) iter.next();
 					String userId = enrollmentRecord.getUser().getUserUid();
-					String userDisplayName = enrollmentRecord.getUser().getSortName();
-					studentTargets.put(userDisplayName, userId);
+					String userDisplayName = enrollmentRecord.getUser().getSortName() + " (" + enrollmentRecord.getUser().getDisplayId() + ")";
+					studentTargets.put(userId, userDisplayName);
 				}
 			}
 
-			// Add targets to selectItem array. We put the alpha name in as the
-			// key so it would
-			// be alphabetized. Now we pull it out and build the select item
-			// list.
-			int listSize = 1 + studentTargets.size();
+			// Order students map
+			orderedStudents = ContextUtil.sortByValue(studentTargets);
+
+			// Add in students to select item list
+			int listSize = 1 + orderedStudents.size();
 			usersInSite = new SelectItem[listSize];
 			usersInSite[0] = new SelectItem("", assessmentSettingMessages.getString("extendedTime_select_User"));
 			int selectCount = 1;
-
-			// Add in students to select item list
-			Set keySet = studentTargets.keySet();
-			Iterator iter = keySet.iterator();
-			while (iter.hasNext()) {
-				String alphaName = (String) iter.next();
-				String sakaiId = (String) studentTargets.get(alphaName);
-				usersInSite[selectCount++] = new SelectItem(sakaiId, alphaName);
+			for (Map.Entry<String,String> student : orderedStudents.entrySet()) {
+				usersInSite[selectCount++] = new SelectItem(student.getKey(), student.getValue());
 			}
 
 		} catch (IdUnusedException ex) {
@@ -1646,20 +1784,13 @@ public void setFeedbackComponentOption(String feedbackComponentOption) {
     this.transitoryExtendedTime = newExTime;
   }
 
-  //From the form
-  public void addExtendedTime() {
-	  addExtendedTime(true);
-  }
-
   //Internal to be able to supress error easier
-  public void addExtendedTime(boolean errorToContext) {
+  public void addExtendedTime() {
       ExtendedTime entry = this.extendedTime;
       if (StringUtils.isBlank(entry.getUser()) && StringUtils.isBlank(entry.getGroup())) {
-          if (errorToContext) {
-              FacesContext context = FacesContext.getCurrentInstance();
-              String errorString = ContextUtil.getLocalizedString("org.sakaiproject.tool.assessment.bundle.AssessmentSettingsMessages", "extended_time_user_and_group_set");
-              context.addMessage(null, new FacesMessage(FacesMessage.SEVERITY_WARN, errorString, null));
-          }
+          FacesContext context = FacesContext.getCurrentInstance();
+          String errorString = ContextUtil.getLocalizedString("org.sakaiproject.tool.assessment.bundle.AssessmentSettingsMessages", "extended_time_user_and_group_set");
+          context.addMessage(null, new FacesMessage(FacesMessage.SEVERITY_WARN, errorString, null));
       }
       else {
           this.extendedTime.syncDates();
@@ -1708,7 +1839,20 @@ public void setFeedbackComponentOption(String feedbackComponentOption) {
  	public void setDisplayScoreDuringAssessments(String displayScoreDuringAssessments){
  		this.displayScoreDuringAssessments = displayScoreDuringAssessments;
  	}
+
+  public List getCategoriesSelectList() {
+    return categoriesSelectList;
+  }
+
+  public void setCategoriesSelectList(List<SelectItem> categoriesSelectList) {
+    this.categoriesSelectList = categoriesSelectList;
+  }
+
+  public String getCategorySelected() {
+    return categorySelected;
+  }
+
+  public void setCategorySelected(String categorySelected) {
+    this.categorySelected = categorySelected;
+  }
 }
-
-
-

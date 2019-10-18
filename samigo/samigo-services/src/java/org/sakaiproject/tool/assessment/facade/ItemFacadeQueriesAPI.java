@@ -22,7 +22,6 @@
 
 package org.sakaiproject.tool.assessment.facade;
 
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -64,6 +63,8 @@ public interface ItemFacadeQueriesAPI
 
   public ItemFacade saveItem(ItemFacade item) throws DataFacadeException;
 
+  public List<ItemFacade> saveItems(List<ItemFacade> items) throws DataFacadeException;
+
   /**
    * Retrieve an item from storage
    * @param itemId the item id
@@ -104,4 +105,5 @@ public interface ItemFacadeQueriesAPI
 
   public Boolean itemExists(Long itemId);
 
+  public void removeItemAttachment(Long itemAttachmentId);
 }

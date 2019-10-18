@@ -50,7 +50,9 @@
 			<h:outputText value="#{messageUIBean.infoMessage}" styleClass="information" escape="false" rendered="#{messageUIBean.info}"/>      			
 				
 			<h:form id="meeting">
-			 	<sakai:view_title value="#{msgs.event_step5_page_title}"/>
+				<div class="page-header">
+			 		<sakai:view_title value="#{msgs.event_step5_page_title}"/>
+				</div>
 			 	<div class="form">
 					<%-- title --%>
 					<div class="row">
@@ -74,7 +76,7 @@
 							<h:outputText value="#{msgs.event_owner}" styleClass="titleText" escape="false"/>
 						</h:panelGroup>
 						<h:panelGroup styleClass="col-xs-12 col-md-9 valueColumn" layout="block">
-							<h:outputText value="#{NewSignupMeetingBean.instructorName}" styleClass="longtext" escape="false"/>
+							<h:outputText value="#{NewSignupMeetingBean.instructorName}" styleClass="longtext"/>
 						</h:panelGroup>
 					</div>
 
@@ -289,11 +291,11 @@
 						<h:panelGroup styleClass="col-xs-12 col-md-9 valueColumn" layout="block" rendered="#{NewSignupMeetingBean.customTimeslotType}">
 							<h:panelGroup>
 								<h:outputLabel  id="imageOpen_schedule" style="display:none" styleClass="activeTag" onclick="showDetails('meeting:imageOpen_schedule','meeting:imageClose_schedule','meeting:scheduleDetail');">
-									<h:graphicImage value="/images/open.gif"  alt="open" title="#{msgs.title_tip_click_hide_schedule}" style="border:none;" styleClass="openCloseImageIcon"/>
+									<h:graphicImage value="/images/open.gif" alt="#{msgs.title_tip_click_hide_schedule}" title="#{msgs.title_tip_click_hide_schedule}" style="border:none;" styleClass="openCloseImageIcon"/>
 									<h:outputText value="#{msgs.event_hide_custom_ts}" escape="false" style="vertical-align: top;"/>
 								</h:outputLabel>
 								<h:outputLabel id="imageClose_schedule" styleClass="activeTag" onclick="showDetails('meeting:imageOpen_schedule','meeting:imageClose_schedule','meeting:scheduleDetail');">
-									<h:graphicImage value="/images/closed.gif" alt="close" title="#{msgs.title_tip_click_show_schedule}" style="border:none;vertical-align:top;" styleClass="openCloseImageIcon"/>
+									<h:graphicImage value="/images/closed.gif" alt="#{msgs.title_tip_click_show_schedule}" title="#{msgs.title_tip_click_show_schedule}" style="border:none;vertical-align:top;" styleClass="openCloseImageIcon"/>
 									<h:outputText value="#{msgs.event_show_custom_ts}" escape="false" style="vertical-align: top;"/>
 								</h:outputLabel>
 							</h:panelGroup>
@@ -417,7 +419,7 @@
 							<h:dataTable id="meeting_coordinators" value="#{NewSignupMeetingBean.allPossibleCoordinators}" var="coUser" styleClass="coordinatorTab">
 								<h:column>
 									<h:selectBooleanCheckbox id="meetingcoord" value="#{coUser.checked}"/>
-									<h:outputLabel for="meetingcoord" value="&nbsp;#{coUser.displayName}" escape="false" styleClass="longtext"/>
+									<h:outputLabel for="meetingcoord" value="#{coUser.displayName}" styleClass="longtext"/>
 								</h:column>
 							</h:dataTable>
 						</h:panelGroup>
@@ -596,12 +598,13 @@
 										
 				<h:inputHidden value="step2" binding="#{NewSignupMeetingBean.currentStepHiddenInfo}"/>
 				<sakai:button_bar>
-					<h:commandButton id="goNextPage" action="#{NewSignupMeetingBean.processSave}" value="#{msgs.publish_button}" onclick='displayProcessingIndicator(this);'/> 
+					<h:commandButton id="goNextPage" styleClass="active" action="#{NewSignupMeetingBean.processSave}" value="#{msgs.publish_button}" onclick='displayProcessingIndicator(this);'/> 
 					<h:commandButton id="assignStudents" action="#{NewSignupMeetingBean.proceesPreAssignAttendee}" value="#{msgs.assign_attendee_publish_button}" disabled="#{NewSignupMeetingBean.announcementType}"/> 
 					<h:commandButton id="goBack" action="#{NewSignupMeetingBean.goBack}" value="#{msgs.goback_button}"/>
 					<h:commandButton id="Cancel" action="#{NewSignupMeetingBean.processCancel}" value="#{msgs.cancel_button}" immediate="true"/>
-					<h:outputText styleClass="messageProgress" style="display:none" value="#{msgs.publish_processing_submit_message}" />  
+ 
 				</sakai:button_bar>
+                                <h:outputText styleClass="sak-banner-info" style="display:none" value="#{msgs.publish_processing_submit_message}" />
 
 			 </h:form>
   		</sakai:view_content>	

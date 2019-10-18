@@ -39,12 +39,19 @@
     <h:form id="authorIndexForm">
         <!-- HEADINGS -->
         <%@ include file="/jsf/author/editAssessmentHeadings.jsp" %>
-        <script src="/library/webjars/datatables/1.10.16/js/jquery.dataTables.min.js"></script>
-        <samigo:script path="/js/info.js"/>
+        <script type="text/JavaScript">includeWebjarLibrary('datatables');</script>
+        <script type="text/javascript" src="/samigo-app/js/info.js"></script>
+
+<%--        header--%>
+        <div class="page-header">
+            <h1>
+                <h:outputText value="#{questionPoolMessages.add} #{authorFrontDoorMessages.assessments}" />
+            </h1>
+        </div>
 
         <div class="samigo-container">
             <p>
-                <h:messages styleClass="messageSamigo" rendered="#{! empty facesContext.maximumSeverity}" layout="table"/>
+                <h:messages styleClass="sak-banner-error" rendered="#{! empty facesContext.maximumSeverity}" layout="table"/>
             </p>
 
             <div id="samigo-create-new-box" class="col-md-6">
@@ -66,10 +73,10 @@
                     <!-- SAM-2487 mark them up manually -->
                     <ul class="creation-mode-list no-list">
                         <li>
-                            <t:radio for="creationMode" index="0" />
+                            <t:radio renderLogicalId="true" for="creationMode" index="0" />
                         </li>
                         <li>
-                            <t:radio for="creationMode" index="1" />
+                            <t:radio renderLogicalId="true" for="creationMode" index="1" />
                         </li>
                     </ul>
                 </div>
@@ -82,8 +89,8 @@
                     </h:selectOneMenu>
                 </div>
 
-                <div class="form-group">
-                    <h:commandButton id="createnew" type="submit" value="#{authorFrontDoorMessages.button_create}" action="#{author.getOutcome}">
+                <div class="form-group act">
+                    <h:commandButton id="createnew" styleClass="active" type="submit" value="#{authorFrontDoorMessages.button_create}" action="#{author.getOutcome}">
                         <f:actionListener type="org.sakaiproject.tool.assessment.ui.listener.author.AuthorAssessmentListener" />
                     </h:commandButton>
                 </div>
@@ -94,7 +101,7 @@
             </div>
 
             <div id="samigo-create-import-box" class="col-md-5">
-                <div>
+                <div class="">
                     <h4>
                         <h:outputText value="#{authorFrontDoorMessages.assessment_import}" rendered="#{authorization.createAssessment}"/>
                     </h4>

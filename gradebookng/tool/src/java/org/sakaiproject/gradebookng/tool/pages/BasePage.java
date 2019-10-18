@@ -35,11 +35,13 @@ import org.apache.wicket.markup.html.link.Link;
 import org.apache.wicket.model.Model;
 import org.apache.wicket.request.mapper.parameter.PageParameters;
 import org.apache.wicket.spring.injection.annot.SpringBean;
-import org.sakaiproject.component.cover.ServerConfigurationService;
+import org.sakaiproject.component.api.ServerConfigurationService;
 import org.sakaiproject.gradebookng.business.GbRole;
 import org.sakaiproject.gradebookng.business.GradebookNgBusinessService;
 import org.sakaiproject.gradebookng.business.exception.GbAccessDeniedException;
 import org.sakaiproject.gradebookng.tool.component.GbFeedbackPanel;
+import org.sakaiproject.portal.util.PortalUtils;
+import org.sakaiproject.rubrics.logic.RubricsService;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -56,6 +58,12 @@ public class BasePage extends WebPage {
 
 	@SpringBean(name = "org.sakaiproject.gradebookng.business.GradebookNgBusinessService")
 	protected GradebookNgBusinessService businessService;
+
+	@SpringBean(name = "org.sakaiproject.rubrics.logic.RubricsService")
+	protected RubricsService rubricsService;
+
+	@SpringBean(name = "org.sakaiproject.component.api.ServerConfigurationService")
+	protected ServerConfigurationService serverConfigService;
 
 	Link<Void> gradebookPageLink;
 	Link<Void> settingsPageLink;
@@ -79,6 +87,7 @@ public class BasePage extends WebPage {
 
 		// setup some data that can be shared across all pages
 		this.currentUserUuid = this.businessService.getCurrentUser().getId();
+		role = GbRole.NONE;
 		try {
 			this.role = this.businessService.getUserRole();
 		} catch (final GbAccessDeniedException e) {
@@ -130,7 +139,7 @@ public class BasePage extends WebPage {
 
 			@Override
 			public boolean isVisible() {
-				return (BasePage.this.role == GbRole.INSTRUCTOR);
+				return (businessService.isUserAbleToEditAssessments());
 			}
 		};
 		this.importExportPageLink.add(new Label("screenreaderlabel", getString("link.screenreader.tabnotselected")));
@@ -164,7 +173,7 @@ public class BasePage extends WebPage {
 
 			@Override
 			public boolean isVisible() {
-				return (BasePage.this.role == GbRole.INSTRUCTOR);
+				return (businessService.isUserAbleToEditAssessments());
 			}
 		};
 		this.settingsPageLink.add(new Label("screenreaderlabel", getString("link.screenreader.tabnotselected")));
@@ -194,7 +203,7 @@ public class BasePage extends WebPage {
 	public void renderHead(final IHeaderResponse response) {
 		super.renderHead(response);
 
-		final String version = ServerConfigurationService.getString("portal.cdn.version", "");
+		final String version = PortalUtils.getCDNQuery();
 
 		// get the Sakai skin header fragment from the request attribute
 		final HttpServletRequest request = (HttpServletRequest) getRequest().getContainerRequest();
@@ -214,22 +223,22 @@ public class BasePage extends WebPage {
 		response.render(
 				new PriorityHeaderItem(
 						JavaScriptHeaderItem
-								.forUrl(String.format("/library/webjars/jquery/1.12.4/jquery.min.js?version=%s", version))));
+								.forUrl(String.format("/library/webjars/jquery/1.12.4/jquery.min.js%s", version))));
 		// And pair this instance of jQuery with a Bootstrap version we've tested with
 		response.render(
 				new PriorityHeaderItem(
 						JavaScriptHeaderItem
-								.forUrl(String.format("/library/webjars/bootstrap/3.3.7/js/bootstrap.min.js?version=%s", version))));
+								.forUrl(String.format("/library/webjars/bootstrap/3.3.7/js/bootstrap.min.js%s", version))));
 		// Some global gradebookng styles
 		response.render(CssHeaderItem
-				.forUrl(String.format("/gradebookng-tool/styles/gradebook-shared.css?version=%s", version)));
+				.forUrl(String.format("/gradebookng-tool/styles/gradebook-shared.css%s", version)));
 
 	}
 
 	/**
 	 * Helper to disable a link. Add the Sakai class 'current'.
 	 */
-	protected void disableLink(final Link<Void> l) {
+	protected final void disableLink(final Link<Void> l) {
 		l.add(new AttributeAppender("class", new Model<String>("current"), " "));
 		l.replace(new Label("screenreaderlabel", getString("link.screenreader.tabselected")));
 		l.setEnabled(false);
@@ -280,7 +289,7 @@ public class BasePage extends WebPage {
 	 * 
 	 * @param message the message
 	 */
-	public void sendToAccessDeniedPage(final String message) {
+	public final void sendToAccessDeniedPage(final String message) {
 		final PageParameters params = new PageParameters();
 		params.add("message", message);
 		log.debug("Redirecting to AccessDeniedPage: " + message);
@@ -289,5 +298,28 @@ public class BasePage extends WebPage {
 
 	public GbRole getCurrentRole() {
 		return BasePage.this.role;
+	}
+
+	/**
+	 * Performs role checks for instructor-only pages and redirects users to appropriate pages based on their role.
+	 * No role -> AccessDeniedPage. Student -> StudentPage. TA -> GradebookPage (if ta does not have the gradebook.editAssignments permission)
+	 */
+	protected final void defaultRoleChecksForInstructorOnlyPage()
+	{
+		switch (role)
+		{
+			case NONE:
+				sendToAccessDeniedPage(getString("error.role"));
+				break;
+			case STUDENT:
+				throw new RestartResponseException(StudentPage.class);
+			case TA:
+				if(businessService.isUserAbleToEditAssessments()) {
+					break;
+				}
+				throw new RestartResponseException(GradebookPage.class);
+			default:
+				break;
+		}
 	}
 }

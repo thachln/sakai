@@ -315,4 +315,10 @@ public interface PublishedAssessmentFacadeQueriesAPI
   public List<AssessmentGradingData> getBasicInfoOfLastOrHighestOrAverageSubmittedAssessmentsByScoringOption(final String agentId, final String siteId, boolean allAssessments);
      
   public List getAllAssessmentsGradingDataByAgentAndSiteId(final String agentId, final String siteId);
+
+  public List getQuestionsIdList(final Long publishedAssessmentId);
+
+  public List<PublishedAssessmentData> getPublishedDeletedAssessments(String siteId);
+
+  public void restorePublishedAssessment(Long publishedAssessmentId);
 }

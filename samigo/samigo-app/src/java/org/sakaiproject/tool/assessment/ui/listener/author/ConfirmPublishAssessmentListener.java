@@ -22,10 +22,12 @@
 package org.sakaiproject.tool.assessment.ui.listener.author;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import javax.faces.application.FacesMessage;
 import javax.faces.context.ExternalContext;
@@ -36,7 +38,7 @@ import javax.faces.event.ActionListener;
 import javax.faces.model.SelectItem;
 
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 
 import org.sakaiproject.component.cover.ServerConfigurationService;
 import org.sakaiproject.service.gradebook.shared.GradebookExternalAssessmentService;
@@ -183,11 +185,11 @@ public class ConfirmPublishAssessmentListener
 		  Date entryStartDate = entry.getStartDate();
 		  Date entryDueDate = entry.getDueDate();
 		  Date entryRetractDate = entry.getRetractDate();
-		  if(!"".equals(entry.getUser())) {
+		  if(StringUtils.isNotEmpty(entry.getUser())) {
 			  extendedTimeUsers.add(entry.getUser());
 		  }
 
-		  if(!"".equals(entry.getGroup())) {
+		  if(StringUtils.isNotEmpty(entry.getGroup())) {
 			  extendedTimeGroups.add(entry.getGroup());
 		  }
 		  boolean isEntryRetractEarlierThanAvailable = false;
@@ -336,7 +338,7 @@ public class ConfirmPublishAssessmentListener
     		error=true;
     	}
     	boolean ipErr=false;
-    	String ipString = assessmentSettings.getIpAddresses().trim(); 
+    	String ipString = assessmentSettings.getIpAddresses().trim().replace(" ", "");
     	String[]arraysIp=(ipString.split("\n"));
     	for(int a=0;a<arraysIp.length;a++){
     		String currentString=arraysIp[a];
@@ -389,11 +391,34 @@ public class ConfirmPublishAssessmentListener
     	}
 
     	//check feedback - if at specific time then time should be defined.
-    	if((assessmentSettings.getFeedbackDelivery()).equals("2") && ((assessmentSettings.getFeedbackDateString()==null) || (assessmentSettings.getFeedbackDateString().equals("")))){
-    		error=true;
-    		String date_err=ContextUtil.getLocalizedString("org.sakaiproject.tool.assessment.bundle.AssessmentSettingsMessages","date_error");
-    		context.addMessage(null,new FacesMessage(date_err));
-    	}
+		if(assessmentSettings.getFeedbackDelivery().equals("2")) {
+			if(StringUtils.isBlank(assessmentSettings.getFeedbackDateString())){
+				error=true;
+				String date_err=ContextUtil.getLocalizedString("org.sakaiproject.tool.assessment.bundle.AssessmentSettingsMessages","date_error");
+				context.addMessage(null,new FacesMessage(date_err));
+			}
+			boolean scoreThresholdEnabled = assessmentSettings.getFeedbackScoreThresholdEnabled();
+			//Check if the value is empty
+			boolean scoreThresholdError = StringUtils.isBlank(assessmentSettings.getFeedbackScoreThreshold());
+			//If the threshold value is not empty, check if is a valid percentage
+			if (!scoreThresholdError) {
+				String submittedScoreThreshold = StringUtils.replace(assessmentSettings.getFeedbackScoreThreshold(), ",", ".");
+				try {
+					Double doubleInput = new Double(submittedScoreThreshold);
+					if(doubleInput.compareTo(new Double("0.0")) == -1 || doubleInput.compareTo(new Double("100.0")) == 1){
+						throw new Exception();
+					}
+				} catch(Exception ex) {
+					scoreThresholdError = true;
+				}
+			}
+			//If the threshold is enabled and is not valid, display an error.
+			if(scoreThresholdEnabled && scoreThresholdError){
+				error = true;
+				String str_err = ContextUtil.getLocalizedString("org.sakaiproject.tool.assessment.bundle.AssessmentSettingsMessages","feedback_score_threshold_required");
+				context.addMessage(null,new FacesMessage(str_err));
+			}
+		}
     }
     else {
     	if (assessmentSettings.getReleaseTo().equals(AssessmentAccessControl.RELEASE_TO_SELECTED_GROUPS)) {
@@ -480,6 +505,15 @@ public class ConfirmPublishAssessmentListener
 
       String url = server + extContext.getRequestContextPath();
       assessmentSettings.setPublishedUrl(url + "/servlet/Login?id=" + alias);
+
+      //SAK-40811 show groups on publish from action select
+      if(isFromActionSelect && "Selected Groups".equals(releaseTo) && assessmentSettings.getGroupsAuthorized() != null){
+        String[] groupsAuthorized = assessmentSettings.getGroupsAuthorized();					
+        String result = Arrays.stream(groupsAuthorized)
+			                  .map(group -> getGroupName(group, assessmentSettings))
+			                  .collect(Collectors.joining(", "));
+        assessmentSettings.setReleaseToGroupsAsString(result);
+      }
     }
    
     //#4 - before going to confirm publishing, check if the title is unique

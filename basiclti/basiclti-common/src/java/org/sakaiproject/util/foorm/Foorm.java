@@ -21,6 +21,7 @@
 
 package org.sakaiproject.util.foorm;
 
+import java.sql.ResultSetMetaData;	
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -28,19 +29,17 @@ import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
-import java.util.SortedMap;
 import java.util.Properties;
+import java.util.SortedMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.lang.Number;
-import java.sql.ResultSetMetaData;
 
-import lombok.extern.slf4j.Slf4j;
-
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.sakaiproject.lti.api.LTISearchData;
 import org.sakaiproject.lti.api.LTIService;
 import org.sakaiproject.util.ResourceLoader;
+
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * 
@@ -302,24 +301,24 @@ public class Foorm {
 	 */
 	public void formInputStart(StringBuffer sb, String field, String type, String label,
 			boolean required, Object loader) {
+		// Checkbox and radio no longer call this
 		sb.append("<p id=\"");
 		sb.append(field);
-		sb.append(".input\" class=\"foorm-"+type+"\" style=\"clear:all;\">");
+		sb.append("-input\" class=\"foorm-"+type+"\" style=\"clear:both;\">");
 
-		if (label != null && ( ! "checkbox".equals(type) ) ) {
-			sb.append("<label for=\"");
-			sb.append(field);
-			sb.append("\" style=\"display:block;float:none;\">");
-		}
-		if (label != null && required ) {
+		if (label == null ) return;
+
+		sb.append("<label for=\"");
+		sb.append(field);
+		sb.append("\" style=\"display:block;float:none;\">");
+
+		if ( required ) {
 			sb.append("<span class=\"foorm-required\" style=\"color:#903;font-weight:bold;\" title=\"");
 			sb.append(getI18N(label, loader));
 			sb.append("\">*</span>");
 		}
-		if (label != null && ( ! "checkbox".equals(type) ) ) {
-			sb.append(getI18N(label, loader));
-			sb.append("</label>");
-		}
+		sb.append(getI18N(label, loader));
+		sb.append("</label>");
 	}
 
 	/**
@@ -332,17 +331,7 @@ public class Foorm {
 	 */
 	public void formInputEnd(StringBuffer sb, String field, String type, String label, boolean required,
 			Object loader) {
-		if (label != null && ( "checkbox".equals(type) ) ) {
-			sb.append("<label for=\"");
-			sb.append(field);
-			sb.append("\" style=\"display:block;float:none;\">");
-		}
-		if ( label != null) sb.append("</label>");
-		if ( "checkbox".equals(type) || "radio".equals(type) ) {
-			// Not needed
-		} else {
-			sb.append("</p>\n");
-		}
+		sb.append("</p>\n");
 	}
 
 	/**
@@ -426,9 +415,6 @@ public class Foorm {
 		if (value == null)
 			value = "";
 		StringBuffer sb = new StringBuffer();
-		sb.append("<p id=\"");
-		sb.append(field);
-		sb.append(".input\" class=\"longtext\" style=\"clear:all;\">");
 		formInputStart(sb, field, "textarea", label, required, loader);
 		sb.append("<textarea style=\"border:1px solid #555;width:300px\" id=\"");
 		sb.append(field);
@@ -438,7 +424,7 @@ public class Foorm {
 		sb.append(rows);
 		sb.append("\" cols=\"");
 		sb.append(cols);
-		sb.append("\"/>");
+		sb.append("\">");
 		sb.append(htmlSpecialChars(value));
 		sb.append("</textarea>\n");
 		formInputEnd(sb, field, "textarea", label, required, loader);
@@ -458,8 +444,11 @@ public class Foorm {
 	public String formInputRadio(Object value, String field, String label,
 			boolean required, String[] choices, Object loader) {
 		StringBuffer sb = new StringBuffer();
-		// formInputStart(sb, field, "radio", label, required, loader);
-		sb.append(formInputHeader(field, label, loader));
+
+		sb.append("<div id=\""+field+"-input\">");
+		sb.append("<h4 id=\""+field+"-header\">");
+		sb.append(getI18N(label, loader));
+		sb.append("</h4>\n");
 		int val = 0;
 		if (value != null && value instanceof Number)
 			val = ((Number) value).intValue();
@@ -472,27 +461,27 @@ public class Foorm {
 		if (choices == null || val >= choices.length)
 			val = 0;
 		int i = 0;
-		sb.append("<ol style=\"list-style-type:none\">\n");
+		sb.append("<ol id=\""+field+"-list\" style=\"list-style-type:none\">\n");
 		for (String choice : choices) {
 			String checked = "";
 			if (i == val)
 				checked = " checked=\"checked\"";
-			sb.append("<li style=\"border:padding:3px;;margin:7px 3px;\">\n");
+			String id = field + "_" + choice;
+			sb.append("<li id=\""+id+"\" style=\"border:3px; padding:3px; margin:7px;\">\n");
 			sb.append("<input type=\"radio\" name=\"");
 			sb.append(field);
-			sb.append("\" value=\"" + i + "\" id=\"");
-			String id = field + "_" + choice;
-			sb.append(id + "\"");
+			sb.append("\" id=\"");
+			sb.append(id);
+			sb.append("-input\" value=\"" + i + "\" ");
 			sb.append(checked);
 			sb.append("/> <label for=\"");
 			sb.append(id);
-			sb.append("\">");
+			sb.append("-input\">");
 			sb.append(getI18N(label + "_" + choice, loader));
 			sb.append("</label></li>\n");
 			i++;
 		}
-		sb.append("</ol>\n");
-		formInputEnd(sb, field, "radio", label, required, loader);
+		sb.append("</ol></div>\n");
 		return sb.toString();
 	}
 
@@ -508,7 +497,7 @@ public class Foorm {
 	public String formInputCheckbox(Object value, String field, String label,
 			boolean required, Object loader) {
 		StringBuffer sb = new StringBuffer();
-		formInputStart(sb, field, "checkbox", label, required, loader);
+		// formInputStart(sb, field, "checkbox", label, required, loader);
 		int val = getInt(value);
 		String checked = "";
 		if (val == 1) checked = " checked=\"checked\"";
@@ -539,8 +528,12 @@ public class Foorm {
 			sb.append(field);
 			sb.append(".mirror\" value=\"0\" />");
 		}
+		sb.append("<label for=\"");
+		sb.append(field);
+		sb.append("\">");
 		sb.append(getI18N(label, loader));
-		formInputEnd(sb, field, "checkbox", label, required, loader);
+		sb.append("</label>");
+		// formInputEnd(sb, field, "checkbox", label, required, loader);
 		sb.append("</li>\n");
 		return sb.toString();
 	}
@@ -554,7 +547,7 @@ public class Foorm {
 	 */
 	public String formInputHeader(String field, String label, Object loader) {
 		StringBuffer sb = new StringBuffer();
-		sb.append("<h4>");
+		sb.append("<h4 id=\""+field+"\">");
 		sb.append(getI18N(label, loader));
 		sb.append("</h4>\n");
 		return sb.toString();
@@ -794,7 +787,7 @@ public class Foorm {
 			}
 
 			if ( ! inCheckboxes && "checkbox".equals(type) ) {
-				sb.append("<ol style=\"list-style-type:none\">\n");
+				sb.append("<ol id=\""+field+"-checkbox-start\" style=\"list-style-type:none\">\n");
 				inCheckboxes = true;
 			}
 
@@ -827,7 +820,7 @@ public class Foorm {
 	 * @param loader
 	 */
 	public void formOutputStart(StringBuffer sb, String field, String label, Object loader) {
-		sb.append("<p class=\"row\">\n");
+		sb.append("<p class=\"foorm-text\" id=\""+field+"\">\n");
 		if (label != null) {
 			sb.append("<b>");
 			sb.append(getI18N(label, loader));
@@ -1741,6 +1734,49 @@ public class Foorm {
 
 		}
 		return ret.toArray(new String[ret.size()]);
+	}
+
+	/**
+	 * Determines if the tool instance has configurable settings.
+	 * For instance if the admin tool disallows every type of instructor customization, this method would return false for instructors
+	 */
+	public boolean formHasConfiguration(Object controlRow, String[] fieldinfo, String includePattern, String excludePattern) {
+		if (fieldinfo == null) {
+			return false;
+		}
+
+		for (String line : fieldinfo) {
+			if ((includePattern != null && (!line.matches(includePattern))) || (excludePattern != null && (line.matches(excludePattern)))) {
+				continue;
+			}
+
+			Properties fields = parseFormString(line);
+			String field = fields.getProperty("field", null);
+			String type = fields.getProperty("type", null);
+			String allowed = fields.getProperty("allowed", null);
+
+			if (field == null || type == null) {
+				throw new IllegalArgumentException("All model elements must include field name and type");
+			}
+
+			if ("radio".equals(type) || "checkbox".equals(type)) {
+				int value = getInt(getField(controlRow, field));
+				if (value == 2 || !isFieldSet(controlRow, field)) {
+					// radio / checkbox is configuration
+					return true;
+				}
+			} else if (isFieldSet(controlRow, "allow" + field) && !"false".equals(allowed)) {
+				Object allowRow = getField(controlRow, "allow" + field);
+				int value = getInt(allowRow);
+
+				// "Allow external tool to store setting data" enters this block, but it's not configuration; so exclude LTI_SETTINGS
+				if (value == 1 && !LTIService.LTI_SETTINGS.equals(field)) {
+					return true;
+				}
+			}
+		}
+
+		return false;
 	}
 
 	// http://technology-ameyaaloni.blogspot.com/2010/06/mysql-to-hsql-migration-tips.html
