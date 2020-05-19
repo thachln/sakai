@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+	<groupId>sakai.root</groupId>
+	<artifactId>ROOT</artifactId>
+	<version>20.0</version>
+	<packaging>pom</packaging>
+	<name>sakai-spring-maven-archetype</name>
+	<description>Archetype to generate a project with sakai and spring</description>
+
+    <!-- Place the source of this project with Sakai 20.0's source -->
+    <parent>
+        <groupId>org.sakaiproject</groupId>
+        <artifactId>master</artifactId>
+        <version>20.0</version>
+        <relativePath>../master/pom.xml</relativePath>
+    </parent>
+<!-- 	<parent> -->
+<!-- 		<groupId>org.sakaiproject.purepoms</groupId> -->
+<!-- 		<artifactId>sakai-standard-tool</artifactId> -->
+<!-- 		<version>2.8.7</version> -->
+<!-- 	</parent> -->
+
+	<dependencyManagement>
+		<dependencies>
+
+			<!-- project dependencies -->
+			<dependency>
+				<groupId>sakai.root</groupId>
+				<artifactId>ROOT-api</artifactId>
+				<version>20.0</version>
+			</dependency>
+
+			<dependency>
+				<groupId>sakai.root</groupId>
+				<artifactId>ROOT-impl</artifactId>
+				<version>20.0</version>
+			</dependency>
+
+			<dependency>
+				<groupId>log4j</groupId>
+				<artifactId>log4j</artifactId>
+				<version>1.2.17</version>
+			</dependency>
+		</dependencies>
+	</dependencyManagement>
+	<properties>
+	    <sakai.kernel.version>20.0</sakai.kernel.version>
+		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+		<spring.version>4.3.25.RELEASE</spring.version>
+        <spring.security.version>4.2.13.RELEASE</spring.security.version>
+        <spring.data-commons.version>1.13.23.RELEASE</spring.data-commons.version>
+        <spring.data-jpa.version>1.11.23.RELEASE</spring.data-jpa.version>
+        <module.version>20.0</module.version>
+        <thymeleaf.version>3.0.11.RELEASE</thymeleaf.version>
+	</properties>
+
+	<repositories>
+		<repository>
+			<id>sakai-maven</id>
+			<name>Sakai Maven Repo</name>
+			<layout>default</layout>
+			<url>http://source.sakaiproject.org/maven2</url>
+			<releases>
+			</releases>
+			<snapshots>
+				<enabled>false</enabled>
+			</snapshots>
+		</repository>
+	</repositories>
+
+	<pluginRepositories>
+		<pluginRepository>
+			<id>Sakai Plugin Repo</id>
+			<url>http://source.sakaiproject.org/maven2</url>
+			<releases>
+			</releases>
+			<snapshots>
+				<enabled>false</enabled>
+			</snapshots>
+		</pluginRepository>
+	</pluginRepositories>
+
+
+  <modules>
+    <module>api</module>
+	<module>common</module>
+    <module>impl</module>
+    <module>pack</module>
+	<module>controller</module>
+	<module>tool</module>
+	<module>web</module>
+  </modules>
+  
+</project>
