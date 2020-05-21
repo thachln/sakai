@@ -1,5 +1,5 @@
 """
-ASGI config for ROOT_Python project.
+ASGI config for sakaihome project.
 
 It exposes the ASGI callable as a module-level variable named ``application``.
 
@@ -11,6 +11,6 @@ import os
 
 from django.core.asgi import get_asgi_application
 
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'ROOT_Python.settings')
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'sakaihome.settings')
 
 application = get_asgi_application()
