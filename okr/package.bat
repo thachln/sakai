@@ -4,7 +4,7 @@ SET JAVA_OPTS='-server -Xms512m -Xmx1024m -XX:PermSize=128m -XX:MaxPermSize=512m
 REM Should use the absolute path for folder release
 
 REM Fill your home folder of Sakai Tomcat here
-REM SET TOMCAT_HOME=
+SET TOMCAT_HOME=%cd%\release
 
 IF "%TOMCAT_HOME%"=="" ( 
     set /p TOMCAT_HOME="Input the path of the TOMCAT: "
