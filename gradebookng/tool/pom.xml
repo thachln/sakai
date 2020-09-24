@@ -7,7 +7,7 @@
 	<parent>
 		<groupId>org.sakaiproject.gradebookng</groupId>
 		<artifactId>gradebookng</artifactId>
-		<version>20-SNAPSHOT</version>
+		<version>21-SNAPSHOT</version>
 	</parent>
 	<packaging>war</packaging>
 	<dependencies>
@@ -37,6 +37,10 @@
 		<dependency>
 			<groupId>javax.servlet</groupId>
 			<artifactId>javax.servlet-api</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>javax</groupId>
+			<artifactId>javaee-api</artifactId>
 		</dependency>
 		<dependency>
 			<groupId>org.sakaiproject.kernel</groupId>
@@ -73,6 +77,10 @@
 		<dependency>
 			<groupId>org.sakaiproject.portal</groupId>
 			<artifactId>sakai-portal-util</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.sakaiproject.wicket</groupId>
+			<artifactId>wicket-tool-6</artifactId>
 		</dependency>
 		<dependency>
 			<groupId>org.apache.commons</groupId>

@@ -4,7 +4,7 @@
 
     #parse("/vm/morpheus/includeStandardHead.vm")
 
-    <body #if( !${loggedIn} ) class="Mrphs-portalBody is-logged-out" #else class="Mrphs-portalBody ${logoSiteClass} #if ( ${toolsCollapsed} ) Mrphs-toolMenu-collapsed #end" #end $pageSiteType>
+    <body #if( !${loggedIn} ) class="Mrphs-portalBody is-logged-out" #else class="Mrphs-portalBody ${logoSiteClass} #if ( ${toolsCollapsed} ) Mrphs-toolMenu-collapsed #end #if ( ${toolMaximised} ) tool-maximised #end" #end $pageSiteType>
 
         <noscript>
             <span id="portal_js_warn" class="Mrphs-noJs js-warn-no-js">${rloader.sit_noscript_message}</span>
@@ -141,11 +141,11 @@
         <script src="${pageSkinRepo}/${pageSkin}/js/morpheus.scripts.min.js$!{portalCDNQuery}"></script>
         <script src="${pageWebjarsPath}/pnotify/4.0.0/dist/iife/PNotify.js$!{portalCDNQuery}"></script>
         <script src="${pageWebjarsPath}/pnotify/4.0.0/dist/iife/PNotifyButtons.js$!{portalCDNQuery}"></script>
-        <script src="${pageWebjarsPath}/qtip2/3.0.3/jquery.qtip.min.js$!{portalCDNQuery}"></script>
+        <script>includeWebjarLibrary("qtip2");</script>
         <script src="${pageScriptPath}jquery/qtip/tutorial.js$!{portalCDNQuery}"></script>
         <script src="${pageWebjarsPath}cropper/4.0.0/dist/cropper.min.js$!{portalCDNQuery}"></script>
 
-        <script type="module" src="/webcomponents/sakai-tool-permissions.js$!{portalCDNQuery}"></script>
+        <script type="module" src="/webcomponents/sakai-permissions.js$!{portalCDNQuery}"></script>
         <script type="module" src="/webcomponents/sakai-search.js$!{portalCDNQuery}"></script>
         <script type="module" src="/webcomponents/sakai-maximise-button.js$!{portalCDNQuery}"></script>
 

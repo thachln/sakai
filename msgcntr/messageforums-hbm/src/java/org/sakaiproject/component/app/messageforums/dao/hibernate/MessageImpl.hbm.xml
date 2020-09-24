@@ -99,7 +99,7 @@
 	                    column="userSurrogateKey"/>
   	  </list>         
   	  -->
-  	  <list name="recipients" lazy="true" table="MFR_PVT_MSG_USR_T" cascade="all">
+  	  <list name="recipients" lazy="true" table="MFR_PVT_MSG_USR_T">
   	    <key column="messageSurrogateKey"/>
   	    <index column="user_index_col"/>
   	    <composite-element class="org.sakaiproject.component.app.messageforums.dao.hibernate.PrivateMessageRecipientImpl">
@@ -832,6 +832,28 @@
     <![CDATA[from org.sakaiproject.component.app.messageforums.dao.hibernate.MessageMoveHistoryImpl as mhist      
              where mhist.messageId = :messageId
    	]]>    
+  </query>
+  
+  <query name="findMessageResponsedCountByUser">
+    <![CDATA[select count(*)
+             from org.sakaiproject.component.app.messageforums.dao.hibernate.PrivateMessageImpl as message
+             left join message.recipients recipient
+             where message.inReplyTo.id = :messageId
+             AND recipient.userId = :userId
+    ]]>
+    
+  </query>
+    
+  <query name="findUserIdByFowardMail">
+    <![CDATA[select recipient.userId
+             from org.sakaiproject.component.app.messageforums.dao.hibernate.PrivateMessageImpl as message
+             left join message.recipients recipient
+             where message.id = :messageId
+             AND recipient.userId IN (select privateForum.owner 
+             from org.sakaiproject.component.app.messageforums.dao.hibernate.PrivateForumImpl as privateForum
+             where privateForum.autoForwardEmail = :mail)
+    ]]>
+ 
   </query>
     
 </hibernate-mapping>

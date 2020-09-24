@@ -70,14 +70,17 @@ import org.sakaiproject.tool.cover.SessionManager;
 import org.sakaiproject.tool.cover.ToolManager;
 import org.sakaiproject.user.api.User;
 import org.sakaiproject.user.cover.UserDirectoryService;
+import org.sakaiproject.util.api.FormattedText;
 import org.sakaiproject.util.ResourceLoader;
 import org.sakaiproject.util.Web;
+import org.sakaiproject.lti13.util.SakaiLineItem;
 import org.tsugi.basiclti.BasicLTIConstants;
 import org.tsugi.basiclti.BasicLTIUtil;
 import org.tsugi.jackson.JacksonUtil;
 import org.tsugi.lti13.DeepLinkResponse;
 import org.tsugi.lti13.LTI13KeySetUtil;
 import org.tsugi.lti13.LTI13Util;
+import org.tsugi.lti13.LTI13JwtUtil;
 import org.tsugi.lti13.objects.BasicOutcome;
 import org.tsugi.lti13.objects.Context;
 import org.tsugi.lti13.objects.DeepLink;
@@ -920,9 +923,25 @@ public class SakaiBLTIUtil {
 			if (title == null) {
 				title = (String) tool.get(LTIService.LTI_TITLE);
 			}
+
+			// SAK-43966 - Prior to Sakai-21 there is no description field in Content
+			String description = (String) content.get(LTIService.LTI_DESCRIPTION);
+
+			// SAK-40044 - If there is no description, we fall back to the pre-21 description in JSON
+			if (description == null) {
+				String content_settings = (String) content.get(LTIService.LTI_SETTINGS);
+				JSONObject content_json = org.tsugi.basiclti.BasicLTIUtil.parseJSONObject(content_settings);
+				description = (String) content_json.get(LTIService.LTI_DESCRIPTION);
+			}
+
+			// All else fails, use pre-SAK-40044 title as description
+			if (description == null) {
+				description = title;
+			}
+
 			if (title != null) {
 				setProperty(ltiProps, BasicLTIConstants.RESOURCE_LINK_TITLE, title);
-				setProperty(ltiProps, BasicLTIConstants.RESOURCE_LINK_DESCRIPTION, title);
+				setProperty(ltiProps, BasicLTIConstants.RESOURCE_LINK_DESCRIPTION, description);
 			}
 
 			User user = UserDirectoryService.getCurrentUser();
@@ -982,6 +1001,11 @@ public class SakaiBLTIUtil {
 			}
 
 			Properties custom = new Properties();
+
+			String contentCustom = (String) content.get(LTIService.LTI_CUSTOM);
+			contentCustom = adjustCustom(contentCustom);
+			mergeLTI1Custom(custom, contentCustom);
+
 			String toolCustom = (String) tool.get(LTIService.LTI_CUSTOM);
 			toolCustom = adjustCustom(toolCustom);
 			mergeLTI1Custom(custom, toolCustom);
@@ -1063,7 +1087,47 @@ public class SakaiBLTIUtil {
 			return contentItem;
 		}
 
-			/**
+		/**
+		 * getPublicKey - Get the appropriate public key for use for an incoming request
+		 */
+		public static Key getPublicKey(Map<String, Object> tool, String id_token)
+		{
+			JSONObject jsonHeader = LTI13JwtUtil.jsonJwtHeader(id_token);
+			if (jsonHeader == null) {
+				throw new RuntimeException("Could not parse Jwt Header in client_assertion");
+			}
+			String incoming_kid = (String) jsonHeader.get("kid");
+
+			String tool_keyset = (String) tool.get(LTIService.LTI13_TOOL_KEYSET);
+			String tool_public = (String) tool.get(LTIService.LTI13_TOOL_PUBLIC);
+			if (tool_keyset == null && tool_public == null) {
+				throw new RuntimeException("Could not find tool keyset url or stored public key");
+			}
+
+			Key publicKey = null;
+			if ( tool_keyset != null ) {
+				log.debug("Retrieving kid="+incoming_kid+" from "+tool_keyset);
+
+				// TODO: Read from Earle's super-cluster-cache one day - SAK-43700
+				try {
+					publicKey = LTI13KeySetUtil.getKeyFromKeySet(incoming_kid, tool_keyset);
+				} catch (Exception e) {
+					log.error(e.getMessage(), e);
+					// Sorry - too many exceptions to explain here - lets keep it simple after logging it
+					throw new RuntimeException("Unable to retrieve kid="+incoming_kid+" from "+tool_keyset+" detail="+e.getMessage());
+				}
+				// TODO: Store in Earle's super-cluster-cache one day - SAK-43700
+
+			} else {
+				publicKey = LTI13Util.string2PublicKey(tool_public);
+				if (publicKey == null) {
+					throw new RuntimeException("Could not deserialize tool public key");
+				}
+			}
+			return publicKey;
+		}
+
+		/**
 		 * Create a ContentItem from the current request (may throw runtime)
 		 */
 		public static DeepLinkResponse getDeepLinkFromToken(Map<String, Object> tool, String id_token) {
@@ -1087,15 +1151,8 @@ public class SakaiBLTIUtil {
 				log.warn(lti_errorlog);
 			}
 
-			String publicKeyStr = (String) tool.get(LTIService.LTI13_TOOL_PUBLIC);
-			if (publicKeyStr == null) {
-				throw new RuntimeException("Could not find tool public key");
-			}
-
-			Key publicKey = LTI13Util.string2PublicKey(publicKeyStr);
-			if (publicKey == null) {
-				throw new RuntimeException("Could not deserialize tool public key");
-			}
+			// May throw a RunTimeException on our behalf :)
+			Key publicKey = SakaiBLTIUtil.getPublicKey(tool, id_token);
 
 			// Fill up the object, validate and return
 			DeepLinkResponse dlr = new DeepLinkResponse(id_token);
@@ -1278,6 +1335,8 @@ public class SakaiBLTIUtil {
 			if (placementId == null) {
 				return postError("<p>" + getRB(rb, "error.missing", "Error, missing placementId") + "</p>");
 			}
+			FormattedText formattedText = ComponentManager.get(FormattedText.class);
+			placementId = formattedText.escapeHtml(placementId);
 			ToolConfiguration placement = SiteService.findTool(placementId);
 			if (placement == null) {
 				return postError("<p>" + getRB(rb, "error.load", "Error, cannot load placement=") + placementId + ".</p>");
@@ -1477,7 +1536,7 @@ public class SakaiBLTIUtil {
 	ext_ims_lis_memberships_url: http://localhost:8080/imsblis/service/
 	ext_ims_lti_tool_setting_id: c1007fb6345a87cd651785422a2925114d0707fad32c66edb6bfefbf2165819a:::admin:::content:3
 	ext_ims_lti_tool_setting_url: http://localhost:8080/imsblis/service/
-	ext_lms: sakai-20-SNAPSHOT
+	ext_lms: sakai-21-SNAPSHOT
 	ext_sakai_academic_session: OTHER
 	ext_sakai_launch_presentation_css_url_list: http://localhost:8080/library/skin/tool_base.css,http://localhost:8080/library/skin/morpheus-default/tool.css?version=49b21ca5
 	ext_sakai_role: maintain
@@ -2008,7 +2067,9 @@ public class SakaiBLTIUtil {
 				return "Assignment not set in placement";
 			}
 
-			Assignment assignmentObject = getAssignment(site, user_id, assignment, 100L);
+			SakaiLineItem lineItem = new SakaiLineItem();
+			lineItem.scoreMaximum = 100.0D;
+			Assignment assignmentObject = getAssignment(site, user_id, assignment, lineItem);
 			if (assignmentObject == null) {
 				log.warn("assignmentObject or Id is null, cannot proceed with grading in site {} for assignment {}", siteId, assignment);
 			return "Grade failure siteId=" + siteId;
@@ -2043,6 +2104,7 @@ public class SakaiBLTIUtil {
 				retval = retMap;
 			} else if (isDelete) {
 				g.setAssignmentScoreString(siteId, assignmentObject.getId(), user_id, null, "External Outcome");
+				g.setAssignmentScoreComment(siteId, assignmentObject.getId(), user_id, null);
 				log.info("Delete Score site={} assignment={} user_id={}", siteId, assignment, user_id);
 				message = "Result deleted";
 				retval = Boolean.TRUE;
@@ -2071,19 +2133,19 @@ public class SakaiBLTIUtil {
 
 	// Boolean.TRUE - Grade updated
 	public static Object setGradeLTI13(Site site, Long tool_id, Map<String, Object> content, String user_id,
-			String assignment, Long scoreGiven, Long maxPoints, String comment) {
-		return handleGradebookLTI13(site, tool_id, content, user_id, assignment, scoreGiven, maxPoints, comment, false, false);
+			String assignment, Double scoreGiven, SakaiLineItem lineItem, String comment) {
+		return handleGradebookLTI13(site, tool_id, content, user_id, assignment, scoreGiven, lineItem, comment, false, false);
 	}
 
 	// Boolean.TRUE - Grade deleted
 	public static Object deleteGradeLTI13(Site site, Long tool_id, Map<String, Object> content, String user_id,
-			String assignment) {
-		return handleGradebookLTI13(site, tool_id, content, user_id, assignment, null, null, null, false, true);
+			String assignment, String comment) {
+		return handleGradebookLTI13(site, tool_id, content, user_id, assignment, null, null, comment, false, true);
 	}
 
 	// Quite a long bit of code
 	private static Object handleGradebookLTI13(Site site,  Long tool_id, Map<String, Object> content, String user_id,
-			String assignment, Long scoreGiven, Long maxPoints, String comment, boolean isRead, boolean isDelete) {
+			String assignment, Double scoreGiven, SakaiLineItem lineItem, String comment, boolean isRead, boolean isDelete) {
 
 		// If we are not supposed to lookup or set the grade, we are done
 		if (isRead == false && isDelete == false && scoreGiven == null) {
@@ -2096,7 +2158,7 @@ public class SakaiBLTIUtil {
 		GradebookService g = (GradebookService) ComponentManager
 				.get("org.sakaiproject.service.gradebook.GradebookService");
 
-		Assignment assignmentObject = getAssignment(site, user_id, assignment, maxPoints);
+		Assignment assignmentObject = getAssignment(site, user_id, assignment, lineItem);
 		if (assignmentObject == null) {
 			log.warn("assignmentObject or Id is null, cannot proceed with grading for site {}, assignment {}", siteId, assignment);
 			return "Grade failure siteId=" + siteId;
@@ -2132,6 +2194,9 @@ public class SakaiBLTIUtil {
 				retval = retMap;
 			} else if (isDelete) {
 				g.setAssignmentScoreString(siteId, assignmentObject.getId(), user_id, null, "External Outcome");
+				// Since LTI 13 uses update semantics on grade delete, we accept the comment if it is there
+				g.setAssignmentScoreComment(siteId, assignmentObject.getId(), user_id, comment);
+
 				log.info("Delete Score site={} assignment={} user_id={}", siteId, assignment, user_id);
 				message = "Result deleted";
 				retval = Boolean.TRUE;
@@ -2153,14 +2218,16 @@ public class SakaiBLTIUtil {
 		return retval;
 	}
 
-	public static Assignment getAssignment(Site site, String userId, String assignment, Long scoreMaximum) {
+	public static Assignment getAssignment(Site site, String userId, String assignment, SakaiLineItem lineItem) {
 		// Look up the assignment so we can find the max points
 		GradebookService g = (GradebookService) ComponentManager
 				.get("org.sakaiproject.service.gradebook.GradebookService");
 
+		Double scoreMaximum = lineItem.scoreMaximum;
+
 		String siteId = site.getId();
 		if (scoreMaximum == null) {
-			scoreMaximum = 100L;
+			scoreMaximum = 100D;
 		}
 
 		Assignment assignmentObject = null;
@@ -2173,7 +2240,7 @@ public class SakaiBLTIUtil {
 				if (gAssignment.isExternallyMaintained()) {
 					continue;
 				}
-				if (assignment.equals(gAssignment.getName())) {
+				if (assignment.trim().equalsIgnoreCase(gAssignment.getName().trim())) {
 					assignmentObject = gAssignment;
 					break;
 				}
@@ -2189,11 +2256,14 @@ public class SakaiBLTIUtil {
 			pushAdvisor();
 			try {
 				assignmentObject = new Assignment();
-				assignmentObject.setPoints(Double.valueOf(scoreMaximum));
+				assignmentObject.setPoints(scoreMaximum);
 				assignmentObject.setExternallyMaintained(false);
 				assignmentObject.setName(assignment);
-				assignmentObject.setReleased(true);
-				assignmentObject.setUngraded(false);
+				// SAK-40043
+				Boolean releaseToStudent = lineItem.releaseToStudent == null ? Boolean.TRUE : lineItem.releaseToStudent; // Default to true
+				Boolean includeInComputation = lineItem.includeInComputation == null ? Boolean.TRUE : lineItem.includeInComputation; // Default true
+				assignmentObject.setReleased(releaseToStudent); // default true
+				assignmentObject.setUngraded(! includeInComputation); // default false
 				Long assignmentId = g.addAssignment(siteId, assignmentObject);
 				assignmentObject.setId(assignmentId);
 				log.info("Added assignment: {} with Id: {}", assignment, assignmentId);
@@ -2361,7 +2431,8 @@ public class SakaiBLTIUtil {
 					}
 				}
 			}
-			retval.setProperty(BASICLTI_PORTLET_ASSIGNMENT, (String) content.get("title"));
+			String aTitle = (String) content.get("title");
+			retval.setProperty(BASICLTI_PORTLET_ASSIGNMENT, aTitle.trim());
 		}
 		return retval;
 	}
@@ -2471,6 +2542,26 @@ public class SakaiBLTIUtil {
 			}
 			try {
 				return new Long((String) key);
+			} catch (NumberFormatException e) {
+				return null;
+			}
+		}
+		return null;
+	}
+
+	public static Double getDoubleNull(Object key) {
+		if (key == null) {
+			return null;
+		}
+		if (key instanceof Number) {
+			return new Double(((Number) key).longValue());
+		}
+		if (key instanceof String) {
+			if (((String) key).length() < 1) {
+				return null;
+			}
+			try {
+				return new Double((String) key);
 			} catch (NumberFormatException e) {
 				return null;
 			}

@@ -39,7 +39,7 @@ import java.util.stream.Stream;
 
 
 import org.apache.commons.codec.binary.Base64;
-import org.apache.commons.collections.CollectionUtils;
+import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.sakaiproject.api.app.messageforums.Area;
 import org.sakaiproject.api.app.messageforums.AreaManager;
@@ -647,7 +647,7 @@ public class DiscussionForumServiceImpl implements DiscussionForumService, Entit
 								//add the gradebook assignment associated with the topic	
 								newTopic.setDefaultAssignName(fromTopic.getDefaultAssignName());
 
-								forumManager.saveDiscussionForumTopic(newTopic, newForum.getDraft(), currentUserId, false);
+								newTopic = forumManager.saveDiscussionForumTopic(newTopic, newForum.getDraft(), currentUserId, false);
 								
 								//add the ref's for the old and new topic
 								transversalMap.put("forum_topic/" + fromTopicId, "forum_topic/" + newTopic.getId());
@@ -675,7 +675,9 @@ public class DiscussionForumServiceImpl implements DiscussionForumService, Entit
 				final List<Element> elements = getChildElementList(root);
 				final List<Element> messageForumElementList = elements.stream()
 						.filter(element -> MESSAGEFORUM.equals(element.getTagName())).collect(Collectors.toList());
-				mergeMessageForumElements(siteId, fromSiteId, attachmentNames, messageForumElementList.get(0));
+				if (!messageForumElementList.isEmpty()) {
+					mergeMessageForumElements(siteId, fromSiteId, attachmentNames, messageForumElementList.get(0));
+				}
 			} catch (Exception e) {
 				results.append("merging ").append(getLabel()).append(" failed.\n");
 				log.error(e.getMessage(), e);

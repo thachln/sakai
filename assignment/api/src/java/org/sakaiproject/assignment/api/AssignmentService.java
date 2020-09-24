@@ -23,7 +23,12 @@ package org.sakaiproject.assignment.api;
 
 import java.io.OutputStream;
 import java.time.Instant;
-import java.util.*;
+import java.time.format.FormatStyle;
+import java.util.Collection;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 
 import org.sakaiproject.assignment.api.model.Assignment;
 import org.sakaiproject.assignment.api.model.AssignmentSubmission;
@@ -38,7 +43,6 @@ import org.sakaiproject.exception.PermissionException;
 import org.sakaiproject.site.api.Group;
 import org.sakaiproject.site.api.Site;
 import org.sakaiproject.user.api.User;
-import org.w3c.dom.Element;
 
 /**
  * <p>
@@ -86,6 +90,17 @@ public interface AssignmentService extends EntityProducer {
      * @return True if the current User is allowed to add an Assignment, false if not.
      */
     public boolean allowAddAssignment(String context);
+
+    /**
+     * Check permissions for adding an Assignment.
+     *
+     * @param context -
+     *                Describes the portlet context - generated with DefaultId.getChannel().
+     * @param user -
+     *             The user for which the permission will be checked
+     * @return True if the provided User is allowed to add an Assignment, false if not.
+     */
+    public boolean allowAddAssignment(String context, String userId);
 
     /**
      * Check permissions for updating an Assignment based on context.
@@ -140,6 +155,16 @@ public interface AssignmentService extends EntityProducer {
      * @return The Collection (Group) of groups defined for the context of this site that the end user has add assignment permissions in, empty if none.
      */
     public Collection<Group> getGroupsAllowAddAssignment(String context);
+
+    /**
+     * Get the collection of Groups defined for the context of this site that the end user has add assignment permissions in.
+     * @param context -
+     *                Describes the portlet context - generated with DefaultId.getChannel().
+     * @param userId -
+     *               The user for which the permission will be checked
+     * @return The Collection (Group) of groups defined for the context of this site that the end user has add assignment permissions in, empty if none.
+     */
+    public Collection<Group> getGroupsAllowAddAssignment(String context, String userId);
 
     /**
      * Get the collection of Groups defined for the context of this site that the end user has update assignment permissions in.
@@ -275,17 +300,6 @@ public interface AssignmentService extends EntityProducer {
     public Assignment addAssignment(String context) throws PermissionException;
 
     /**
-     * Add a new assignment to the directory, from a definition in XML. Must commitEdit() to make official, or cancelEdit() when done!
-     *
-     * @param el The XML DOM Element defining the assignment.
-     * @return A locked AssignmentEdit object (reserving the id).
-     * @throws IdInvalidException  if the assignment id is invalid.
-     * @throws IdUsedException     if the assignment id is already used.
-     * @throws PermissionException if the current user does not have permission to add an assignnment.
-     */
-    public Assignment mergeAssignment(Element el) throws IdInvalidException, IdUsedException, PermissionException;
-
-    /**
      * Creates and adds a new Assignment to the service which is a copy of an existing Assignment.
      *
      * @param context The context for the new assignment
@@ -330,17 +344,6 @@ public interface AssignmentService extends EntityProducer {
      * @throws PermissionException if the current User does not have permission to do this.
      */
     public AssignmentSubmission addSubmission(String assignmentId, String submitter) throws PermissionException;
-
-    /**
-     * Add a new AssignmentSubmission to the directory, from a definition in XML. Must commitEdit() to make official, or cancelEdit() when done!
-     *
-     * @param el The XML DOM Element defining the submission.
-     * @return A locked AssignmentSubmission object (reserving the id).
-     * @throws IdInvalidException  if the submission id is invalid.
-     * @throws IdUsedException     if the submission id is already used.
-     * @throws PermissionException if the current user does not have permission to add a submission.
-     */
-    public AssignmentSubmission mergeSubmission(Element el) throws IdInvalidException, IdUsedException, PermissionException;
 
     /**
      * Removes an AssignmentSubmission and all references to it
@@ -533,6 +536,8 @@ public interface AssignmentService extends EntityProducer {
      */
     public void getSubmissionsZip(OutputStream out, String ref, String queryString) throws IdUnusedException, PermissionException;
 
+    public boolean permissionCheck(String permission, String resource, String user);
+
     /**
      * Access the internal reference which can be used to assess security clearance.
      *
@@ -619,6 +624,15 @@ public interface AssignmentService extends EntityProducer {
      * @return
      */
     public Map<User, AssignmentSubmission> getSubmitterMap(String searchFilterOnly, String allOrOneGroup, String search, String aRef, String contextString);
+
+    /**
+     * Given an Assignment and a User, rationalize who the submitter should be taking into account the assignment configuration
+     * Will check the assignments access and group configuration to determine the submitter id
+     * @param assignment The assignment
+     * @param user The user
+     * @return the correct submitter id to use for creating a submission or null if one can't be determined
+     */
+    String getSubmitterIdForAssignment(Assignment assignment, User user);
 
     /**
      * @param accentedString
@@ -751,7 +765,11 @@ public interface AssignmentService extends EntityProducer {
 
     String getUsersLocalDateTimeString(Instant date);
 
+    String getUsersLocalDateTimeString(Instant date, FormatStyle dateStyle, FormatStyle timeStyle);
+
     public List<ContentReviewResult> getContentReviewResults(AssignmentSubmission submission);
+
+    public List<ContentReviewResult> getSortedContentReviewResults(AssignmentSubmission submission);
 
     /**
      * Determines whether it is appropriate to display the content review results for a submission. For instance, this will be false if the submission is a draft or if the user doesn't have permission
@@ -760,6 +778,16 @@ public interface AssignmentService extends EntityProducer {
      * @return true if content review results for the given submission can be displayed.
      */
     public boolean isContentReviewVisibleForSubmission(AssignmentSubmission submission);
+
+    /**
+     * Get an assignment that is linked with a gradebook item
+     * @param context the context (site id)
+     * @param linkId the link id of the gradebook item, usually the gradebook item name or id
+     * @return the matching assignment if found or null if none
+     * @throws IdUnusedException if the assignment doesn't exist
+     * @throws PermissionException if the current user is not allowed to access the assignment
+     */
+    Assignment getAssignmentForGradebookLink(String context, String linkId) throws IdUnusedException, PermissionException;
 
     /**
      * Returns a list of users that belong to multiple groups, if the user is considered a "student" in the group

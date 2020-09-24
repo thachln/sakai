@@ -23,7 +23,7 @@
 			<a href="$printableVersionUrl" title="$!tlang.getString('java.print')" target="_blank" rel="noreferrer">$!tlang.getString('java.print')</a>
 		</div>
 	</div>
-	#if ($alertMessage)<div class="sak-banner-warn">$tlang.getString('gen.alert') $validator.escapeHtml($alertMessage)</div>#end
+	#if ($alertMessage)<div class="sak-banner-warn">$tlang.getString('gen.alert') $formattedText.escapeHtml($alertMessage)</div>#end
 	<div class="sakai-table-toolBar">
 		<div class="sakai-table-filterContainer">
 			#calendarView()
@@ -116,10 +116,10 @@
                         #end ## if ($n==$todayIndex)
 
                         <a href="#" 
-                           onclick="location='#toolLinkParam("$action" "doDescription" "eventReference=$validator.escapeUrl($event.getReference())")';return false;" 
-                           title="$validator.escapeHtml($event.getDisplayName()) - $validator.escapeHtml($event.getSiteName())">
+                           onclick="location='#toolLinkParam("$action" "doDescription" "eventReference=$formattedText.escapeUrl($event.getReference())")';return false;" 
+                           title="$formattedText.escapeHtml($event.getDisplayName()) - $formattedText.escapeHtml($event.getSiteName())">
                         <span class="icon $eventIconMap.get($event.getType())" title="$localizedEventTypes.get($event.getType())"></span>
-                        $validator.escapeHtml($event.getDisplayName())</a></div></td>
+                        $formattedText.escapeHtml($event.getDisplayName())</a></div></td>
 
                     #else   ## -> flag == true
                             ## this cell is just expanding the above event
@@ -262,10 +262,10 @@
                         #if ($hm.put($n, $tempCol)) #end
 
                         <a href="#" 
-                           onclick="location='#toolLinkParam("$action" "doDescription" "eventReference=$validator.escapeUrl($eventclass.getEvent().getReference())")';return false;" 
-                           title="$validator.escapeHtml($event.getDisplayName()) - $validator.escapeHtml($event.getSiteName())">
+                           onclick="location='#toolLinkParam("$action" "doDescription" "eventReference=$formattedText.escapeUrl($eventclass.getEvent().getReference())")';return false;" 
+                           title="$formattedText.escapeHtml($event.getDisplayName()) - $formattedText.escapeHtml($event.getSiteName())">
                         <span class="icon $eventIconMap.get($event.getType())" title="$localizedEventTypes.get($event.getType())"></span>
-                        $validator.escapeHtml($event.getDisplayName())</a></div></td>
+                        $formattedText.escapeHtml($event.getDisplayName())</a></div></td>
             #else ## corresponding to if($eventD.getFlag()==false)
                     ## no cell to be rendered, because of the above rowspan. but column counter++
                     ## to calculate how many rols should be spanned
@@ -315,9 +315,7 @@
         #set ($startTime = $dStart.get($n))
 	#end
 
-    ## This is a fudged endtime it will not include work if the endtime is intended to be included
     #set ($endTime = $event.getRange().lastTime(0))
-    #set ($endTimeActual = $event.getRange().lastTime())
 
     #if ($endTime.after($dEnd.get($n)))
         ## use the page end time as event's first time temporarily
@@ -355,10 +353,6 @@
     #end
     ###set ($oneMore = ($duMin - (30 - $startMinInt))%30)
     #if ($oneMore > 0)
-    	#set ($rowspan = $rowspan + 1)
-    #end
-    ## This endtime may have been fudged, if so it will need an extra row as it's being returned from getNewEvents
-    #if ($endTime == $endTimeActual)
     	#set ($rowspan = $rowspan + 1)
     #end
     
@@ -560,10 +554,10 @@
                         #end ## if ($n==$todayIndex)
 
                         <a href="#" 
-                           onclick="location='#toolLinkParam("$action" "doDescription" "eventReference=$validator.escapeUrl($event.getReference())")';return false;" 
-                           title="$validator.escapeHtml($event.getDisplayName()) - $validator.escapeHtml($event.getSiteName())">
+                           onclick="location='#toolLinkParam("$action" "doDescription" "eventReference=$formattedText.escapeUrl($event.getReference())")';return false;" 
+                           title="$formattedText.escapeHtml($event.getDisplayName()) - $formattedText.escapeHtml($event.getSiteName())">
                         <span class="icon $eventIconMap.get($event.getType())" title="$localizedEventTypes.get($event.getType())"></span>
-                        $validator.escapeHtml($event.getDisplayName())</a></div></td>
+                        $formattedText.escapeHtml($event.getDisplayName())</a></div></td>
 
                     #else   ## -> flag == true
                             ## this cell is just expanding the above event
@@ -706,10 +700,10 @@
                         #end
                         #if ($hm.put($n, $tempCol)) #end
 
-                        <a href="#toolLinkParam("$action" "doDescription" "eventReference=$validator.escapeUrl($eventclass.getEvent().getReference())")" 
-                           title="$validator.escapeHtml($eventclass.getEvent().getDisplayName()) - $validator.escapeHtml($eventclass.getEvent().getSiteName())">
+                        <a href="#toolLinkParam("$action" "doDescription" "eventReference=$formattedText.escapeUrl($eventclass.getEvent().getReference())")" 
+                           title="$formattedText.escapeHtml($eventclass.getEvent().getDisplayName()) - $formattedText.escapeHtml($eventclass.getEvent().getSiteName())">
                         <span class="icon $eventIconMap.get($event.getType())" title="$localizedEventTypes.get($event.getType())"></span>
-                        $validator.escapeHtml($event.getDisplayName())</a></div></td>
+                        $formattedText.escapeHtml($event.getDisplayName())</a></div></td>
             #else ## corresponding to if($eventD.getFlag()==false)
                     ## no cell to be rendered, because of the above rowspan. but column counter++
                     ## to calculate how many rols should be spanned

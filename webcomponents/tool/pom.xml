@@ -5,10 +5,10 @@
     <parent>
         <groupId>org.sakaiproject</groupId>
         <artifactId>webcomponents-parent</artifactId>
-        <version>20-SNAPSHOT</version>
+        <version>21-SNAPSHOT</version>
     </parent>
 
-    <name>Sakai Web Components</name>
+    <name>Sakai Web Components Tool</name>
     <groupId>org.sakaiproject</groupId>
     <artifactId>webcomponents</artifactId>
     <packaging>war</packaging>
@@ -44,19 +44,74 @@
         <sourceDirectory>src/main/java</sourceDirectory>
         <plugins>
             <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>buildnumber-maven-plugin</artifactId>
+                <version>1.4</version>
+                <executions>
+                    <execution>
+                        <phase>validate</phase>
+                        <goals>
+                            <goal>create</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <shortRevisionLength>8</shortRevisionLength>
+                    <revisionOnScmFailure>Sakai</revisionOnScmFailure>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-clean-plugin</artifactId>
+                <configuration>
+                    <filesets>
+                        <fileset>
+                            <directory>src/main/frontend</directory>
+                            <includes>
+                                <include>**</include>
+                            </includes>
+                            <excludes>
+                                <exclude>js/**</exclude>
+                                <exclude>conf/**</exclude>
+                                <exclude>stories/**</exclude>
+                                <exclude>test/**</exclude>
+                                <exclude>.storybook/**</exclude>
+                                <exclude>package.json</exclude>
+                                <exclude>package-lock.json</exclude>
+                                <exclude>.gitignore</exclude>
+                                <exclude>.jshintrc</exclude>
+                            </excludes>
+                        </fileset>
+                        <fileset>
+                            <directory>src/main/frontend/js/assets</directory>
+                        </fileset>
+                    </filesets>
+                </configuration>
+            </plugin>
+            <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-war-plugin</artifactId>
                 <configuration>
                     <warSourceDirectory>src/main/webapp</warSourceDirectory>
                     <packagingExcludes>
+                        js/**,
+                        conf/**,
                         node_modules/**,
                         package.json,
                         package-lock.json,
-                        webpack.config.js
+                        .jshintrc
                     </packagingExcludes>
                     <webResources>
                         <resource>
                             <directory>src/main/frontend</directory>
+                            <excludes>
+                                <exclude>conf/**</exclude>
+                                <exclude>js/**</exclude>
+                                <exclude>node_modules/**</exclude>
+                                <exclude>stories/**</exclude>
+                                <exclude>.storybook/**</exclude>
+                                <exclude>package*.json</exclude>
+                            </excludes>
                         </resource>
                     </webResources>
                 </configuration>
@@ -64,7 +119,7 @@
             <plugin>
                 <groupId>com.github.eirslett</groupId>
                 <artifactId>frontend-maven-plugin</artifactId>
-                <version>1.7.6</version>
+                <version>1.8.0</version>
                 <configuration>
                     <installDirectory>target</installDirectory>
                     <workingDirectory>src/main/frontend</workingDirectory>
@@ -76,17 +131,48 @@
                             <goal>install-node-and-npm</goal>
                         </goals>
                         <configuration>
-                            <nodeVersion>v8.12.0</nodeVersion>
-                            <npmVersion>6.4.1</npmVersion>
+                            <nodeVersion>v12.16.1</nodeVersion>
+                            <npmVersion>6.14.2</npmVersion>
                         </configuration>
                     </execution>
                     <execution>
-                        <id>npm install</id>
+                        <id>npm install dependencies</id>
                         <goals>
                             <goal>npm</goal>
                         </goals>
                         <configuration>
-                            <arguments>install --unsafe-perm</arguments>
+                            <arguments>
+                                ci --unsafe-perm --save-dev
+                                @ckeditor/ckeditor5-dev-webpack-plugin
+                                @ckeditor/ckeditor5-dev-utils
+                                postcss-loader@3
+                                raw-loader@3
+                                style-loader@1
+                                webpack@4
+                                webpack-cli@3
+                            </arguments>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>npm tailor</id>
+                        <goals>
+                            <goal>npm</goal>
+                        </goals>
+                        <configuration>
+                            <arguments>
+                                run empathise -- --query=?version=${buildNumber}
+                            </arguments>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>npm build</id>
+                        <goals>
+                            <goal>npm</goal>
+                        </goals>
+                        <configuration>
+                            <arguments>
+                                run build
+                            </arguments>
                         </configuration>
                     </execution>
                 </executions>

@@ -5,7 +5,7 @@
     <parent>
         <groupId>org.sakaiproject.onedrive</groupId>
         <artifactId>sakai-onedrive</artifactId>
-        <version>20-SNAPSHOT</version>
+        <version>21-SNAPSHOT</version>
     </parent>
 
     <name>Sakai OneDrive Integration - IMPL</name>
@@ -42,12 +42,10 @@
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-core</artifactId>
-            <version>${sakai.jackson.version}</version>
         </dependency>
         <dependency>
-            <groupId>com.fasterxml.jackson.core</groupId>
-            <artifactId>jackson-databind</artifactId>
-            <version>${sakai.jackson.version}</version>
+            <groupId>com.fasterxml.jackson.dataformat</groupId>
+            <artifactId>jackson-dataformat-xml</artifactId>
         </dependency>
         <!--Spring Dependencies-->
         <dependency>

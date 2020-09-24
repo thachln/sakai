@@ -450,7 +450,7 @@ public abstract class BaseSiteService implements SiteService, Observer
 			// Get resource bundle
 			String resourceClass = serverConfigurationService().getString(RESOURCECLASS, DEFAULT_RESOURCECLASS);
 			String resourceBundle = serverConfigurationService().getString(RESOURCEBUNDLE, DEFAULT_RESOURCEBUNDLE);
-			rb = new Resource().getLoader(resourceClass, resourceBundle);
+			rb = Resource.getResourceLoader(resourceClass, resourceBundle);
 			
 			m_relativeAccessPoint = REFERENCE_ROOT;
 
@@ -1973,6 +1973,9 @@ public abstract class BaseSiteService implements SiteService, Observer
 		catch (AuthzPermissionException e)
 		{
 			throw new PermissionException(e.getUser(), e.getFunction(), e.getResource());
+		}
+		catch (AuthzRealmLockException arle) {
+			log.warn("GROUP LOCK REGRESSION: {}", arle.getMessage(), arle);
 		}
 	}
 

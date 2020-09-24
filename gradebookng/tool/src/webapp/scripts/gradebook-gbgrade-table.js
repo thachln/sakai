@@ -222,7 +222,6 @@ $(document).ready(function() {
     newGradeItemPopoverMessage: TrimPath.parseTemplate(
        $("#newGradeItemPopoverMessage").html().trim().toString()),
   };
-
 });
 
 GbGradeTable.courseGradeRenderer = function (instance, td, row, col, prop, value, cellProperties) {
@@ -297,8 +296,15 @@ GbGradeTable.replaceContents = function (elt, newContents) {
   return elt;
 };
 
+GbGradeTable.isColumnRendered = function(instance, col) {
+  return (instance.view.settings.columns[col] !== undefined);
+};
+
 // This function is called a *lot*, so avoid doing anything too expensive here.
 GbGradeTable.cellRenderer = function (instance, td, row, col, prop, value, cellProperties) {
+  //If col is not rendered, skip cell renderer
+  if (!GbGradeTable.isColumnRendered(instance, col)) return false;
+
   var $td = $(td);
   var index = col - GbGradeTable.FIXED_COLUMN_OFFSET;
   var student = instance.getDataAtCell(row, GbGradeTable.STUDENT_COLUMN_INDEX);
@@ -627,6 +633,7 @@ GbGradeTable.ajax = function (params, callback) {
   GbGradeTable.domElement.trigger("gbgradetable.action", params);
 };
 
+
 GbGradeTable.renderTable = function (elementId, tableData) {
   GbGradeTable.domElement = $('#' + elementId);
   GbGradeTable.students = tableData.students;
@@ -653,17 +660,20 @@ GbGradeTable.renderTable = function (elementId, tableData) {
     editor: false,
     width: GbGradeTable.settings.showPoints ? 220 : 140,
     sortCompare: function(a, b) {
-        var a_points = parseFloat(a[1]);
-        var b_points = parseFloat(b[1]);
+        const a_percent = parseFloat(a[1]);
+        const b_percent = parseFloat(b[1]);
+        const aIsNaN = isNaN(a_percent);
+        const bIsNaN = isNaN(b_percent);
 
-        if (a_points > b_points) {
+        // treat NaN as less than real numbers
+        if (a_percent > b_percent || (!aIsNaN && bIsNaN)) {
             return 1;
         }
-        if (a_points < b_points) {
+        if (a_percent < b_percent || (aIsNaN && !bIsNaN)) {
             return -1;
         }
         return 0;
-    },
+    }
   });
 
   if (GbGradeTable.settings.isStudentNumberVisible) {
@@ -701,6 +711,8 @@ GbGradeTable.renderTable = function (elementId, tableData) {
     if (GbGradeTable.settings.isPercentageGradeEntry) {
       outOf.innerHTML = "100%";
     } else if (GbGradeTable.settings.isPointsGradeEntry) {
+      //If col is not rendered, skip begin editing cell
+      if (!GbGradeTable.isColumnRendered(GbGradeTable.instance, col)) return false;
       var assignment = GbGradeTable.instance.view.settings.columns[col]._data_;
       var points = assignment.points;
       outOf.innerHTML = "/" + points;
@@ -759,6 +771,8 @@ GbGradeTable.renderTable = function (elementId, tableData) {
       if (col < GbGradeTable.FIXED_COLUMN_OFFSET) {
         html = GbGradeTable.headerRenderer(col, $th);
       } else {
+        //If col is not rendered, skip header renderer
+        if (!GbGradeTable.isColumnRendered(this, col)) return false;
         html = GbGradeTable.headerRenderer(col, this.view.settings.columns[col]._data_, $th);
       }
 
@@ -795,6 +809,8 @@ GbGradeTable.renderTable = function (elementId, tableData) {
         handle.classList.add("gb-sorted-"+GbGradeTable.currentSortDirection);
       }
 
+      //If col is not rendered, skip afterGetColHeader
+      if (!GbGradeTable.isColumnRendered(this, col)) return false;
       var columnModel = this.view.settings.columns[col]._data_;
 
       // assignment column
@@ -924,6 +940,9 @@ GbGradeTable.renderTable = function (elementId, tableData) {
 
   GbGradeTable.instance.updateSettings({
     cells: function (row, col, prop) {
+      //If col is not rendered, skip cell updatesettings
+      if (!GbGradeTable.isColumnRendered(GbGradeTable.instance, col)) return false;
+
       var cellProperties = {};
 
       var column = GbGradeTable.instance.view.settings.columns[col]._data_;
@@ -959,6 +978,12 @@ GbGradeTable.renderTable = function (elementId, tableData) {
   });
 
   $(".js-toggle-nav").on("click", function() {
+    $(window).trigger('resize');
+  });
+
+  $("sakai-maximise-button").on("maximise-tool", function () {
+    $(window).trigger('resize');
+  }).on("minimise-tool", function () {
     $(window).trigger('resize');
   });
 
@@ -1212,10 +1237,17 @@ GbGradeTable.renderTable = function (elementId, tableData) {
       if ($(this).data('assignmentid')) {
         $togglePanel.find('.gb-item-filter :checkbox[value='+$(this).data('assignmentid')+']').trigger('click');
       } else if ($(this).data('categoryid')) {
+        // Skip if column is already not rendered
+        if (!GbGradeTable.isColumnRendered(GbGradeTable.instance, col)) return false;
         var colIndex = GbGradeTable.colForCategoryScore($(this).data('categoryid'));
         var col = GbGradeTable.instance.view.settings.columns[colIndex]._data_;
         $togglePanel.find('.gb-item-category-score-filter :checkbox[value="'+col.categoryName+'"]').trigger('click');
       }
+  }).
+  on("click", ".gb-dropdown-menu .gb-message-students", function (event) {
+
+    $(`#gb-messager-for-${event.target.dataset.assignmentId}`)
+      .dialog({ width: 500, close: function () { $(this).dialog("destroy"); } });
   }).
   // View Course Grade Statistics
   on("click", ".gb-dropdown-menu .gb-view-course-grade-statistics", function() {
@@ -2275,10 +2307,10 @@ GbGradeTable.setupConcurrencyCheck = function() {
         handleConcurrencyCheck);
   };
 
-  // Check for concurrent editors.. and again every 10 seconds
+  // Check for concurrent editors.. and again every 20 seconds
   // (note: there's a 10 second cache)
   performConcurrencyCheck();
-  var concurrencyCheckInterval = setInterval(performConcurrencyCheck, 10 * 1000);
+  var concurrencyCheckInterval = setInterval(performConcurrencyCheck, 20 * 1000);
 };
 
 
@@ -2631,7 +2663,7 @@ GbGradeTable.setupKeyboardNavigation = function() {
 
         $dropdown.dropdown("toggle");
         setTimeout(function() {
-          $(".dropdown-menu:visible a:first").focus();
+          $(".dropdown-menu:visible li:not(.hidden):first a").focus();
         });
       }
 
@@ -2856,7 +2888,7 @@ GbGradeTable.setupCellMetaDataSummary = function() {
     }
   });
 
-  $(GbGradeTable.instance.rootElement).on("click", "th .gb-external-app, th .gb-grade-item-flags > *, th .gb-flag-extra-credit", function(event){
+  $(GbGradeTable.instance.rootElement).on("click", "th .gb-external-app, th .gb-grade-item-flags > *, th .gb-flag-extra-credit, th .gb-flag-equal-weight", function(event){
     event.preventDefault();
     event.stopImmediatePropagation();
 
@@ -3233,7 +3265,7 @@ GbGradeTable.focusColumnForAssignmentId = function(assignmentId, showPopupForNew
             $selectedField.attr('data-content',GbGradeTable.templates['newGradeItemPopoverMessage'].process());
             $selectedField.attr('data-title',GbGradeTable.templates['newGradeItemPopoverTitle'].process());
 
-            $('body').on('click keyup touchend', function (e) {
+            $('body, button').on('click keyup touchend', function (e) {
               if ($(e.target).data('toggle') !== 'popover'
                   && $(e.target).parents('.popover.in').length === 0) { 
                   $('[data-toggle="popover"]').popover('hide');
