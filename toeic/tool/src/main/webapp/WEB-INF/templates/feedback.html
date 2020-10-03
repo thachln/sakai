@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+<meta charset="UTF-8">
+<title>Toeic Feedback</title>
+<link rel="stylesheet" type="text/css" th:href="@{'resources/robust-admin/app-assets/css/plugins/ui/jqueryui.css'}">
+<link rel="stylesheet" type="text/css" th:href="@{'resources/robust-admin/app-assets/vendors/css/ui/jquery-ui.min.css'}">
+<link href="resources/css/bootstrap.min.css" rel="stylesheet" type="text/css" media="all">
+<link rel="stylesheet" type="text/css"
+    th:href="@{'resources/robust-admin/app-assets/vendors/css/tables/handsontable/handsontable.full.min.css'}">
+<link rel="stylesheet" type="text/css"
+    th:href="@{'resources/robust-admin/app-assets/css/plugins/tables/handsontable.css'}">
+<link rel="stylesheet" type="text/css" href="resources/robust-admin/app-assets/vendors/css/extensions/sweetalert.css">
+<link rel="stylesheet" type="text/css" href="resources/robust-admin/app-assets/vendors/css/extensions/toastr.css">
+<style>
+.toast {
+	opacity: 1 !important;
+}
+
+.nav {
+	display: flex;
+	flex-wrap: wrap;
+	padding-left: 0;
+	margin-bottom: 0;
+	list-style: none;
+	border-radius: 0.25rem;
+}
+
+.nav-tabs {
+	border-bottom: 1px solid #ADB5BD;
+}
+
+.nav-tabs .nav-link.active, .nav-tabs .nav-item.show .nav-link {
+	color: #4E5154;
+	background-color: #F1F1F1;
+	border-color: #ADB5BD #ADB5BD #F1F1F1;
+}
+
+.nav-tabs .nav-link {
+	border: 1px solid transparent;
+	border-top-left-radius: 0.21rem;
+	border-top-right-radius: 0.21rem;
+}
+
+.nav-tabs .nav-item {
+	margin-bottom: -1px;
+}
+
+.nav-link {
+	display: block;
+	padding: 0.5rem 1rem;
+}
+
+#nav-tabContent {
+	padding-top: 10px;
+}
+</style>
+</head>
+<body>
+    <!-- tabs & tableBill -->
+    <div id="tabsAndTable">
+        <div class="bd-example bd-example-tabs">
+            <nav class="nav nav-tabs" id="nav-tab" role="tablist">
+                <a class="nav-item nav-link active" id="nav-home-tab" data-toggle="tab" href="#nav-general" role="tab"
+                    aria-controls="home" aria-expanded="true">General</a> <a class="nav-item nav-link"
+                    id="nav-profile-tab" data-toggle="tab" href="#nav-detail" role="tab" aria-controls="profile"
+                    aria-expanded="false">Detail</a>
+            </nav>
+            <div class="tab-content" id="nav-tabContent">
+
+                <!-- tab documentation -->
+                <div class="tab-pane fade active show" id="nav-general" role="tabpanel" aria-labelledby="nav-home-tab"
+                    aria-expanded="true">
+                    <p>
+                        <strong>use '-' to break line.</strong>
+                    </p>
+                    <p>Example: They can understand common english.-They can write.</p>
+                    <p>Display on web:</p>
+                    <p>They can understand common english</p>
+                    <p>They can write</p>
+                    <div class="table-responsive scroll-container">
+                        <div id="feedBackHot" class="hot handsontable htRowHeaders htColumnHeaders"></div>
+                    </div>
+                    <div class="row text-center">
+                        <button class="btn btn-info" id="fbSave">Save</button>
+                    </div>
+                </div>
+
+                <!-- tab other credit -->
+                <div class="tab-pane fade " id="nav-detail" role="tabpanel" aria-labelledby="nav-profile-tab"
+                    aria-expanded="false">
+                    <p>
+                        <strong>kind = 0 => listening; kind = 1 => reading</strong>
+                    </p>
+                    <p>
+                        <strong>use '-' to break line.</strong>
+                    </p>
+                    <p>Example: They can understand common english.-They can write.</p>
+                    <p>Display on web:</p>
+                    <p>They can understand common english</p>
+                    <p>They can write</p>
+                    <div class="table-responsive scroll-container">
+                        <div id="detailHot" class="hot handsontable htRowHeaders htColumnHeaders"></div>
+                    </div>
+                    <div class="row text-center">
+                        <button class="btn btn-info" id="dSave">Save</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="/library/webjars/jquery/3.4.1/dist/jquery.min.js"></script>
+    <script src="/library/webjars/bootstrap/3.3.7/js/bootstrap.min.js"></script>
+    <script type="text/javascript" src="resources/robust-admin/app-assets/js/core/libraries/jquery_ui/jquery-ui.min.js"></script>
+    <script type="text/javascript" src="resources/robust-admin/app-assets/js/scripts/extensions/block-ui.js"></script>
+    <script type="text/javascript" src="resources/robust-admin/app-assets/vendors/js/ui/jquery.sticky.js"></script>
+    <script type="text/javascript"
+        src="resources/robust-admin/app-assets/vendors/js/tables/handsontable/handsontable.full.js"></script>
+    <script type="text/javascript"
+        src="resources/robust-admin/app-assets/vendors/js/tables/handsontable/languages.min.js"></script>
+    <script type="text/javascript" src="resources/robust-admin/app-assets/vendors/js/extensions/toastr.min.js"></script>
+    <script type="text/javascript" src="resources/robust-admin/app-assets/vendors/js/extensions/sweetalert.min.js"></script>
+    <script type="text/javascript" src="resources/js/data_toeic.js"></script>
+    <script type="text/javascript" src="resources/js/handsontable-validate.js"></script>
+    <script type="text/javascript" src="resources/js/feedback.js"></script>
+</body>
+</html>

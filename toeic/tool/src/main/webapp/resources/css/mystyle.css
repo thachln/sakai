@@ -1,0 +1,520 @@
+.scroll-text {
+	height: 75px;
+	overflow: hidden;
+}
+
+.scroll-text ul {
+	height: 200px;
+	overflow: hidden;
+	list-style: none;
+	padding: 0;
+}
+
+.list {
+	margin: 0;
+}
+
+.list-unstyled {
+	padding-left: 0;
+	list-style: none;
+}
+
+.list li {
+	border-top: 1px dashed #d9e2da;
+	padding: 10px 0;
+	position: relative;
+	padding-right: 90px;
+	line-height: 18px;
+}
+
+.message {
+	overflow: hidden;
+	-o-text-overflow: ellipsis;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.time {
+	position: absolute;
+	width: 80px;
+	display: block;
+	overflow: hidden;
+	-o-text-overflow: ellipsis;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	right: 0;
+	top: 10px;
+	color: #999;
+}
+
+.answerTextOption {
+	display: table-row !important;
+}
+
+button#nextBtn {
+	margin-bottom: 10px !important;
+}
+
+button#backBtn {
+	margin-bottom: 10px !important;
+}
+
+.selected-border {
+	border-style: solid;
+	border-width: 2px;
+	border-color: blue;
+}
+
+span.elipsis {
+	display: none;
+}
+
+.numberInQuestion {
+	background-color: Transparent;
+	background-repeat: no-repeat;
+	border: none;
+	cursor: pointer;
+	overflow: hidden;
+	outline: none;
+	color: black;
+	margin: 0;
+}
+
+.ft-refresh-cw {
+	font-family: feather !important;
+	speak: none;
+	font-style: normal;
+	font-weight: 400;
+	font-variant: normal;
+	text-transform: none;
+	line-height: 1;
+	-webkit-font-smoothing: antialiased;
+}
+
+.icon-spin {
+	display: inline-block;
+	color: black;
+	-webkit-animation: spin 1s infinite linear;
+	-moz-animation: spin 1s infinite linear;
+	-o-animation: spin 1s infinite linear;
+	animation: spin 1s infinite linear;
+}
+/* Container needed to position the button. Adjust the width as needed */
+.direction-container {
+	padding: 10px 5px 5px 5px;
+}
+
+/* Style the button and place it in the middle of the container/image */
+/*
+.direction-container .btn {
+	position: absolute;
+	top: 96%;
+	left: 85%;
+	transform: translate(-50%, -50%);
+	-ms-transform: translate(-50%, -50%);
+	border: none;
+	cursor: pointer;
+	border-radius: 5px;
+}
+*/
+ul.evaluate {
+	text-align: left;
+	margin-left: 8%;
+	font-size: 17px;
+}
+
+ul.evaluate li {
+	padding-bottom: 8px;
+}
+
+.icon-info {
+	margin-left: 5px;
+}
+
+.icon-info i {
+	font-size: 20px;
+}
+
+#infoPart {
+	margin: 6px 0;
+}
+
+#title_part {
+	display: inline-block;
+}
+
+#title_part_multi {
+	display: inline-block;
+}
+
+#home {
+	margin-left: 10%;
+}
+
+.assessment-list {
+	margin-left: 2%;
+}
+
+span.score-toeic {
+	font-weight: normal;
+	background: #f67b7b85;
+	display: inline-block;
+	padding: 5px;
+}
+
+.info-result {
+	margin: 0 25px;
+}
+
+.info-result h2 {
+	font-weight: bold;
+}
+
+.mark-color {
+	background: #c7e5ff;
+}
+
+.btnGroup {
+	margin: 10px 0 15px 40px;
+}
+
+.btnGroup button {
+	margin-right: 15px;
+}
+
+.info-toeic {
+	font-size: 1.3em;
+	margin-top: 16px;
+}
+
+.num-question {
+	font-weight: bold;
+	margin: 0;
+}
+
+.time-remain-question {
+	display: inline-block;
+	margin-left: 6px;
+	font-size: 14px;
+}
+
+span.time-question {
+	font-style: italic;
+	color: #0020ff;
+}
+
+.for-listening {
+	position: relative;
+	display: block;
+	max-width: 400px;
+	width: 80%;
+	height: 32px;
+	margin: 2px;
+	margin-bottom: 20px;
+}
+
+.black {
+	position: absolute;
+	top: 0;
+	left: 0px;
+	width: 52%;
+	height: 32px;
+	z-index: 10; //
+	background: #ff000014;
+}
+
+audio {
+	position: absolute;
+	width: 80%;
+	top: 0;
+	left: 0;
+	z-index: 1;
+}
+
+span#time_remain {
+	color: red;
+	font-style: italic;
+}
+
+div#time-remain-area {
+	font-size: 20px;
+	padding: 10px;
+}
+
+.footer {
+	margin-top: 40px;
+	background: #eeeeee;
+	padding: 10px 0px;
+}
+
+.footer-bar {
+	padding: 5px 5px 5px 5px;
+	bottom: 2px;
+}
+
+.toeic-clock {
+	
+}
+
+.pic-question {
+	max-width: 490px;
+	max-height: 350px;
+}
+
+input[type="radio"] {
+	
+}
+
+.toeic-contain {
+	border: 1px solid gray;
+	border-radius: 20px;
+}
+
+/* menu */
+.navbar-default .navbar-brand {
+	color: #000000;
+	font-size: 22px;
+}
+
+.navbar-brand {
+	text-transform: uppercase;
+}
+
+/* end menu */
+.container h2 {
+	font-weight: 700;
+	color: #002ac1;
+	text-align: center;
+}
+
+p.note {
+	color: rgb(237, 67, 60);
+	font-style: italic;
+}
+
+.answer-area {
+	padding: 10px 0px 12px 10px;
+	/* background: rgba(74, 197, 255, 0.32); */
+	text-align: left;
+	height: 500px;
+	overflow: auto;
+	position: relative;
+}
+
+.ques-no {
+	margin-right: 14px;
+}
+
+.checkbox-inline+.checkbox-inline, .radio-inline+.radio-inline {
+	margin-left: 0px;
+}
+
+.title-part {
+	border-bottom: 2px solid #e3e3e3;
+	margin-bottom: 15px;
+	text-align: center;
+	margin-right: 8px;
+}
+
+.toiec-question {
+	margin-top: 30px;
+}
+
+.text-question {
+	font-size: 1.2em;
+	text-align: left;
+	margin: 0;
+}
+
+.radio-inline {
+	margin-right: 5%;
+	margin-bottom: 5px;
+	font-size: 1.2em;
+}
+
+.radio-inline strong {
+	
+}
+
+.toeic-form {
+	font-size: 15px;
+	padding: 0px 0px 2px 10px;
+}
+
+.toeic-select {
+	margin-top: 4px;
+	margin-left: 20px; //
+	max-width: 450px;
+}
+
+.toeic-index h4 {
+	font-size: 1.3em;
+	text-align: left;
+	font-weight: bold;
+	display: inline-block;
+}
+
+.toiec-form {
+	padding-top: 10px;
+	padding-left: 20px;
+}
+
+.test-box {
+	margin-bottom: 20px;
+	margin-left: 50px;
+	max-height: 500px;
+	overflow: auto;
+}
+
+.pic-question img {
+	width: 100%;
+	max-height: 290px;
+	height: 100%;
+	cursor: pointer;
+}
+
+.question-area {
+	padding: 10px 15px 0 36px;
+	border-right: 4px solid #c9c9c9;
+}
+
+.question-area .radio-inline {
+	margin-left: 10px;
+	display: block;
+}
+
+.toeic-btn {
+	position: absolute;
+	right: 10%;
+	bottom: 0;
+}
+
+.toeic-btn button {
+	margin: 0 8px;
+}
+
+.loader {
+	border: 16px solid #f3f3f3; /* Light grey */
+	border-top: 16px solid #3498db; /* Blue */
+	border-radius: 50%;
+	width: 30px;
+	height: 30px;
+	animation: spin 2s linear infinite;
+}
+
+@media modal-fullscreen () {
+	padding: 0 !important ; . modal-dialog {
+		width: 100%;
+		height: 100%;
+		margin: 0;
+		padding: 0;
+	}
+	.modal-content {
+		height: auto;
+		min-height: 100%;
+		border: 0 none;
+		border-radius: 0;
+	}
+}
+
+@media ( max-width : 767px) {
+	.modal-fullscreen-xs-down { @include modal-fullscreen();
+		
+	}
+}
+
+@media ( max-width : 991px) {
+	.modal-fullscreen-sm-down { @include modal-fullscreen();
+		
+	}
+}
+
+@media ( max-width : 1199px) {
+	.modal-fullscreen-md-down { @include modal-fullscreen();
+		
+	}
+}
+
+.modal-fullscreen { @include modal-fullscreen();
+	
+}
+
+@
+keyframes spin { 0% {
+	transform: rotate(0deg);
+}
+
+100%
+{
+transform
+
+
+
+
+:
+
+
+ 
+
+
+rotate
+
+
+
+
+(360
+deg
+
+
+);
+}
+}
+
+/*phone*/
+@media ( max-width :767px) {
+	* {
+		
+	}
+	body {
+		font-size: 12px;
+	}
+	.answer-area {
+		text-align: center;
+	}
+	.text-question {
+		font-size: 1em;
+	}
+	.black {
+		width: 65%;
+	}
+}
+
+/*may tinh bang*/
+@media ( min-width :768px) and (max-width:991px) {
+	* {
+		
+	}
+	body {
+		font-size: 12px;
+	}
+	.answer-area {
+		text-align: center;
+	}
+	.text-question {
+		font-size: 1em;
+	}
+}
+
+/*desktop*/
+@media ( min-width :992px) and (max-width:1199px) {
+	* {
+		
+	}
+}
+
+/*man hinh lon*/
+@media ( min-width :1200px) {
+	* {
+		
+	}
+}

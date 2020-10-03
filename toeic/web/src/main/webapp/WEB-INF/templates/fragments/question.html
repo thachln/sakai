@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+</head>
+<body>
+	<div th:fragment="question-area" class="col-sm-8 question-area">
+		<div class="area-part">
+			<div class="title-part">
+				<h3><span>Part 5: </span>Incomplete sentences</h3>
+			</div>
+			<div class="test-box" th:each="item,iter : ${testList}">
+				<div class="toeic-index">
+					<h4>Question <span 	th:text="${iter.index}+1" ></span></h4>
+					<div class="time-remain-question">
+						remaining <span class="time-question">00:00</span>
+					</div>
+				</div>
+				<div class="toiec-question">
+					<div class="pic-question">
+						<!-- <img src="" alt=""> -->
+					</div>
+					<p class="text-question" th:text="${item.question}">
+						Jupiter has just under 70 documented moons, .............. four largest of which are the Galilean moons Io, Callisto, Ganymede and Europa.
+					</p>
+				</div>
+				<div class="for-listening text-center">
+					<div class="black">
+							
+					</div>
+					<audio id="player" autoplay="true" controls>
+						<source src="https://goo.gl/Vu4w6c" type="audio/mp3" />
+					</audio> 	
+				</div>
+				<div class="toiec-select">
+					<form class="toiec-form">
+						<label class="radio-inline">
+							<strong>A.</strong>
+							<span th:text="${item.answer1}">a</span>
+						</label>
+						<label class="radio-inline">
+							<strong>B.</strong>
+							<span th:text="${item.answer2}">an</span>
+						</label>
+						<label class="radio-inline">
+							<strong>C.</strong>
+							<span th:text="${item.answer3}">the</span>
+						</label>
+						<label class="radio-inline">
+							<strong>D.</strong>
+							<span th:text="${item.answer4}">None</span>
+						</label>
+					</form>
+				</div>
+			</div>
+			<div class="toeic-btn text-center">
+				<button type="button" class="btn btn-default" id="submit_demo">BACK</button>
+				<button type="button" class="btn btn-default" id="submit_demo">NEXT</button>
+			</div>
+		</div>
+	</div>
+</body>
+</html>

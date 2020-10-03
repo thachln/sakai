@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+<meta charset="UTF-8">
+<title>Toeic Feedback</title>
+<link rel="stylesheet" type="text/css" th:href="@{'resources/robust-admin/app-assets/css/plugins/ui/jqueryui.css'}">
+<link rel="stylesheet" type="text/css" th:href="@{'resources/robust-admin/app-assets/vendors/css/ui/jquery-ui.min.css'}">
+<link href="resources/css/bootstrap.min.css" rel="stylesheet" type="text/css" media="all">
+<link rel="stylesheet" type="text/css"
+    th:href="@{'resources/robust-admin/app-assets/vendors/css/tables/handsontable/handsontable.full.min.css'}">
+<link rel="stylesheet" type="text/css"
+    th:href="@{'resources/robust-admin/app-assets/css/plugins/tables/handsontable.css'}">
+<link rel="stylesheet" type="text/css" href="resources/robust-admin/app-assets/vendors/css/extensions/sweetalert.css">
+<link rel="stylesheet" type="text/css" href="resources/robust-admin/app-assets/vendors/css/extensions/toastr.css">
+<style>
+.toast {
+	opacity: 1 !important;
+}
+</style>
+</head>
+<body>
+    <div class="table-responsive scroll-container">
+        <div id="pHot" class="hot handsontable htRowHeaders htColumnHeaders"></div>
+    </div>
+    <div class="row text-center">
+        <button class="btn btn-info" onclick="submit()">Save</button>
+    </div>
+    <script src="/library/webjars/jquery/3.4.1/dist/jquery.min.js"></script>
+    <script src="/library/webjars/bootstrap/3.3.7/js/bootstrap.min.js"></script>
+    <script type="text/javascript" src="resources/robust-admin/app-assets/js/core/libraries/jquery_ui/jquery-ui.min.js"></script>
+    <script type="text/javascript" src="resources/robust-admin/app-assets/js/scripts/extensions/block-ui.js"></script>
+    <script type="text/javascript" src="resources/robust-admin/app-assets/vendors/js/ui/jquery.sticky.js"></script>
+    <script type="text/javascript"
+        src="resources/robust-admin/app-assets/vendors/js/tables/handsontable/handsontable.full.js"></script>
+    <script type="text/javascript"
+        src="resources/robust-admin/app-assets/vendors/js/tables/handsontable/languages.min.js"></script>
+    <script type="text/javascript" src="resources/robust-admin/app-assets/vendors/js/extensions/toastr.min.js"></script>
+    <script type="text/javascript" src="resources/robust-admin/app-assets/vendors/js/extensions/sweetalert.min.js"></script>
+    <script type="text/javascript" src="resources/js/data_toeic.js"></script>
+    <script type="text/javascript" src="resources/js/handsontable-validate.js"></script>
+    <script type="text/javascript" src="resources/js/picture.js"></script>
+</body>
+</html>

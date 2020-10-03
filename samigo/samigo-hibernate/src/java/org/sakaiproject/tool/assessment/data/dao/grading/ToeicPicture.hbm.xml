@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN" "http://www.hibernate.org/dtd/hibernate-mapping-3.0.dtd">
+<hibernate-mapping package="org.sakaiproject.tool.assessment.data.dao.grading" default-lazy="false">
+
+	<class name="org.sakaiproject.tool.assessment.data.dao.grading.ToeicPicture" table="TOEIC_PICTURE">
+		<id name="id" column="id" type="java.lang.Long" unsaved-value="0">
+			<generator class="native">
+				<param name="sequence">TOEIC_PICTURE_S</param>
+			</generator>
+		</id>
+
+		<property name="agentId" type="string" length="5000" column="AGENTID" not-null="false" />
+		<property name="assessmentGradingId" type="java.lang.Long" column="ASSESSMENTGRADINGID" not-null="true" />
+		<property name="createdDate" type="timestamp" column="CREATEDDATE" not-null="false" />
+		<property name="contentType" type="string" length="50" column="CONTENTTYPE" not-null="false" />
+		<property name="content">
+			<column name="CONTENT" not-null="false" length="1000000000" />
+		</property>
+	</class>
+
+</hibernate-mapping>

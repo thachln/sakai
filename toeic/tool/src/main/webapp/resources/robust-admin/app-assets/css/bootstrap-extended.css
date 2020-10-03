@@ -1,0 +1,145 @@
+.card-group, .card-deck {
+  margin-bottom : 0.75rem;
+}
+
+.card {
+  margin-bottom : 1.875rem;
+  border : none;
+  -webkit-box-shadow : 0 2px 1px rgba(0, 0, 0, 0.05);
+          box-shadow : 0 2px 1px rgba(0, 0, 0, 0.05);
+}
+.card .card {
+  -webkit-box-shadow : none !important;
+          box-shadow : none !important;
+}
+.card .card-title {
+  font-weight : 500;
+  letter-spacing : 0.05rem;
+  font-size : 1.12rem;
+}
+.card .card-bordered {
+  border : 1px solid rgba(0, 0, 0, 0.06);
+}
+.card.card-fullscreen {
+  display : block;
+  z-index : 9999;
+  position : fixed;
+  width : 100% !important;
+  height : 100% !important;
+  top : 0;
+  right : 0;
+  left : 0;
+  bottom : 0;
+  overflow : auto;
+}
+.card .card-body[class*='border-bottom-'] {
+  border-bottom-width : 2px !important;
+}
+.card .card-img-overlay.bg-overlay {
+  background : rgba(0, 0, 0, 0.45);
+}
+.card .card-img-overlay .text-muted {
+  color : #373A3C !important;
+}
+.card.card-minimal {
+  border : none;
+  -webkit-box-shadow : none;
+          box-shadow : none;
+}
+.card.crypto-card-3 .card-body:before {
+  font-family : 'cryptocoins';
+  font-size : 10rem;
+  color : rgba(255, 255, 255, 0.15);
+  position : absolute;
+  bottom : -32px;
+  right : 0;
+}
+
+.card-moved .card, .card-moved .card-header {
+  background-color : #F6BB42;
+  color : #FFFFFF;
+}
+
+.handle, .titleArea {
+  cursor : move;
+}
+
+.card-header {
+  border-bottom : none;
+}
+.card-header .card-title {
+  margin-bottom : 0;
+}
+.card-header .heading-elements, .card-header .heading-elements-toggle {
+  background-color : inherit;
+  position : absolute;
+  top : 20px;
+  right : 20px;
+}
+.card-header .heading-elements.heading-top-elements .page-item, .card-header .heading-elements-toggle.heading-top-elements .page-item {
+  display : inline-block;
+}
+.card-header .heading-elements a, .card-header .heading-elements-toggle a {
+  padding : 0 8px;
+}
+.card-header .heading-elements a.btn, .card-header .heading-elements-toggle a.btn {
+  padding-top : 6px;
+  padding-bottom : 6px;
+}
+
+.card-footer {
+  border-top : 1px solid #EEEEEE;
+}
+
+.text-white .card-text {
+  color : white;
+}
+
+.text-white .card-img-overlay .text-muted {
+  color : #FFFFFF !important;
+}
+
+.text-white code {
+  background-color : white;
+}
+
+.text-white .heading-elements i {
+  color : #FFFFFF;
+}
+
+.card-head-inverse {
+  color : #FFFFFF;
+}
+.card-head-inverse .heading-elements i {
+  color : #FFFFFF;
+}
+
+.card-transparent {
+  background-color : transparent;
+}
+
+.card-image-position-right {
+  margin-left : 50px;
+  position : absolute;
+  top : -27px;
+}
+
+.card-image-position-right-mid {
+  position : absolute;
+  top : 23px;
+  margin-left : 280px;
+  width : 250px;
+}
+
+.card-font-style-black {
+  font-size : 90px;
+  font-weight : 900;
+  color : #FFFFFF52;
+  margin-top : -12px;
+}
+
+.card-font-style-white {
+  font-size : 72px;
+  font-weight : 900;
+  margin-top : -10px;
+}

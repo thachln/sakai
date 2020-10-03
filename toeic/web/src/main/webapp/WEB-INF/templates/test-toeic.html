@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+<meta charset="UTF-8">
+<title>Test Toeic</title>
+<!-- Latest compiled and minified CSS -->
+<link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css">
+
+<!-- Style -->
+<link href="resources/css/bootstrap.css" rel="stylesheet" type="text/css" media="all">
+<link href="resources/css/font-awesome.min.css" rel="stylesheet" type="text/css" media="all">
+<link href="http://fonts.googleapis.com/css?family=Cabin:400,500,600,700" rel="stylesheet" type="text/css">
+<link href="resources/css/mystyle.css" rel="stylesheet" type="text/css" media="all">	
+</head>
+<body>
+
+    <div th:replace="~{fragments/header :: header}">Header</div>
+	<div class="container">
+		<div class="toeic-title">
+			
+		</div>
+		<div class="toeic-clock text-center">
+			<button data-toggle="collapse" class="btn btn-info" data-target="#time-remain-area">Show/Hide Time</button>
+
+			<div id="time-remain-area" class="collapse in">
+				Time remaining: <span id="time-remain">120:00</span>
+			</div>
+		</div>
+		<div class="toeic-contain">
+			<div class="row">
+				<!-- question area -->
+				<div th:replace="~{fragments/question :: question-area}">
+				</div> <!-- end col 8 -->
+				
+				<!-- answer area -->
+				<div th:replace="~{fragments/answer-sheet :: answer-sheet}">
+				</div> <!-- end col 4 -->
+				
+			</div>
+		</div>
+	</div>
+	
+    <div th:replace="~{fragments/footer :: footer}">Footer</div>
+        
+	<!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
+	<script type="text/javascript" src="resources/js/jquery-3.1.1.min.js"></script>
+	<script type="text/javascript" src="resources/js/bootstrap.min.js"></script>
+    <script type="text/javascript" src="resources/js/myjs.js"></script>  
+</body>
+</html>

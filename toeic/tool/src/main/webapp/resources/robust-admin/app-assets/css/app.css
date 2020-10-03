@@ -1,0 +1,23 @@
+@import url('bootstrap-extended.css');
+// @import url('colors.css');
+@import url('components.css');
+/* Refer code of icons at: http://astronautweb.co/snippet/font-awesome */
+.icon-sakai--sakai-this-is-ignore:before {
+    content: "\f0ce";
+    font-family: FontAwesome;
+}
+
+.icon-sakai--sakai-question-importer:before {
+    content: "\f0ce";
+    font-family: FontAwesome;
+}
+
+.icon-sakai--sakai-scorm-tool:before {
+    content: "\f04b";
+    font-family: FontAwesome;
+}
+
+.icon-sakai--sakai-toeic:before {
+    content: "\f19d";
+    font-family: FontAwesome;
+}

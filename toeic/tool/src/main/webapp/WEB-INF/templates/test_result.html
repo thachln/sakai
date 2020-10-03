@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Test Toeic</title>
+    <link href="resources/css/mystyle.css" rel="stylesheet" type="text/css" media="all">
+    <link rel="stylesheet" type="text/css" th:href="@{'resources/robust-admin/app-assets/css/plugins/ui/jqueryui.css'}">
+    <link rel="stylesheet" type="text/css" th:href="@{'resources/robust-admin/app-assets/vendors/css/ui/jquery-ui.min.css'}">
+    <link rel="stylesheet" type="text/css" href="resources/robust-admin/app-assets/vendors/css/extensions/jquery.toolbar.css">
+    <link rel="stylesheet" type="text/css" href="resources/robust-admin/app-assets/vendors/css/extensions/sweetalert.css">
+    <link rel="stylesheet" type="text/css" href="resources/robust-admin/app-assets/vendors/css/extensions/toastr.css">
+    <style type="text/css" id="extraStyle">
+        .toast {
+            opacity: 1 !important;
+        }
+        .ui-dialog .ui-icon-closethick:after {
+            content: none;
+        }
+        .toiec-question {
+             margin-top: 0 !important;
+        }
+        .bg_script {
+            background-color: #FFFCCC;
+            margin-top: 15px;
+            padding: 5px 5px 5px 5px;
+            display: block;
+            position: static;
+            height: auto;
+            width: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="toeic-contain">
+        <div class="row">
+            <!-- question area -->
+            <div class="col-sm-8 question-area">
+                <div class="area-part" id="question_contain"><div class="test-box"></div></div>
+            </div>
+
+            <!-- answer area -->
+            <div class="col-sm-4">
+                <div class="title-part">
+                    <h3 class="text-center">
+                        Answer sheet <span id="correctNumer"></span>
+                    </h3>
+                </div>
+                <div id="answer_sheet" class="answer-area"></div>
+            </div>
+        </div>
+    </div>
+
+    <th:block th:include="version"></th:block>
+
+    <script src="/library/webjars/jquery/3.4.1/dist/jquery.min.js"></script>
+    <script src="/library/webjars/bootstrap/3.3.7/js/bootstrap.min.js"></script>
+    <script type="text/javascript" src="resources/robust-admin/app-assets/js/core/libraries/jquery_ui/jquery-ui.min.js"></script>
+    <script type="text/javascript" src="resources/robust-admin/app-assets/js/scripts/extensions/block-ui.js"></script>
+    <script type="text/javascript" src="resources/robust-admin/app-assets/vendors/js/ui/jquery.sticky.js"></script>
+    <script type="text/javascript" src="resources/robust-admin/app-assets/vendors/js/charts/chart.min.js"></script>
+    <script type="text/javascript" src="resources/robust-admin/app-assets/vendors/js/extensions/jquery.toolbar.min.js"></script>
+    <script type="text/javascript" src="resources/robust-admin/app-assets/vendors/js/extensions/toastr.min.js"></script>
+
+    <script type="text/javascript" src="resources/robust-admin/app-assets/vendors/js/extensions/sweetalert.min.js"></script>
+    <script type="text/javascript" src="resources/robust-admin/app-assets/vendors/js/forms/toggle/bootstrap-switch.min.js"></script>
+    <script type="text/javascript" src="resources/robust-admin/app-assets/vendors/js/forms/toggle/bootstrap-checkbox.min.js"></script>
+
+    <script type="text/javascript" src="resources/js/data_toeic.js"></script>
+    <script type="text/javascript" src="resources/js/adapter.js"></script>
+    <script type="text/javascript" src="resources/js/result.js"></script>
+</body>
+</html>
