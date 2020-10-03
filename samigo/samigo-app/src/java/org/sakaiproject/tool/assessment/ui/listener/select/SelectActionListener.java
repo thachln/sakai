@@ -440,7 +440,7 @@ public class SelectActionListener
    * @param select the SelectAssessment bean
    * @return
    */
-  private String getTakeableOrderBy(SelectAssessmentBean select) {
+  public String getTakeableOrderBy(SelectAssessmentBean select) {
     String sort = select.getTakeableSortOrder();
     //bean.setTakeableSortOrder(PublishedAssessmentFacadeQueries.TITLE);
     String returnType =  PublishedAssessmentFacadeQueries.TITLE;
@@ -554,7 +554,7 @@ public class SelectActionListener
   // agent is authorizaed and filter out the one that does not meet the
   // takeable criteria.
   // SAK-1464: we also want to filter out assessment released To Anonymous Users
-  private List getTakeableList(List assessmentList, Map <Long,Integer> h, List updatedAssessmentNeedResubmitList, List updatedAssessmentList) {
+  public List getTakeableList(List assessmentList, Map <Long,Integer> h, List updatedAssessmentNeedResubmitList, List updatedAssessmentList) {
     List takeableList = new ArrayList();
     GradingService gradingService = new GradingService();
     Map<Long, StudentGradingSummaryData> numberRetakeHash = gradingService.getNumberRetakeHash(AgentFacade.getAgentString());
@@ -846,7 +846,7 @@ public class SelectActionListener
     return h;
   }
   
-  private void setTimedAssessment(DeliveryBeanie delivery, PublishedAssessmentFacade pubAssessment){
+  public void setTimedAssessment(DeliveryBeanie delivery, PublishedAssessmentFacade pubAssessment){
 	  if (pubAssessment.getTimeLimit() != null) {
 		  int seconds = pubAssessment.getTimeLimit();
 		  int hour = 0;

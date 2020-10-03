@@ -84,7 +84,8 @@
             <h:message for="answerptr" styleClass="validate"/>
         </div>
     </div>
-  
+
+    <%@ include file="/jsf/author/item/itemDuration.jsp" %>
     <div class="form-group row">
         <h:outputLabel value="#{authorMessages.answer_point_value_display}" styleClass="col-md-4 col-lg-2 form-control-label"/>
         <div class="col-md-5 samigo-inline-radio">

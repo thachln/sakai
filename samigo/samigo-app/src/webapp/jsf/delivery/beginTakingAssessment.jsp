@@ -37,6 +37,8 @@
       </title>
 
       <%@ include file="/jsf/delivery/deliveryjQuery.jsp" %>
+      <script type="text/javascript" src="/samigo-app/js/local-storage.js"></script>
+      <script type="text/javascript" src="/samigo-app/js/local-storage-clear.js"></script>
       </head>
       <body onload="<%= request.getAttribute("html.body.onload") %>;">
  

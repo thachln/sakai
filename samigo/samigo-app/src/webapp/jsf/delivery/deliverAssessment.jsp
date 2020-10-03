@@ -318,6 +318,8 @@ document.links[newindex].onclick();
         </small>
     </h4>
 
+  <%@ include file="/jsf/delivery/deliverAssessment_buttons.jsp" %>
+
   <!-- PART ATTACHMENTS -->
   <%@ include file="/jsf/delivery/part_attachment.jsp" %>
    <f:verbatim><div class="tier2"></f:verbatim>
@@ -331,6 +333,31 @@ document.links[newindex].onclick();
 				<h:outputText value="<a name='p#{part.number}q#{question.number}'></a>" escape="false" />
 				<h:outputText value="#{deliveryMessages.q} #{question.sequence} #{deliveryMessages.of} #{part.numbering}"/>
 			</span>
+            <%-- Duration progress bar of the question --%>
+            <span class="input-group-addon">
+<%--                     <h:outputText rendered="#{question.minDuration > 0}" value="#{deliveryMessages.time_min} #{question.minDuration}#{deliveryMessages.short_second}"/> --%>
+                <h:panelGroup layout="block" rendered="#{question.minDuration > 0}">
+                    <div>
+                        <h:outputText rendered="#{question.minDuration > 0}" value="#{deliveryMessages.time_min} "/>
+                        <label id="minDurationCountdownLab"><h:outputText rendered="#{question.minDuration > 0}" value=""/></label><h:outputText rendered="#{question.minDuration > 0}" value=" / " escape="false"/>
+                        <label id="minDuration"><h:outputText rendered="#{question.minDuration > 0}" value="#{question.minDuration}"/></label>
+                        <h:outputText rendered="#{question.minDuration > 0}" value="#{deliveryMessages.short_second}"/>
+                        <h:inputHidden rendered="#{question.minDuration > 0}" id="minDurationCountdown"/>
+                            &nbsp;
+                    </div>
+                </h:panelGroup>
+
+<%--                 <h:outputText rendered="#{question.maxDuration > 0}" value="#{deliveryMessages.time_max} #{question.maxDuration}#{deliveryMessages.short_second}"/> --%>
+                <h:panelGroup layout="block" rendered="#{question.maxDuration > 0}">
+                    <div>
+                        <h:outputText rendered="#{question.maxDuration > 0}" value="#{deliveryMessages.time_max}"/>
+                        <label id="maxDurationCountdownLab"><h:outputText rendered="#{question.maxDuration > 0}" value=""/></label><h:outputText rendered="#{question.maxDuration > 0}" value=" / " escape="false"/>
+                        <label id="maxDuration"><h:outputText value="#{question.maxDuration}"/></label>
+                        <h:outputText value="#{deliveryMessages.short_second}"/>
+                        <h:inputHidden rendered="#{question.maxDuration > 0}" id="maxDurationCountdown"/>
+                    </div>
+                </h:panelGroup>
+            </span>
 			<%-- REVIEW ASSESSMENT --%>
 			<h:inputText styleClass="form-control adjustedScore" value="#{question.pointsDisplayString}" disabled="true" rendered="#{delivery.actionString=='reviewAssessment'}"/>
 			<span class="input-group-addon">
@@ -605,7 +632,10 @@ document.links[newindex].onclick();
 <!-- end content -->
 </div>
 <f:verbatim></div></f:verbatim>
+<script type="text/javascript" src="/samigo-app/js/local-storage.js"></script>
 <script type="text/javascript" src="/samigo-app/js/questionProgress.js"></script>
+<script type="text/javascript" src="/samigo-app/js/questionEachProgress.js"></script>
+
 <script type="text/JavaScript">
 	<%= request.getAttribute("html.body.onload") %> 
 	setLocation(); 

@@ -1226,6 +1226,8 @@ public class QuestionPoolFacadeQueries
   private ItemFacade getItemFacade(ItemDataIfc itemData) {
 	  ItemFacade item = new ItemFacade();
 	  item.setScore(itemData.getScore());
+	  item.setMinDuration(itemData.getMinDuration());
+	  item.setMaxDuration(itemData.getMaxDuration());
 	  item.setDiscount(itemData.getDiscount());
       item.setHint(itemData.getHint());
       item.setStatus(itemData.getStatus());

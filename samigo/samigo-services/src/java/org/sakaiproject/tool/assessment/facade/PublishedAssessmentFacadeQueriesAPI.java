@@ -21,10 +21,10 @@
 
 package org.sakaiproject.tool.assessment.facade;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.Collection;
 
 import org.sakaiproject.tool.assessment.data.dao.assessment.AssessmentAccessControl;
 import org.sakaiproject.tool.assessment.data.dao.assessment.AssessmentData;
@@ -41,6 +41,7 @@ import org.sakaiproject.tool.assessment.data.dao.assessment.PublishedItemText;
 import org.sakaiproject.tool.assessment.data.dao.assessment.PublishedMetaData;
 import org.sakaiproject.tool.assessment.data.dao.assessment.PublishedSectionData;
 import org.sakaiproject.tool.assessment.data.dao.grading.AssessmentGradingData;
+import org.sakaiproject.tool.assessment.data.ifc.assessment.AssessmentAccessControlIfc;
 import org.sakaiproject.tool.assessment.data.ifc.assessment.AssessmentAttachmentIfc;
 import org.sakaiproject.tool.assessment.data.ifc.assessment.AssessmentIfc;
 import org.sakaiproject.tool.assessment.data.ifc.assessment.AttachmentIfc;
@@ -48,7 +49,6 @@ import org.sakaiproject.tool.assessment.data.ifc.assessment.PublishedAssessmentI
 import org.sakaiproject.tool.assessment.data.ifc.assessment.SectionAttachmentIfc;
 import org.sakaiproject.tool.assessment.data.ifc.assessment.SectionDataIfc;
 import org.sakaiproject.tool.assessment.osid.shared.impl.IdImpl;
-import org.sakaiproject.tool.assessment.data.ifc.assessment.AssessmentAccessControlIfc;
 
 public interface PublishedAssessmentFacadeQueriesAPI
 {
@@ -196,7 +196,15 @@ public interface PublishedAssessmentFacadeQueriesAPI
 
   // added by daisy - please check the logic - I based this on the getBasicInfoOfAllActiveAssessment
   public List<PublishedAssessmentFacade> getBasicInfoOfAllPublishedAssessments(String orderBy, boolean ascending, String siteId);
-
+    /**
+     * For module TOEIC.
+     * @param orderBy
+     * @param ascending
+     * @param siteId
+     * @param isToeic
+     * @return
+     */
+    public List<PublishedAssessmentFacade> getBasicInfoOfAllPublishedAssessments(String orderBy, boolean ascending, String siteId, Boolean isToeic);
   public List<PublishedAssessmentFacade> getBasicInfoOfAllPublishedAssessments2(String orderBy, boolean ascending, String siteId);
   
   /**
@@ -317,6 +325,15 @@ public interface PublishedAssessmentFacadeQueriesAPI
   public List getAllAssessmentsGradingDataByAgentAndSiteId(final String agentId, final String siteId);
 
   public List getQuestionsIdList(final Long publishedAssessmentId);
+
+  ////////////////////////////////////////////////////////////////////////////////////////////////////
+  // For module TOEIC
+  //
+  public String getPublishedAssessmentTitle(Long publishedAssessmentId);
+
+  public String getPublishedAssessmentDescription(Long publishedAssessmentId);
+
+  public List<Long> getQuestionIds(Long publishedAssessmentId);
 
   public List<PublishedAssessmentData> getPublishedDeletedAssessments(String siteId);
 

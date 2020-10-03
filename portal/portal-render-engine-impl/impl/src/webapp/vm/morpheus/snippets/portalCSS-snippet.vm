@@ -3,3 +3,4 @@
 <![endif]-->
 <link href="${pageSkinRepo}/${pageSkin}/tool.css$!{portalCDNQuery}" rel="stylesheet" media="screen, tty, tv, handheld, projection">
 <link href="${pageSkinRepo}/${pageSkin}/print.css$!{portalCDNQuery}" rel="stylesheet" media="print">
+<link href="${pageSkinRepo}/${pageSkin}/addon-apps.css$!{portalCDNQuery}" rel="stylesheet" type="text/css">

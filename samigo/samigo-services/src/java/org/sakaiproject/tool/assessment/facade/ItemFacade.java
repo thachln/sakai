@@ -30,7 +30,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import lombok.extern.slf4j.Slf4j;
 import org.osid.assessment.AssessmentException;
 import org.osid.shared.Type;
 import org.sakaiproject.tool.assessment.data.dao.assessment.ItemData;
@@ -38,16 +37,18 @@ import org.sakaiproject.tool.assessment.data.dao.assessment.ItemFeedback;
 import org.sakaiproject.tool.assessment.data.dao.assessment.ItemMetaData;
 import org.sakaiproject.tool.assessment.data.dao.assessment.ItemTag;
 import org.sakaiproject.tool.assessment.data.dao.assessment.ItemText;
-import org.sakaiproject.tool.assessment.data.ifc.assessment.ItemTagIfc;
-import org.sakaiproject.tool.assessment.data.ifc.assessment.ItemTextIfc;
-import org.sakaiproject.tool.assessment.data.ifc.assessment.ItemDataIfc;
 import org.sakaiproject.tool.assessment.data.ifc.assessment.ItemAttachmentIfc;
+import org.sakaiproject.tool.assessment.data.ifc.assessment.ItemDataIfc;
 import org.sakaiproject.tool.assessment.data.ifc.assessment.ItemFeedbackIfc;
 import org.sakaiproject.tool.assessment.data.ifc.assessment.ItemMetaDataIfc;
+import org.sakaiproject.tool.assessment.data.ifc.assessment.ItemTagIfc;
+import org.sakaiproject.tool.assessment.data.ifc.assessment.ItemTextIfc;
 import org.sakaiproject.tool.assessment.data.ifc.assessment.SectionDataIfc;
 import org.sakaiproject.tool.assessment.data.ifc.shared.TypeIfc;
 import org.sakaiproject.tool.assessment.osid.assessment.impl.ItemImpl;
 import org.sakaiproject.tool.assessment.services.PersistenceService;
+
+import lombok.extern.slf4j.Slf4j;
 
 /**
  *
@@ -73,6 +74,9 @@ public class ItemFacade implements Serializable, ItemDataIfc, Comparable<ItemDat
   private SectionFacade section;
   protected Integer sequence;
   protected Integer duration;
+  protected Integer maxDuration; // seconds
+  protected Integer minDuration; // seconds
+
   protected Integer triesAllowed;
   protected String instruction;
   protected Long typeId;
@@ -441,6 +445,36 @@ public class ItemFacade implements Serializable, ItemDataIfc, Comparable<ItemDat
   public void setScore(Double score) {
     this.score = score;
     this.data.setScore(score);
+  }
+
+  public Integer getMaxDuration() {
+      return this.data.getMaxDuration();
+  }
+
+  /**
+   * Set the value for maxDuration.
+   * @param maxDuration the maxDuration to set
+   */
+  public void setMaxDuration(Integer maxDuration) {
+      this.maxDuration = maxDuration;
+      this.data.setMaxDuration(maxDuration);
+  }
+
+  /**
+   * Get value of minDuration.
+   * @return the minDuration
+   */
+  public Integer getMinDuration() {
+      return this.data.getMinDuration();
+  }
+
+  /**
+   * Set the value for minDuration.
+   * @param minDuration the minDuration to set
+   */
+  public void setMinDuration(Integer minDuration) {
+      this.minDuration = minDuration;
+      this.data.setMinDuration(minDuration);
   }
 
   /**

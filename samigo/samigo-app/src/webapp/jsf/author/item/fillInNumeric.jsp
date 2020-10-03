@@ -76,6 +76,7 @@
         </div>
     </div>
 
+    <%@ include file="/jsf/author/item/itemDuration.jsp" %>
     <!-- 1.2 MIN POINTS -->
     <f:subview id="minPoints" rendered="#{itemauthor.allowMinScore}">
         <div class="form-group row">   

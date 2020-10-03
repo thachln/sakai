@@ -32,7 +32,6 @@ import java.util.Map;
 import java.util.ResourceBundle;
 import java.util.Set;
 
-import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.sakaiproject.tool.assessment.data.dao.grading.ItemGradingData;
 import org.sakaiproject.tool.assessment.data.dao.shared.TypeD;
@@ -44,6 +43,8 @@ import org.sakaiproject.tool.assessment.data.ifc.assessment.ItemTagIfc;
 import org.sakaiproject.tool.assessment.data.ifc.assessment.ItemTextIfc;
 import org.sakaiproject.tool.assessment.data.ifc.assessment.SectionDataIfc;
 import org.sakaiproject.tool.assessment.data.ifc.shared.TypeIfc;
+
+import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 public class PublishedItemData
@@ -58,6 +59,8 @@ public class PublishedItemData
   private SectionDataIfc section;
   private Integer sequence;
   private Integer duration;
+  private Integer maxDuration; // seconds
+  private Integer minDuration; // seconds
   private Integer triesAllowed;
   private String instruction;
   private String description;
@@ -167,7 +170,7 @@ public class PublishedItemData
     this.itemHash = itemHash;
   }
 
-  public PublishedItemData(SectionDataIfc section, Integer sequence,
+  private PublishedItemData(SectionDataIfc section, Integer sequence,
                   Integer duration, String instruction, String description,
                   Long typeId, String grade, Double score, Boolean scoreDisplayFlag, Double discount, Double minScore, String hint,
                   Boolean hasRationale, Integer status, String createdBy,
@@ -202,6 +205,28 @@ public class PublishedItemData
     this.hash = hash;
     this.itemHash = itemHash;
     this.originalItemId = originalItemId;
+  }
+
+  public PublishedItemData(SectionDataIfc section, Integer sequence,
+          Integer duration, String instruction, String description,
+          Long typeId, String grade, Double score, Integer minDuration, Integer maxDuration, Boolean scoreDisplayFlag, Double discount, Double minScore, String hint,
+          Boolean hasRationale, Integer status, String createdBy,
+          Date createdDate, String lastModifiedBy,
+          Date lastModifiedDate,
+          Set itemTextSet, Set itemMetaDataSet, Set itemFeedbackSet,
+          Integer triesAllowed, Boolean partialCreditFlag, String hash, String itemHash,
+          Long originalItemId) {
+      this(section, sequence,
+              duration, instruction, description,
+              typeId, grade, score, scoreDisplayFlag, discount, minScore, hint,
+              hasRationale, status, createdBy,
+              createdDate, lastModifiedBy,
+              lastModifiedDate,
+              itemTextSet, itemMetaDataSet, itemFeedbackSet,
+              triesAllowed, partialCreditFlag, hash, itemHash,
+              originalItemId);
+      this.minDuration = minDuration;
+      this.maxDuration = maxDuration;
   }
 
   public Long getItemId() {
@@ -243,6 +268,38 @@ public class PublishedItemData
 
   public void setDuration(Integer duration) {
     this.duration = duration;
+  }
+
+  /**
+   * Get value of maxDuration.
+   * @return the maxDuration
+   */
+  public Integer getMaxDuration() {
+      return maxDuration;
+  }
+
+  /**
+   * Set the value for maxDuration.
+   * @param maxDuration the maxDuration to set
+   */
+  public void setMaxDuration(Integer maxDuration) {
+      this.maxDuration = maxDuration;
+  }
+
+  /**
+   * Get value of minDuration.
+   * @return the minDuration
+   */
+  public Integer getMinDuration() {
+      return minDuration;
+  }
+
+  /**
+   * Set the value for minDuration.
+   * @param minDuration the minDuration to set
+   */
+  public void setMinDuration(Integer minDuration) {
+      this.minDuration = minDuration;
   }
 
   public Integer getSequence() {

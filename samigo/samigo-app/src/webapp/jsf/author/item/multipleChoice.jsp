@@ -87,6 +87,9 @@
     </div>
   </div>
 
+    <!-- Duration  -->
+    <%@ include file="/jsf/author/item/itemDuration.jsp" %>
+
   <div class="form-group row">
     <h:outputLabel styleClass="col-md-2" value="#{authorMessages.answer_point_value_display}" />    
 	<div class="col-md-10">

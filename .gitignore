@@ -23,3 +23,4 @@ rsf/sakai-rsf-web/test/overlays
 .mvn/wrapper/maven-wrapper.jar
 .checkstyle
 assets
+/samigo/samigo-app/samigo-app-lib-19.3.jar

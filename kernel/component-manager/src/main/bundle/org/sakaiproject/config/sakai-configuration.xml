@@ -62,7 +62,7 @@
 		<property name="locations">
 			<list merge="true">
 				<value>file:${sakai.home}placeholder.properties</value>
-				<value>file:${sakai.home}sakai.properties</value>
+				<value>file:${sakai.home}xlms.properties</value>
 				<value>file:${sakai.home}local.properties</value>
 				<value>file:${sakai.security}security.properties</value>
 				<value>file:${sakai.test}test.properties</value>

@@ -463,13 +463,29 @@ public class AssessmentService {
 				// ItemService itemservice = new ItemService();
 				boolean hasRandomPartScore = false;
 				Double score = null;
+				Integer minDuration = null;
+				Integer maxDuration = null;
 				String requestedScore = (section.getSectionMetaDataByLabel(SectionDataIfc.POINT_VALUE_FOR_QUESTION) != null) ? 
 						                 section.getSectionMetaDataByLabel(SectionDataIfc.POINT_VALUE_FOR_QUESTION)	: "";
 						                 
+	            String minDurationMeta = (section.getSectionMetaDataByLabel(SectionDataIfc.MIN_DURATION_FOR_QUESTION) != null) ? 
+		                                         section.getSectionMetaDataByLabel(SectionDataIfc.MIN_DURATION_FOR_QUESTION) : "";
+
+                String maxDurationMeta = (section.getSectionMetaDataByLabel(SectionDataIfc.MAX_DURATION_FOR_QUESTION) != null) ? 
+                                          section.getSectionMetaDataByLabel(SectionDataIfc.MAX_DURATION_FOR_QUESTION) : "";
 				if (StringUtils.isNotBlank(requestedScore)) {
 					hasRandomPartScore = true;
 					score = new Double(requestedScore);
 				}
+				
+				if (StringUtils.isNotBlank(minDurationMeta)) {
+				    minDuration = new Integer(minDurationMeta);
+				}
+				
+				if (StringUtils.isNotBlank(maxDurationMeta)) {
+                    maxDuration = new Integer(maxDurationMeta);
+                }
+
 				boolean hasRandomPartDiscount = false;
 				Double discount = null;
 				String requestedDiscount = (section.getSectionMetaDataByLabel(SectionDataIfc.DISCOUNT_VALUE_FOR_QUESTION) != null) ? 
@@ -489,8 +505,17 @@ public class AssessmentService {
 					item.setSection(section);
 					item.setSequence(Integer.valueOf(i + 1));
 //					if (hasRandomPartScore || hasRandomPartDiscount) {
-						if (hasRandomPartScore)
+						if (hasRandomPartScore) {
 							item.setScore(score);
+							
+							if (minDuration != null) {
+							    item.setMinDuration(minDuration);
+							}
+							
+							if (maxDuration != null) {
+                                item.setMaxDuration(maxDuration);
+                            }
+						}
 						long itemTypeId = item.getTypeId().longValue();
 						String mcmsPartialCredit = item.getItemMetaDataByLabel(ItemMetaDataIfc.MCMS_PARTIAL_CREDIT);
 						if (hasRandomPartDiscount &&
@@ -517,8 +542,16 @@ public class AssessmentService {
 										if(publishing){
 											answer.setText(copyContentHostingAttachments(answer.getText(), AgentFacade.getCurrentSiteId()));
 										}
-										if (hasRandomPartScore)
+										if (hasRandomPartScore) {
 											answer.setScore(score);
+				                            if (minDuration != null) {
+				                                item.setMinDuration(minDuration);
+				                            }
+				                            
+				                            if (maxDuration != null) {
+				                                item.setMaxDuration(maxDuration);
+				                            }
+										}
 										if (hasRandomPartDiscount && 
 											(itemTypeId == TypeFacade.MULTIPLE_CHOICE.longValue() || 
 											itemTypeId == TypeFacade.TRUE_FALSE.longValue() || 
@@ -1149,6 +1182,8 @@ public class AssessmentService {
 			List<ItemDataIfc> items = null;
 			boolean hasRandomPartScore = false;
 			Double score = null;
+            Integer minDuration = null;
+            Integer maxDuration = null;
 			boolean hasRandomPartDiscount = false;
 			Double discount = null;
 			
@@ -1159,6 +1194,8 @@ public class AssessmentService {
 			else 
 			{
 				String requestedScore = StringUtils.trimToEmpty(section.getSectionMetaDataByLabel(SectionDataIfc.POINT_VALUE_FOR_QUESTION));
+				String minDurationMeta = StringUtils.trimToEmpty(section.getSectionMetaDataByLabel(SectionDataIfc.MIN_DURATION_FOR_QUESTION));
+				String maxDurationMeta = StringUtils.trimToEmpty(section.getSectionMetaDataByLabel(SectionDataIfc.MAX_DURATION_FOR_QUESTION));
 						                 
 				if (StringUtils.isNotEmpty(requestedScore)) {
 					hasRandomPartScore = true;
@@ -1167,6 +1204,14 @@ public class AssessmentService {
 					} catch (NumberFormatException e) {
 						log.error("NumberFormatException converting to Double: " + requestedScore);
 					}
+					
+                    if (minDurationMeta != null) {
+                        minDuration = new Integer(minDurationMeta);
+                    }
+                    
+                    if (maxDurationMeta != null) {
+                        maxDuration = new Integer(maxDurationMeta);
+                    }
 				}
 				
 				String requestedDiscount = StringUtils.trimToEmpty(section.getSectionMetaDataByLabel(SectionDataIfc.DISCOUNT_VALUE_FOR_QUESTION));
@@ -1199,6 +1244,8 @@ public class AssessmentService {
 				markupText.append(nQuestion).append(". ");
 				if (hasRandomPartScore) {
 					markupText.append("(").append(score).append(" ").append(bundle.get("points")).append(")");
+					
+					// TODO Thach
 				}
 				else {
 					markupText.append("(").append(item.getScore()).append(" ").append(bundle.get("points")).append(")");

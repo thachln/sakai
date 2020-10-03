@@ -597,7 +597,7 @@ public class DeliveryActionListener
    * @param itemGradingHash the itemGradingHash hash map
    * @param setNullOK if there is none set null if true
    */
-  protected AssessmentGradingData setAssessmentGradingFromItemData(DeliveryBean delivery, Map itemGradingHash, boolean setNullOK)
+  public AssessmentGradingData setAssessmentGradingFromItemData(DeliveryBean delivery, Map itemGradingHash, boolean setNullOK)
   {
     AssessmentGradingData agrading = null;
     Iterator keys = itemGradingHash.keySet().iterator();
@@ -676,7 +676,7 @@ public class DeliveryActionListener
    * @param publishedAssessment the published assessment
    * @return
    */
-  protected ContentsDeliveryBean getContents(PublishedAssessmentFacade
+  public ContentsDeliveryBean getContents(PublishedAssessmentFacade
                                            publishedAssessment,
                                            Map itemGradingHash,
                                            DeliveryBean delivery,
@@ -2544,7 +2544,7 @@ public class DeliveryActionListener
     }
   }
 
-  protected void setFeedbackMode(DeliveryBean delivery){
+  public void setFeedbackMode(DeliveryBean delivery){
     int action = delivery.getActionMode();
     String showfeedbacknow = ContextUtil.lookupParam("showfeedbacknow");
     delivery.setFeedback("false");
@@ -2693,7 +2693,7 @@ public class DeliveryActionListener
     }
   }
 
-  protected void setTimer(DeliveryBean delivery, PublishedAssessmentFacade publishedAssessment, boolean fromBeginAssessment, boolean isFirstTimeBegin){
+  public void setTimer(DeliveryBean delivery, PublishedAssessmentFacade publishedAssessment, boolean fromBeginAssessment, boolean isFirstTimeBegin){
     // i hope to use the property timedAssessment but it appears that this property
     // is not recorded properly in DB - daisyf
     int timeLimit = 0;
@@ -2860,7 +2860,7 @@ public class DeliveryActionListener
 	    delivery.setTimeElapse(ag.getTimeElapsed().toString());
 	  }
 
-  protected AssessmentGradingData createAssessmentGrading(
+  public AssessmentGradingData createAssessmentGrading(
                                 PublishedAssessmentFacade publishedAssessment){
     AssessmentGradingData adata = new AssessmentGradingData();
     adata.setAgentId(getAgentString());
@@ -2876,7 +2876,7 @@ public class DeliveryActionListener
     return adata;
   }
 
-  protected void setAttemptDateIfNull(AssessmentGradingData ag){
+  public void setAttemptDateIfNull(AssessmentGradingData ag){
 	  if (ag.getAttemptDate() == null) {
 		  ag.setAttemptDate(new Date());
 		  GradingService gradingService = new GradingService();
@@ -2953,7 +2953,7 @@ public class DeliveryActionListener
 
   // Set the published assessment status here
   // If it is retracted for edit, redirect to an error page
-  protected void setStatus(DeliveryBean delivery, PublishedAssessmentService pubService, Long publishedAssessmentId) {
+  public void setStatus(DeliveryBean delivery, PublishedAssessmentService pubService, Long publishedAssessmentId) {
 	Integer status = pubService.getPublishedAssessmentStatus(publishedAssessmentId);
 	delivery.getPublishedAssessment().setStatus(status);
   }

@@ -895,7 +895,9 @@ protected static final String PARAM_PAGESIZE = "collections_per_page";
 		CONTENT_MODIFY_ACTIONS.add(ActionType.REVISE_ORDER);
 		CONTENT_MODIFY_ACTIONS.add(ActionType.COMPRESS_ZIP_FOLDER);
 		CONTENT_MODIFY_ACTIONS.add(ActionType.EXPAND_ZIP_ARCHIVE);
-		
+		// ThachLN++
+        CONTENT_MODIFY_ACTIONS.add(ActionType.EXPORT_METADATA);
+
 		CONTENT_DELETE_ACTIONS.add(ActionType.MOVE);
 		CONTENT_DELETE_ACTIONS.add(ActionType.DELETE);
 		

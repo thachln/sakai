@@ -22,10 +22,9 @@
 package org.sakaiproject.tool.assessment.ui.listener.author;
 
 import java.util.Iterator;
-import java.util.Set;
 import java.util.List;
+import java.util.Set;
 
-import javax.faces.application.FacesMessage;
 import javax.faces.context.FacesContext;
 import javax.faces.event.AbortProcessingException;
 import javax.faces.event.ActionEvent;
@@ -34,13 +33,10 @@ import javax.faces.model.SelectItem;
 
 import org.sakaiproject.event.cover.EventTrackingService;
 import org.sakaiproject.samigo.util.SamigoConstants;
-import org.sakaiproject.tool.assessment.data.dao.assessment.SectionMetaData;
 import org.sakaiproject.tool.assessment.data.ifc.assessment.SectionDataIfc;
 import org.sakaiproject.tool.assessment.data.ifc.assessment.SectionMetaDataIfc;
 import org.sakaiproject.tool.assessment.facade.AgentFacade;
 import org.sakaiproject.tool.assessment.facade.SectionFacade;
-import org.sakaiproject.tool.assessment.services.ItemService;
-import org.sakaiproject.tool.assessment.services.PublishedItemService;
 import org.sakaiproject.tool.assessment.services.assessment.AssessmentService;
 import org.sakaiproject.tool.assessment.services.assessment.PublishedAssessmentService;
 import org.sakaiproject.tool.assessment.ui.bean.author.AssessmentBean;
@@ -137,6 +133,8 @@ public class EditPartListener
     bean.setRubric(null);
     boolean isRandomizationTypeSet = false;
     boolean isPointValueHasOverrided = false;
+    boolean isMinDurationValueHasOverrided = false;
+    boolean isMaxDurationValueHasOverrided = false;
     boolean isDiscountValueHasOverrided = false;
     while (iter.hasNext()){
     SectionMetaDataIfc meta= (SectionMetaDataIfc) iter.next();
@@ -178,6 +176,23 @@ public class EditPartListener
     	   }
            bean.setRandomPartScore(meta.getEntry());
        }
+
+       // Set Limited min duration
+       if (meta.getLabel().equals(SectionDataIfc.MIN_DURATION_FOR_QUESTION)){
+           if (meta.getEntry() != null && !meta.getEntry().equals("")) {
+               bean.setMinDurationValueHasOverrided(true);
+               isMinDurationValueHasOverrided = true;
+           }
+       }
+
+       // Set Limited max duration
+       if (meta.getLabel().equals(SectionDataIfc.MAX_DURATION_FOR_QUESTION)){
+           if (meta.getEntry() != null && !meta.getEntry().equals("")) {
+               bean.setMaxDurationValueHasOverrided(true);
+               isMaxDurationValueHasOverrided = true;
+           }
+       }
+
        if (meta.getLabel().equals(SectionDataIfc.DISCOUNT_VALUE_FOR_QUESTION)){
     	   if (meta.getEntry() != null && !meta.getEntry().equals("")) {
     		   bean.setDiscountValueHasOverrided(true);
@@ -191,6 +206,14 @@ public class EditPartListener
     }
     if (!isPointValueHasOverrided) {
         bean.setPointValueHasOverrided(false);
+        bean.setRandomPartScore(null);
+    }
+    // Limited duration
+    if (!isMinDurationValueHasOverrided) {
+        bean.setMinDurationValueHasOverrided(false);
+    }
+    if (!isMaxDurationValueHasOverrided) {
+        bean.setMaxDurationValueHasOverrided(false);
         bean.setRandomPartScore(null);
     }
     if (!isDiscountValueHasOverrided) {

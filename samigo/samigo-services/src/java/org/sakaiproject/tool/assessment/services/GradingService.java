@@ -48,18 +48,17 @@ import java.util.TreeSet;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.math3.complex.Complex;
 import org.apache.commons.math3.complex.ComplexFormat;
 import org.apache.commons.math3.exception.MathParseException;
 import org.apache.commons.math3.util.Precision;
-
 import org.sakaiproject.event.cover.EventTrackingService;
 import org.sakaiproject.samigo.util.SamigoConstants;
 import org.sakaiproject.service.gradebook.shared.GradebookExternalAssessmentService;
 import org.sakaiproject.spring.SpringBeanLocator;
 import org.sakaiproject.tool.assessment.data.dao.assessment.EventLogData;
+import org.sakaiproject.tool.assessment.data.dao.assessment.PublishedAnswer;
 import org.sakaiproject.tool.assessment.data.dao.assessment.PublishedItemData;
 import org.sakaiproject.tool.assessment.data.dao.grading.AssessmentGradingAttachment;
 import org.sakaiproject.tool.assessment.data.dao.grading.AssessmentGradingData;
@@ -67,6 +66,9 @@ import org.sakaiproject.tool.assessment.data.dao.grading.ItemGradingAttachment;
 import org.sakaiproject.tool.assessment.data.dao.grading.ItemGradingData;
 import org.sakaiproject.tool.assessment.data.dao.grading.MediaData;
 import org.sakaiproject.tool.assessment.data.dao.grading.StudentGradingSummaryData;
+import org.sakaiproject.tool.assessment.data.dao.grading.ToeicDetailFeedback;
+import org.sakaiproject.tool.assessment.data.dao.grading.ToeicGeneralFeedback;
+import org.sakaiproject.tool.assessment.data.dao.grading.ToeicPicture;
 import org.sakaiproject.tool.assessment.data.ifc.assessment.AnswerIfc;
 import org.sakaiproject.tool.assessment.data.ifc.assessment.AssessmentAccessControlIfc;
 import org.sakaiproject.tool.assessment.data.ifc.assessment.AssessmentIfc;
@@ -90,6 +92,8 @@ import org.sakaiproject.tool.assessment.services.assessment.PublishedAssessmentS
 import org.sakaiproject.tool.assessment.util.ExtendedTimeDeliveryService;
 import org.sakaiproject.tool.assessment.util.SamigoExpressionError;
 import org.sakaiproject.tool.assessment.util.SamigoExpressionParser;
+
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * The GradingService calls the back end to get/store grading information. 
@@ -137,7 +141,278 @@ public class GradingService
   // SAK-40942 - Error in calculated questions: the decimal representation .n or n. (where n is a number) does not work
   public static final Pattern CALCQ_FORMULA_ALLOW_POINT_NUMBER = Pattern.compile("([^\\d]|^)([\\.])([\\d])");
   public static final Pattern CALCQ_FORMULA_ALLOW_NUMBER_POINT = Pattern.compile("([\\d])([\\.])([^\\d]|$)");
-	  
+
+  // For module TOEIC
+  public List<String> getListPartTitleOfCorrectAnswer(Long assessmentGradingId) {
+      List<String> result = null;
+      try {
+          result = PersistenceService.getInstance().getAssessmentGradingFacadeQueries().getListPartTitleOfCorrectAnswer(assessmentGradingId);
+      } catch (Exception e) {
+          log.error(e.getMessage(), e);
+      }
+      
+      return result;
+  }
+  
+  public String getPublishedAssessmentTitle(Long assessmentGradingId) {
+      String result = null;
+      try {
+          result = PersistenceService.getInstance().getPublishedAssessmentFacadeQueries().getPublishedAssessmentTitle(assessmentGradingId);
+      } catch (Exception e) {
+          log.error(e.getMessage(), e);
+      }
+      
+      return result;
+  }
+
+ /**
+ * [Give the description for method].
+ * @param publishedAssessmentId
+ * @return
+ * @author NamTang
+ */
+public String getPublishedAssessmentDescription(Long publishedAssessmentId) {
+      String result = null;
+      try {
+          result = PersistenceService.getInstance().getPublishedAssessmentFacadeQueries().getPublishedAssessmentDescription(publishedAssessmentId);
+      } catch (Exception e) {
+          log.error(e.getMessage(), e);
+      }
+
+      return result;
+  }
+  
+  public List<Long> getAssessmentCorrectPublishedAnswerIds(Long publishedAssessmentId) {
+      List<Long> result = new ArrayList<Long>();
+      try {
+          result = PersistenceService.getInstance().getPublishedItemFacadeQueries().getAssessmentCorrectPublishedAnswerIds(publishedAssessmentId);
+      } catch (Exception e) {
+          log.error(e.getMessage(), e);
+      }
+      
+      return result;
+  }
+  
+  public PublishedAnswer getPublishedAnswer(Long publishedAnswerId) {
+      PublishedAnswer result = null;
+      try {
+          result = PersistenceService.getInstance().getPublishedItemFacadeQueries().getPublishedAnswer(publishedAnswerId);
+      } catch (Exception e) {
+          log.error(e.getMessage(), e);
+      }
+      
+      return result;
+  }
+  
+  /**
+  * [Give the description for method].
+  * @param publishedAnswerIds
+  * @return
+  * @author ThachLN
+  */
+  public List<PublishedAnswer> getPublishedAnswers(List<Long> publishedAnswerIds) {
+      List<PublishedAnswer> result = null;
+      try {
+          result = PersistenceService.getInstance().getPublishedItemFacadeQueries().getPublishedAnswers(publishedAnswerIds);
+      } catch (Exception e) {
+          log.error(e.getMessage(), e);
+      }
+      
+      return result;
+  }
+
+  public PublishedAnswer getCorrectPublishedAnswerByItemId(Long publishedItemId) {
+      PublishedAnswer result = null;
+      try {
+          result = PersistenceService.getInstance().getPublishedItemFacadeQueries().getCorrectPublishedAnswerByItemId(publishedItemId);
+      } catch (Exception e) {
+          log.error(e.getMessage(), e);
+      }
+      
+      return result;
+  }
+  
+  public Long getCorrectPublishedAnswerIdByItemId(Long publishedItemId) {
+      Long result = null;
+      try {
+          result = PersistenceService.getInstance().getPublishedItemFacadeQueries().getCorrectPublishedAnswerIdByItemId(publishedItemId);
+      } catch (Exception e) {
+          log.error(e.getMessage(), e);
+      }
+      
+      return result;
+  }
+  
+  public List<PublishedAnswer> getCorrectPublishedAnswerByItemIds(List<Long> publishedItemIds) {
+      List<PublishedAnswer> result = null;
+      try {
+          result = PersistenceService.getInstance().getPublishedItemFacadeQueries().getCorrectPublishedAnswerByItemIds(publishedItemIds);
+      } catch (Exception e) {
+          log.error("Could not get all PublishedAnswerByItemIds of publishedItemIds=" + publishedItemIds, e);
+      }
+
+      return result;
+  }
+
+  public List<ToeicPicture> getToeicPictureList() {
+      List<ToeicPicture> result = null;
+      try {
+          result = PersistenceService.getInstance().getAssessmentGradingFacadeQueries().getToeicPictureList();
+      } catch (Exception e) {
+          log.error(e.getMessage(), e);
+      }
+
+      return result;
+  }
+
+  public ToeicPicture loadToeicPicture(Long id) {
+      ToeicPicture result = null;
+      try {
+          result = PersistenceService.getInstance().getAssessmentGradingFacadeQueries().loadToeicPicture(id);
+      } catch (Exception e) {
+          log.error(e.getMessage(), e);
+      }
+
+      return result;
+  }
+
+  public void saveOrUpdateToeicPicture(Collection<ToeicPicture> t)
+  {
+    try {
+      PersistenceService.getInstance().
+        getAssessmentGradingFacadeQueries().saveToeicPicture(t);
+    } catch (Exception e) {
+        log.error(e.getMessage(), e);
+    }
+  }
+
+  public void saveOrUpdateToeicGeneralFeedback(Collection<ToeicGeneralFeedback> t)
+  {
+    try {
+      PersistenceService.getInstance().
+        getAssessmentGradingFacadeQueries().saveToeicGeneralFeedback(t);
+    } catch (Exception e) {
+        log.error(e.getMessage(), e);
+    }
+  }
+
+  public void saveOrUpdateToeicDetailFeedback(Collection<ToeicDetailFeedback> t)
+  {
+    try {
+      PersistenceService.getInstance().
+        getAssessmentGradingFacadeQueries().saveToeicDetailFeedback(t);
+    } catch (Exception e) {
+        log.error(e.getMessage(), e);
+    }
+  }
+
+  public void removeToeicGeneralFeedback(List<Long> ids)
+  {
+    try {
+      PersistenceService.getInstance().
+        getAssessmentGradingFacadeQueries().removeToeicGeneralFeedback(ids);;
+    } catch (Exception e) {
+        log.error(e.getMessage(), e);
+    }
+  }
+
+  public void removeToeicDetailFeedback(List<Long> ids)
+  {
+    try {
+      PersistenceService.getInstance().
+        getAssessmentGradingFacadeQueries().removeToeicDetailFeedback(ids);
+    } catch (Exception e) {
+        log.error(e.getMessage(), e);
+    }
+  }
+
+  public ToeicGeneralFeedback getToeicGeneralFeedback(int point) {
+      ToeicGeneralFeedback result = null;
+      try {
+          result = PersistenceService.getInstance().getAssessmentGradingFacadeQueries().getToeicGeneralFeedback(point);
+      } catch (Exception e) {
+          log.error(e.getMessage(), e);
+      }
+      
+      return result;
+  }
+  
+  public ToeicDetailFeedback getToeicDetailFeedback(int point, int kind) {
+      ToeicDetailFeedback result = null;
+      try {
+          result = PersistenceService.getInstance().getAssessmentGradingFacadeQueries().getToeicDetailFeedback(point, kind);
+      } catch (Exception e) {
+          log.error(e.getMessage(), e);
+      }
+
+      return result;
+  }
+
+  public List<ToeicDetailFeedback> getToeicDetailFeedbackList() {
+      List<ToeicDetailFeedback> result = null;
+      try {
+          result = PersistenceService.getInstance().getAssessmentGradingFacadeQueries().getToeicDetailFeedbackList();
+      } catch (Exception e) {
+          log.error(e.getMessage(), e);
+      }
+
+      return result;
+  }
+
+  public List<ToeicGeneralFeedback> getListToeicGeneralFeedback() {
+      List<ToeicGeneralFeedback> result = null;
+      try {
+          result = PersistenceService.getInstance().getAssessmentGradingFacadeQueries().getListToeicGeneralFeedback();
+      } catch (Exception e) {
+          log.error(e.getMessage(), e);
+      }
+      
+      return result;
+  }
+
+  /**
+   * [Give the description for method].
+   * @param assessmentGradingId
+   * @return
+   * @author NamTang
+   */
+  public List<Object[]> getItemResults(Long assessmentGradingId) {
+    List<Object[]> result = null;
+    try {
+      result = PersistenceService.getInstance().getAssessmentGradingFacadeQueries().getItemResults(assessmentGradingId);
+    } catch (Exception e) {
+      log.error("could not getItemResults of assessmentGradingId=" + assessmentGradingId, e);
+    }
+    
+    return result;
+  }
+
+  public List<AssessmentGradingData> getAllAssessmentGradingDataOnly(Long publishedAssessmentId) {
+    List<AssessmentGradingData> results = null;
+    try {
+      results = PersistenceService.getInstance().
+           getAssessmentGradingFacadeQueries().getAllAssessmentGradingDataOnly(publishedAssessmentId);
+    } catch (Exception e) {
+      log.error("could not getAllAssessmentGradingDataOnly of publishedAssessmentId=" + publishedAssessmentId, e);
+    }
+    
+    return results;
+  }
+  
+  public AssessmentGradingData loadAssessmentGradingDataOnly(Long assessmentGradingId) {
+    
+    AssessmentGradingData result = null;
+    try {
+      result = PersistenceService.getInstance().getAssessmentGradingFacadeQueries().
+          loadAssessmentGradingDataOnly(assessmentGradingId);
+    } catch(Exception e) {
+        log.error("could not loadAssessmentGradingDataOnly of assessmentGradingId=" + assessmentGradingId, e);
+    }
+    
+    return result;
+  }
+  
+  ///
   /**
    * Get all scores for a published assessment from the back end.
    */

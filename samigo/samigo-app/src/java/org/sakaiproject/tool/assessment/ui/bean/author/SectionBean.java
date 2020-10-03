@@ -22,15 +22,15 @@
 package org.sakaiproject.tool.assessment.ui.bean.author;
 
 import java.io.Serializable;
+import java.text.Collator;
+import java.text.ParseException;
+import java.text.RuleBasedCollator;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
-import java.text.Collator;
-import java.text.ParseException;
-import java.text.RuleBasedCollator;
 import java.util.Map;
 
 import javax.faces.context.ExternalContext;
@@ -38,9 +38,7 @@ import javax.faces.context.FacesContext;
 import javax.faces.event.ValueChangeEvent;
 import javax.faces.model.SelectItem;
 
-import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
-
 import org.sakaiproject.content.api.ContentResource;
 import org.sakaiproject.content.api.FilePickerHelper;
 import org.sakaiproject.entity.api.Reference;
@@ -64,6 +62,8 @@ import org.sakaiproject.tool.cover.SessionManager;
 import org.sakaiproject.util.FormattedText;
 import org.sakaiproject.util.ResourceLoader;
 
+import lombok.extern.slf4j.Slf4j;
+
 @Slf4j
 public class SectionBean implements Serializable
 {
@@ -82,6 +82,8 @@ private List poolsAvailable;  // selectItems for pools
 private List items;
 private boolean random;
 private String randomPartScore;
+private String minDurationPartScore;
+private String maxDurationPartScore;
 private String randomPartDiscount;
 private String removeAllQuestions; // 1=Yes, 0=No
 private SectionFacade section;
@@ -89,6 +91,8 @@ private AssessmentIfc assessment;
 private String destSectionId; //destinated section where questions will be moved to
 private String randomizationType;
 private boolean pointValueHasOverrided;
+private boolean minDurationValueHasOverrided;
+private boolean maxDurationValueHasOverrided;
 private boolean discountValueHasOverrided;
 
 private String numberSelected;
@@ -618,7 +622,63 @@ private List attachmentList;
     randomPartScore = score;
   }
   
-  public String getRandomPartDiscount()
+  /**
+* Get value of minDurationPartScore.
+* @return the minDurationPartScore
+*/
+public String getMinDurationPartScore() {
+    if (minDurationPartScore != null) {
+        return minDurationPartScore;
+    }
+
+    if (section == null) {
+        return "";
+    }
+
+    if (section.getSectionMetaDataByLabel(SectionDataIfc.MIN_DURATION_FOR_QUESTION) != null) {
+        return section.getSectionMetaDataByLabel(SectionDataIfc.MIN_DURATION_FOR_QUESTION);
+    } else {
+        return "";
+    }
+}
+
+/**
+ * Set the value for minDurationPartScore.
+ * @param minDurationPartScore the minDurationPartScore to set
+ */
+public void setMinDurationPartScore(String minDurationPartScore) {
+    this.minDurationPartScore = minDurationPartScore;
+}
+
+/**
+* Get value of maxDurationPartScore.
+* @return the maxDurationPartScore
+*/
+public String getMaxDurationPartScore() {
+    if (maxDurationPartScore != null) {
+        return maxDurationPartScore;
+    }
+
+    if (section == null) {
+        return "";
+    }
+
+    if (section.getSectionMetaDataByLabel(SectionDataIfc.MAX_DURATION_FOR_QUESTION) != null) {
+        return section.getSectionMetaDataByLabel(SectionDataIfc.MAX_DURATION_FOR_QUESTION);
+    } else {
+        return "";
+    }
+}
+
+/**
+ * Set the value for maxDurationPartScore.
+ * @param maxDurationPartScore the maxDurationPartScore to set
+ */
+public void setMaxDurationPartScore(String maxDurationPartScore) {
+    this.maxDurationPartScore = maxDurationPartScore;
+}
+
+public String getRandomPartDiscount()
   {
     if (randomPartDiscount != null)
        return randomPartDiscount;
@@ -950,7 +1010,39 @@ private List attachmentList;
       this.pointValueHasOverrided = pointValueHasOverrided;
   }
   
-  public boolean getDiscountValueHasOverrided() {
+  /**
+* Get value of minDurationValueHasOverrided.
+* @return the minDurationValueHasOverrided
+*/
+public boolean isMinDurationValueHasOverrided() {
+    return minDurationValueHasOverrided;
+}
+
+/**
+ * Set the value for minDurationValueHasOverrided.
+ * @param minDurationValueHasOverrided the minDurationValueHasOverrided to set
+ */
+public void setMinDurationValueHasOverrided(boolean minDurationValueHasOverrided) {
+    this.minDurationValueHasOverrided = minDurationValueHasOverrided;
+}
+
+/**
+* Get value of maxDurationValueHasOverrided.
+* @return the maxDurationValueHasOverrided
+*/
+public boolean isMaxDurationValueHasOverrided() {
+    return maxDurationValueHasOverrided;
+}
+
+/**
+ * Set the value for maxDurationValueHasOverrided.
+ * @param maxDurationValueHasOverrided the maxDurationValueHasOverrided to set
+ */
+public void setMaxDurationValueHasOverrided(boolean maxDurationValueHasOverrided) {
+    this.maxDurationValueHasOverrided = maxDurationValueHasOverrided;
+}
+
+public boolean getDiscountValueHasOverrided() {
       return discountValueHasOverrided;
   }
 

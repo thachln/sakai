@@ -212,7 +212,7 @@ public class UpgradeSchema
 	 * Make it easy to target the local database. Data source properties
 	 * are searched in the following order, with the first match winning:
 	 * <ul>
-	 * <li> A Java system property named "sakai.properties" which will be used to load a
+	 * <li> A Java system property named "xlms.properties" which will be used to load a
 	 * properties file containing property names such as "url@javax.sql.BaseDataSource".
 	 * <li> Input configProperties named "dbDriver", "dbURL", "dbUser", and "dbPass".
 	 * </ul>
@@ -225,7 +225,7 @@ public class UpgradeSchema
 		String dbUrl = null;
 		String dbUser = null;
 		String dbPassword = null;
-		String sakaiPropertiesPath = System.getProperty("sakai.properties");
+		String sakaiPropertiesPath = System.getProperty("xlms.properties");
 		if (sakaiPropertiesPath != null)
 		{
 			File sakaiPropertiesFile = new File(sakaiPropertiesPath);

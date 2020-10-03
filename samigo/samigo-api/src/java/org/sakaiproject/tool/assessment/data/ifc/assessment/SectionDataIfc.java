@@ -52,6 +52,9 @@ public interface SectionDataIfc
   public static String POINT_VALUE_FOR_QUESTION = "POINT_VALUE_FOR_QUESTION";
   public static String DISCOUNT_VALUE_FOR_QUESTION = "DISCOUNT_VALUE_FOR_QUESTION";
 
+  public static String MIN_DURATION_FOR_QUESTION = "MIN_DURATION_FOR_QUESTION";
+  public static String MAX_DURATION_FOR_QUESTION = "MAX_DURATION_FOR_QUESTION";
+
   
    Long getSectionId() ;
 

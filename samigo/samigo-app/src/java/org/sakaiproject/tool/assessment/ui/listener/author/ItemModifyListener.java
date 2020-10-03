@@ -219,6 +219,8 @@ public class ItemModifyListener implements ActionListener
          score = 0.0d;
        }
       bean.setItemScore(score);
+      bean.setMinDuration(itemfacade.getMinDuration());
+      bean.setMaxDuration(itemfacade.getMaxDuration());
       bean.setItemScoreDisplayFlag(itemfacade.getScoreDisplayFlag() ? "true" : "false");
  
       bean.setItemMinScore(itemfacade.getMinScore());

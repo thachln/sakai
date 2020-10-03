@@ -24,9 +24,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
-
 import org.sakaiproject.tool.assessment.data.dao.assessment.AssessmentAccessControl;
 import org.sakaiproject.tool.assessment.data.dao.assessment.PublishedAssessmentData;
 import org.sakaiproject.tool.assessment.data.dao.assessment.PublishedAttachmentData;
@@ -53,6 +51,8 @@ import org.sakaiproject.tool.assessment.facade.PublishedAssessmentFacadeQueriesA
 import org.sakaiproject.tool.assessment.facade.PublishedSectionFacade;
 import org.sakaiproject.tool.assessment.facade.SectionFacade;
 import org.sakaiproject.tool.assessment.services.PersistenceService;
+
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * The QuestionPoolService calls the service locator to reach the
@@ -83,6 +83,15 @@ public class PublishedAssessmentService extends AssessmentService{
         getBasicInfoOfAllPublishedAssessments(orderBy, ascending, siteId);
   }
   
+    // For module TOEIC
+    public List<PublishedAssessmentFacade> getBasicInfoOfAllPublishedAssessments(String agentId, String orderBy,
+            boolean ascending, String siteId, Boolean isToeic) {
+
+        // 2. get all takeable assessment available
+        return PersistenceService.getInstance().getPublishedAssessmentFacadeQueries()
+                .getBasicInfoOfAllPublishedAssessments(orderBy, ascending, siteId, isToeic);
+    }
+
   public List<PublishedAssessmentFacade> getBasicInfoOfAllPublishedAssessments2(String orderBy, boolean ascending, String siteId) {
 
 	  // 2. get all takeable assessment available

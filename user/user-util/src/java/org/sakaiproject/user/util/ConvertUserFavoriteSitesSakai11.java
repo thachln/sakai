@@ -448,9 +448,9 @@ class ConvertUserFavoriteSitesSakai11 {
         private List<String> findPropertiesFiles(String tomcatDir) {
             List<String> result = new ArrayList();
 
-            for (String path : new String[] { "sakai" + File.separator + "sakai.properties",
-                                              "sakai" + File.separator + "local.properties",
-                                              "sakai" + File.separator + "instance.properties" }) {
+            for (String path : new String[] { "xlms" + File.separator + "xlms.properties",
+                                              "xlms" + File.separator + "local.properties",
+                                              "xlms" + File.separator + "instance.properties" }) {
                 if (new File(tomcatDir + File.separator + path).exists()) {
                     result.add(path);
                 }

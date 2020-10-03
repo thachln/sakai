@@ -24,6 +24,8 @@ package org.sakaiproject.content.types;
 import static org.sakaiproject.content.api.ResourceToolAction.ACCESS_PROPERTIES;
 import static org.sakaiproject.content.api.ResourceToolAction.COLLAPSE;
 import static org.sakaiproject.content.api.ResourceToolAction.COMPRESS_ZIP_FOLDER;
+// ThachLN
+import static org.sakaiproject.content.api.ResourceToolAction.EXPORT_METADATA;
 import static org.sakaiproject.content.api.ResourceToolAction.COPY;
 import static org.sakaiproject.content.api.ResourceToolAction.CREATE;
 import static org.sakaiproject.content.api.ResourceToolAction.DELETE;
@@ -61,6 +63,7 @@ import org.sakaiproject.content.util.BaseInteractionAction;
 import org.sakaiproject.content.util.BaseResourceAction.Localizer;
 import org.sakaiproject.content.util.BaseResourceType;
 import org.sakaiproject.content.util.BaseServiceLevelAction;
+import org.sakaiproject.content.util.MetadataContentUtil;
 import org.sakaiproject.content.util.ZipContentUtil;
 import org.sakaiproject.entity.api.Reference;
 import org.sakaiproject.entity.api.ResourceProperties;
@@ -76,6 +79,8 @@ public class FolderType extends BaseResourceType implements ExpandableResourceTy
 {
 	protected String typeId = ResourceType.TYPE_FOLDER;
 	protected String helperId = "sakai.resource.type.helper";
+	// ThachLN
+	public static final String RESOURCES_EXPORTMETADATA_ENABLE = "content.exportmetadata.enabled";
 	
 	/** localized tool properties **/
 	private static final String DEFAULT_RESOURCECLASS = "org.sakaiproject.localization.util.TypeProperties";
@@ -119,6 +124,8 @@ public class FolderType extends BaseResourceType implements ExpandableResourceTy
 		actions.put(EXPAND, new BaseServiceLevelAction(EXPAND, ActionType.EXPAND_FOLDER, typeId, false, localizer("expand.item")));
 		actions.put(COLLAPSE, new BaseServiceLevelAction(COLLAPSE, ActionType.COLLAPSE_FOLDER, typeId, false, localizer("collapse.item")));
 		actions.put(COMPRESS_ZIP_FOLDER, new FolderCompressAction(COMPRESS_ZIP_FOLDER, ActionType.COMPRESS_ZIP_FOLDER, typeId, false, localizer("action.compresszipfolder")));
+		// ThachLN++
+        actions.put(EXPORT_METADATA, new FolderExportMetadataAction(EXPORT_METADATA, ActionType.EXPORT_METADATA, typeId, false, localizer("action.exportmetadata")));
 		actions.put(MAKE_SITE_PAGE, new MakeSitePageAction(MAKE_SITE_PAGE, ActionType.MAKE_SITE_PAGE, typeId));
 		// initialize actionMap with an empty List for each ActionType
 		for(ActionType type : ActionType.values())
@@ -364,7 +371,32 @@ public class FolderType extends BaseResourceType implements ExpandableResourceTy
 					|| ServerConfigurationService.getBoolean(ContentHostingService.RESOURCES_ZIP_ENABLE_COMPRESS, true);
 		}
 	}
-	
+
+    /**
+     * @author Le Ngoc Thach
+     * Export link of media (mp4, m3u8, pdf, tincan package) into Excel file.
+     */
+    public class FolderExportMetadataAction extends BaseServiceLevelAction {
+       
+        public FolderExportMetadataAction(String id, ActionType actionType, String typeId, boolean multipleItemAction, Localizer localizer) {
+            super(id, actionType, typeId, multipleItemAction, localizer);
+        }
+
+        private MetadataContentUtil metadataUtil = new MetadataContentUtil();
+
+        public void initializeAction(Reference reference) {
+            try {
+                metadataUtil.exportMetadataFolder(reference);
+            } catch (Exception e) {
+                log.warn(e.getMessage());
+            }           
+        }
+        
+        public boolean available(ContentEntity entity) {
+            return ServerConfigurationService.getBoolean(RESOURCES_EXPORTMETADATA_ENABLE, true);
+        }
+    }
+
 	public ResourceToolAction getAction(String actionId) 
 	{
 		return (ResourceToolAction) actions.get(actionId);

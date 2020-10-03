@@ -39,6 +39,9 @@ public class SakaiBootStrap
 {
   private static final String SAKAI_SAMIGO_DDL_NAME = "sakai_samigo";
   
+  /** For module TOEIC . */
+  private static final String SQL_INSERT_TOEIC_FEEDBACK = "insert_toeic_feedback";
+
   private static final String SQL_UPDATE_SCRIPT_NAME = "sakai_samigo_post_schema_update";
   
   private static final String SAKAI_AUTO_DDL_PROPERTY = "auto.ddl";
@@ -87,6 +90,9 @@ public class SakaiBootStrap
       // Don't take down the entire instance if this series of inserts fails!
       try {
         sqlService.ddl(this.getClass().getClassLoader(), SAKAI_SAMIGO_DDL_NAME);
+
+        // For module TOEIC
+        sqlService.ddl(this.getClass().getClassLoader(), SQL_INSERT_TOEIC_FEEDBACK);
       }
       catch (Throwable t) {
         log.warn("SakaiBootStrap.init(): ", t);

@@ -1,8 +1,9 @@
 ## Header that shows institution and/or banner logos
 
 <header role="banner" class="Mrphs-headerLogo">
-    <span class="Mrphs-headerLogo--institution"></span>
+    <a class="Mrphs-headerLogo--institution" href="/"></a>
     <span class="Mrphs-headerLogo--banner"></span>
+
 
     #parse("/vm/morpheus/includeLoginNav.vm")
 </header>
