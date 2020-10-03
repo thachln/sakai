@@ -45,7 +45,7 @@ public class ReEncryptPasswords {
 	public static void main(String[] args) throws Exception {
 
 		props = new Properties();
-		props.load(new FileInputStream(System.getProperty("sakai.properties", "sakai.properties")));
+		props.load(new FileInputStream(System.getProperty("xlms.properties", "xlms.properties")));
 		String location = null;
 		try {
 			location = System.getProperty("local.properties", "local.properties");

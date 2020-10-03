@@ -54,6 +54,12 @@ public interface ItemDataIfc extends Comparable<ItemDataIfc>, java.io.Serializab
 
   Integer getDuration();
 
+  Integer getMaxDuration();
+  void setMaxDuration(Integer maxDuration);
+
+  Integer getMinDuration();
+  void setMinDuration(Integer minDuration);
+
   void setTriesAllowed(Integer triesAllowed);
 
   Integer getTriesAllowed();

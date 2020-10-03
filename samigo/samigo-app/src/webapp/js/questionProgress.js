@@ -74,7 +74,9 @@
 		var rightArrow;
 		var downArrow;
 		var part;
-		for(var i = 0; i < allParts.size(); i++) {
+
+		// Thach~~
+		for(var i = 0; i < allParts.length; i++) {
 			temp = allParts[i].id;
 			temp = temp.replace("Table", "Link");
 			part = parseInt(temp.substr(9)) - 1;

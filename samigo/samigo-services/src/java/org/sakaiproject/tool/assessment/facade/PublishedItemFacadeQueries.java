@@ -29,6 +29,7 @@ import java.util.Set;
 
 import org.apache.commons.lang3.StringUtils;
 import org.hibernate.Query;
+import org.sakaiproject.tool.assessment.data.dao.assessment.PublishedAnswer;
 import org.sakaiproject.tool.assessment.data.dao.assessment.PublishedItemAttachment;
 import org.sakaiproject.tool.assessment.data.dao.assessment.PublishedItemData;
 import org.sakaiproject.tool.assessment.data.ifc.assessment.ItemDataIfc;
@@ -281,4 +282,133 @@ public class PublishedItemFacadeQueries extends HibernateDaoSupport implements
 			}
 		}
 	}
+
+	// For module TOEIC
+    @Override
+    public PublishedAnswer getPublishedAnswer(Long publishedAnswerId) {
+        PublishedAnswer answer = null;
+        
+        final HibernateCallback<List<PublishedAnswer>> hcb = session -> {
+            Query q = session.createQuery(
+                    "from PublishedAnswer p where p.id = :id");
+            q.setLong("id", publishedAnswerId);
+            
+            return q.list();
+        };
+        List<PublishedAnswer> answers = getHibernateTemplate().execute(hcb);
+
+        if (!answers.isEmpty()) {
+            answer = answers.get(0);
+        }
+        
+        return answer;
+    }
+    
+    /**
+     * [Explain the description for this method here].
+     * @param publishedAnswerIds
+     * @return
+     * @see org.sakaiproject.tool.assessment.facade.PublishedItemFacadeQueriesAPI#getPublishedAnswers(java.util.List)
+     * @aut
+     */
+    @Override
+    public List<PublishedAnswer> getPublishedAnswers(List<Long> publishedAnswerIds) {
+        List<PublishedAnswer> answers = null;
+        
+        final HibernateCallback<List<PublishedAnswer>> hcb = session -> {
+            Query q = session.createQuery(
+                    "from PublishedAnswer p where p.id IN (:ids)");
+            q.setParameterList("ids", publishedAnswerIds);
+            
+            return q.list();
+        };
+        answers = getHibernateTemplate().execute(hcb);
+
+        return answers;
+    }
+    
+   @Override
+    public PublishedAnswer getCorrectPublishedAnswerByItemId(Long publishedItemId) {
+        PublishedAnswer answer = null;
+        
+        final HibernateCallback<List<PublishedAnswer>> hcb = session -> {
+            Query q = session.createQuery(
+                    "from PublishedAnswer p where p.item.itemId = :id AND p.isCorrect is true");
+            q.setLong("id", publishedItemId);
+            
+            return q.list();
+        };
+        List<PublishedAnswer> answers = getHibernateTemplate().execute(hcb);
+
+        if (!answers.isEmpty()) {
+            answer = answers.get(0);
+        }
+        
+        return answer;
+    }
+   
+   /**
+   * [Explain the description for this method here].
+   * @param publishedItemId
+   * @return
+   * @see org.sakaiproject.tool.assessment.facade.PublishedItemFacadeQueriesAPI#getCorrectPublishedAnswerIdByItemId(java.lang.Long)
+   * @author NamTang
+   */
+   @Override
+   public Long getCorrectPublishedAnswerIdByItemId(Long publishedItemId) {
+       Long result = null;
+       
+       final HibernateCallback<List<Long>> hcb = session -> {
+           Query q = session.createQuery(
+                   "select p.id from PublishedAnswer p where p.item.itemId = :id AND p.isCorrect is true");
+           q.setLong("id", publishedItemId);
+           
+           return q.list();
+       };
+       List<Long> answerIds = getHibernateTemplate().execute(hcb);
+
+       if (!answerIds.isEmpty()) {
+           result = answerIds.get(0);
+       }
+       
+       return result;
+   }
+   
+   /**
+   * [Explain the description for this method here].
+   * @param publishedItemIds
+   * @return
+   * @see org.sakaiproject.tool.assessment.facade.PublishedItemFacadeQueriesAPI#getCorrectPublishedAnswerByItemIds(java.util.List)
+   * @author ThachLN
+   */
+    @Override
+    public List<PublishedAnswer> getCorrectPublishedAnswerByItemIds(List<Long> publishedItemIds) {
+        List<PublishedAnswer> answers;
+
+        final HibernateCallback<List<PublishedAnswer>> hcb = session -> {
+            Query q = session.createQuery("from PublishedAnswer p where p.item.itemId IN (:ids) AND p.isCorrect is true");
+            q.setParameterList("ids", publishedItemIds);
+
+            return q.list();
+        };
+        answers = getHibernateTemplate().execute(hcb);
+
+        return answers;
+    }
+    
+    @Override
+    public List<Long> getAssessmentCorrectPublishedAnswerIds(Long publishedAssessmentId) {
+        
+        final HibernateCallback<List<Long>> hcb = session -> {
+            Query q = session.createQuery(
+                    "select a.id from PublishedAnswer a, PublishedSectionData s, PublishedItemData i" 
+                            + " where s.id = i.section AND i.itemId = a.item AND s.assessment.publishedAssessmentId = :id AND a.isCorrect = true");
+            q.setLong("id", publishedAssessmentId);
+            
+            return q.list();
+        };
+        List<Long> answers = getHibernateTemplate().execute(hcb);
+        
+        return answers;
+    }
 }

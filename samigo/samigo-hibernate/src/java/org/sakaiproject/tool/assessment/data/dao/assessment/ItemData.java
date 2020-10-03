@@ -26,18 +26,19 @@ import java.util.Map;
 import java.util.ResourceBundle;
 import java.util.Set;
 
-import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.sakaiproject.tool.assessment.data.dao.shared.TypeD;
 import org.sakaiproject.tool.assessment.data.ifc.assessment.AnswerIfc;
 import org.sakaiproject.tool.assessment.data.ifc.assessment.ItemAttachmentIfc;
 import org.sakaiproject.tool.assessment.data.ifc.assessment.ItemDataIfc;
-import org.sakaiproject.tool.assessment.data.ifc.assessment.ItemMetaDataIfc;
 import org.sakaiproject.tool.assessment.data.ifc.assessment.ItemFeedbackIfc;
+import org.sakaiproject.tool.assessment.data.ifc.assessment.ItemMetaDataIfc;
 import org.sakaiproject.tool.assessment.data.ifc.assessment.ItemTagIfc;
 import org.sakaiproject.tool.assessment.data.ifc.assessment.ItemTextIfc;
 import org.sakaiproject.tool.assessment.data.ifc.assessment.SectionDataIfc;
 import org.sakaiproject.tool.assessment.data.ifc.shared.TypeIfc;
+
+import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 public class ItemData
@@ -53,6 +54,8 @@ public class ItemData
   private SectionDataIfc section;
   private Integer sequence;
   private Integer duration;
+  private Integer maxDuration; // seconds
+  private Integer minDuration; // seconds
   private Integer triesAllowed;
   private String instruction;
   private String description;
@@ -223,6 +226,38 @@ public ItemData() {}
   public void setDuration(Integer duration) {
     this.duration = duration;
   }
+
+    /**
+     * Get value of maxDuration.
+     * @return the maxDuration
+     */
+    public Integer getMaxDuration() {
+        return maxDuration;
+    }
+
+    /**
+     * Set the value for maxDuration.
+     * @param maxDuration the maxDuration to set
+     */
+    public void setMaxDuration(Integer maxDuration) {
+        this.maxDuration = maxDuration;
+    }
+
+    /**
+     * Get value of minDuration.
+     * @return the minDuration
+     */
+    public Integer getMinDuration() {
+        return minDuration;
+    }
+
+    /**
+     * Set the value for minDuration.
+     * @param minDuration the minDuration to set
+     */
+    public void setMinDuration(Integer minDuration) {
+        this.minDuration = minDuration;
+    }
 
   public Integer getSequence() {
     return this.sequence;

@@ -196,6 +196,9 @@ public interface ResourceToolAction
 		 */
 		EXPAND_ZIP_ARCHIVE,
 
+		// ThachLN++
+        /** Export recursively all information of the folder into Excel file. */
+        EXPORT_METADATA,
 		/**
 		 * Create a page in the site linking to the content.
 		 */
@@ -226,6 +229,8 @@ public interface ResourceToolAction
 	public static final String RESTORE = "restore";
 	public static final String COMPRESS_ZIP_FOLDER = "compress_zip_folder";
 	public static final String EXPAND_ZIP_ARCHIVE = "expand_zip_archive";
+	// ThachLN++
+    public static final String EXPORT_METADATA = "export_metadata";
 	public static final String MAKE_SITE_PAGE = "make_site_page";
 	public static final String SHOW = "show";
 	public static final String HIDE = "hide";

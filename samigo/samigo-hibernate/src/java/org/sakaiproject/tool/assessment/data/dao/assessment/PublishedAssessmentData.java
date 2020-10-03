@@ -284,6 +284,38 @@ public class PublishedAssessmentData
     this.timeLimit = timeLimit;
   }
 
+    /**
+     * ThachLN added to support get description.
+     * @param id
+     * @param title
+     * @param desc
+     * @param releaseTo
+     * @param startDate
+     * @param dueDate
+     * @param retractDate
+     * @param feedbackDate
+     * @param feedbackDelivery
+     * @param feedbackComponentOption
+     * @param feedbackAuthoring
+     * @param lateHandling
+     * @param unlimitedSubmissions
+     * @param submissionsAllowed
+     * @param scoringType
+     * @param status
+     * @param lastModifiedDate
+     * @param timeLimit
+     */
+    public PublishedAssessmentData(Long id, String title, String desc, String releaseTo, Date startDate, Date dueDate,
+            Date retractDate, Date feedbackDate, Integer feedbackDelivery, Integer feedbackComponentOption,
+            Integer feedbackAuthoring, Integer lateHandling, Boolean unlimitedSubmissions, Integer submissionsAllowed,
+            Integer scoringType, Integer status, Date lastModifiedDate, Integer timeLimit) {
+        this(id, title, releaseTo, startDate, dueDate, retractDate, feedbackDate, feedbackDelivery,
+                feedbackComponentOption, feedbackAuthoring, lateHandling, unlimitedSubmissions, submissionsAllowed,
+                scoringType, status, lastModifiedDate, timeLimit);
+
+        this.description = desc;
+    }
+
   public PublishedAssessmentData(Long id, int submissionSize) {
     this.assessmentBaseId = id;
     this.submissionSize = submissionSize;

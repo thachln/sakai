@@ -15,6 +15,8 @@
     <property name="itemIdString" type="string" length="255" column="ITEMIDSTRING" not-null="false" />
     <property name="sequence" type="integer" column="SEQUENCE" not-null="false" />
     <property name="duration" type="integer" column="DURATION" not-null="false" />
+    <property name="minDuration" type="integer" column="MIN_DURATION" not-null="false" />
+    <property name="maxDuration" type="integer" column="MAX_DURATION" not-null="false" />
     <property name="triesAllowed" type="integer" column="TRIESALLOWED" not-null="false" />
     <property name="instruction" type="materialized_clob" column="INSTRUCTION" not-null="false" />
     <property name="description" type="string" length="4000" column="DESCRIPTION" not-null="false" />

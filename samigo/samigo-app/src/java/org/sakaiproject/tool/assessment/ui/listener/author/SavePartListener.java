@@ -36,6 +36,7 @@ import javax.faces.event.ActionListener;
 
 import lombok.extern.slf4j.Slf4j;
 
+import org.apache.commons.lang3.StringUtils;
 import org.sakaiproject.event.cover.EventTrackingService;
 import org.sakaiproject.samigo.util.SamigoConstants;
 import org.sakaiproject.tool.assessment.data.ifc.assessment.AnswerIfc;
@@ -226,10 +227,16 @@ public class SavePartListener
     	if(addItemsFromPool){
     		boolean hasRandomPartScore = false;
     		Double score = null;
+            Integer minDuration = null;
+            Integer maxDuration = null;
     		String requestedScore = sectionBean.getRandomPartScore();
+    		String minDurationMeta = sectionBean.getMinDurationPartScore();
+    		String maxDurationMeta = sectionBean.getMaxDurationPartScore();
+
     		if (requestedScore != null && !requestedScore.equals("")) {
     			hasRandomPartScore = true;
     			score = new Double(requestedScore);
+    			
     		}
     		boolean hasRandomPartDiscount = false;
     		Double discount = null;
@@ -237,6 +244,14 @@ public class SavePartListener
     		if (requestedDiscount != null && !requestedDiscount.equals("")) {
     			hasRandomPartDiscount = true;
     			discount = new Double(requestedDiscount);
+    			
+                if (StringUtils.isNotEmpty(minDurationMeta)) {
+                    minDuration = new Integer(minDurationMeta);
+                }
+                
+                if (StringUtils.isNotEmpty(maxDurationMeta)) {
+                    maxDuration = new Integer(maxDurationMeta);
+                }
     		}
     		
     		if (hasRandomPartScore && score != null) {
@@ -245,6 +260,19 @@ public class SavePartListener
     		else {
     			section.addSectionMetaData(SectionDataIfc.POINT_VALUE_FOR_QUESTION, "");
     		}
+    		
+    		// Set MetaData for limited duration
+    		if (hasRandomPartScore && minDuration != null) {
+    		    section.addSectionMetaData(SectionDataIfc.MIN_DURATION_FOR_QUESTION, minDuration.toString());
+    		} else {
+    		    section.addSectionMetaData(SectionDataIfc.MIN_DURATION_FOR_QUESTION, "");
+    		}
+
+            if (hasRandomPartScore && maxDuration != null) {
+                section.addSectionMetaData(SectionDataIfc.MAX_DURATION_FOR_QUESTION, maxDuration.toString());
+            } else {
+                section.addSectionMetaData(SectionDataIfc.MAX_DURATION_FOR_QUESTION, "");
+            }
 
     		if (hasRandomPartDiscount && discount != null) {
     			section.addSectionMetaData(SectionDataIfc.DISCOUNT_VALUE_FOR_QUESTION, discount.toString());

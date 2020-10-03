@@ -116,6 +116,9 @@ public class ItemBean
   private String rationale = "false";
   private String mcmsPartialCredit;
 
+  private Integer maxDuration; // seconds
+  private Integer minDuration; // seconds
+
 // for matching and calculated questions only
   private String instruction;  // matching's question text
   private ArrayList matchItemBeanList;  // store List of MatchItemBean, used for Matching only
@@ -1977,4 +1980,36 @@ public class ItemBean
 	public List<ItemTagBean> getItemTags() { return itemTags; }
 
 	public void setItemTags(List<ItemTagBean> itemTags) { this.itemTags = itemTags; }
+
+    /**
+    * Get value of maxDuration.
+    * @return the maxDuration
+    */
+    public Integer getMaxDuration() {
+        return maxDuration;
+    }
+
+    /**
+     * Set the value for maxDuration.
+     * @param maxDuration the maxDuration to set
+     */
+    public void setMaxDuration(Integer maxDuration) {
+        this.maxDuration = maxDuration;
+    }
+
+    /**
+    * Get value of minDuration.
+    * @return the minDuration
+    */
+    public Integer getMinDuration() {
+        return minDuration;
+    }
+
+    /**
+     * Set the value for minDuration.
+     * @param minDuration the minDuration to set
+     */
+    public void setMinDuration(Integer minDuration) {
+        this.minDuration = minDuration;
+    }
 }

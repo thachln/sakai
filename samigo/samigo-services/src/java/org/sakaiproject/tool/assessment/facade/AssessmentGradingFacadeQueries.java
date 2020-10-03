@@ -83,6 +83,9 @@ import org.sakaiproject.tool.assessment.data.dao.grading.ItemGradingAttachment;
 import org.sakaiproject.tool.assessment.data.dao.grading.ItemGradingData;
 import org.sakaiproject.tool.assessment.data.dao.grading.MediaData;
 import org.sakaiproject.tool.assessment.data.dao.grading.StudentGradingSummaryData;
+import org.sakaiproject.tool.assessment.data.dao.grading.ToeicDetailFeedback;
+import org.sakaiproject.tool.assessment.data.dao.grading.ToeicGeneralFeedback;
+import org.sakaiproject.tool.assessment.data.dao.grading.ToeicPicture;
 import org.sakaiproject.tool.assessment.data.ifc.assessment.AnswerIfc;
 import org.sakaiproject.tool.assessment.data.ifc.assessment.AssessmentAccessControlIfc;
 import org.sakaiproject.tool.assessment.data.ifc.assessment.AssessmentAttachmentIfc;
@@ -3639,6 +3642,296 @@ public class AssessmentGradingFacadeQueries extends HibernateDaoSupport implemen
             q.setBoolean("forgrade", false);
             return q.list();
         };
+        return getHibernateTemplate().execute(hcb);
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+    // For module TOEIC
+    //
+    /**
+     * [Explain the description for this method here].
+     * @param point
+     * @return
+     * @see org.sakaiproject.tool.assessment.facade.AssessmentGradingFacadeQueriesAPI#getToeicGeneralFeedback(int)
+     * @author NamTang
+     */
+    @Override
+    public ToeicGeneralFeedback getToeicGeneralFeedback(int point) {
+        ToeicGeneralFeedback tgf = null;
+
+        final HibernateCallback<List<ToeicGeneralFeedback>> hcb = session -> {
+            Query q = session
+                    .createQuery("from ToeicGeneralFeedback t where t.minPoint <= :point and t.maxPoint >= :point");
+            q.setInteger("point", point);
+            return q.list();
+        };
+        List<ToeicGeneralFeedback> toeicGeneralFeedback = getHibernateTemplate().execute(hcb);
+
+        if (!toeicGeneralFeedback.isEmpty()) {
+            tgf = toeicGeneralFeedback.get(0);
+        }
+
+        return tgf;
+    }
+
+    @Override
+    public void saveToeicGeneralFeedback(Collection<ToeicGeneralFeedback> toeicGFb) {
+        int retryCount = persistenceHelper.getRetryCount();
+
+        toeicGFb.removeAll(Collections.singleton(null));
+        while (retryCount > 0) {
+            try {
+                for (ToeicGeneralFeedback t : toeicGFb) {
+                    getHibernateTemplate().saveOrUpdate(t);
+                }
+                retryCount = 0;
+            } catch (Exception e) {
+                log.warn("problem inserting ToeicGeneralFeedback: " + e.getMessage());
+                retryCount = persistenceHelper.retryDeadlock(e, retryCount);
+            }
+        }
+    }
+
+    @Override
+    public void saveToeicDetailFeedback(Collection<ToeicDetailFeedback> toeicFeedbacks) {
+        int retryCount = persistenceHelper.getRetryCount();
+
+        toeicFeedbacks.removeAll(Collections.singleton(null));
+        while (retryCount > 0) {
+            try {
+                for (ToeicDetailFeedback t : toeicFeedbacks) {
+                    getHibernateTemplate().saveOrUpdate(t);
+                }
+                retryCount = 0;
+            } catch (Exception e) {
+                log.warn("problem inserting ToeicDetailFeedback: " + e.getMessage());
+                retryCount = persistenceHelper.retryDeadlock(e, retryCount);
+            }
+        }
+    }
+
+    /**
+     * [Explain the description for this method here].
+     * @return
+     * @see org.sakaiproject.tool.assessment.facade.AssessmentGradingFacadeQueriesAPI#getListToeicGeneralFeedback()
+     * @author NamTang
+     */
+    @Override
+    public List<ToeicGeneralFeedback> getListToeicGeneralFeedback() {
+        final HibernateCallback<List<ToeicGeneralFeedback>> hcb = session -> {
+            Query q = session.createQuery("from ToeicGeneralFeedback");
+
+            return q.list();
+        };
+
+        return getHibernateTemplate().execute(hcb);
+    }
+
+    @Override
+    public List<ToeicDetailFeedback> getToeicDetailFeedbackList() {
+        final HibernateCallback<List<ToeicDetailFeedback>> hcb = session -> {
+            Query q = session.createQuery("from ToeicDetailFeedback");
+
+            return q.list();
+        };
+
+        return getHibernateTemplate().execute(hcb);
+    }
+
+    @Override
+    public void removeToeicDetailFeedback(List<Long> ids) {
+        List<ToeicDetailFeedback> removeList = null;
+        final HibernateCallback<List<ToeicDetailFeedback>> hcb = session -> {
+            Query q = session.createQuery("SELECT t FROM ToeicDetailFeedback t WHERE t.id IN :ids");
+            q.setParameterList("ids", ids);
+
+            return q.list();
+        };
+        removeList = getHibernateTemplate().execute(hcb);
+
+        if (!removeList.isEmpty()) {
+            deleteAll(removeList);
+        }
+    }
+
+    @Override
+    public void removeToeicGeneralFeedback(List<Long> ids) {
+        List<ToeicGeneralFeedback> removeList = null;
+        final HibernateCallback<List<ToeicGeneralFeedback>> hcb = session -> {
+            Query q = session.createQuery("SELECT t FROM ToeicGeneralFeedback t WHERE t.id IN :ids");
+            q.setParameterList("ids", ids);
+
+            return q.list();
+        };
+        removeList = getHibernateTemplate().execute(hcb);
+
+        if (!removeList.isEmpty()) {
+            deleteAll(removeList);
+        }
+    }
+
+    /**
+     * [Explain the description for this method here].
+     * @param point
+     * @param kind
+     * @return
+     * @see org.sakaiproject.tool.assessment.facade.AssessmentGradingFacadeQueriesAPI#getToeicDetailFeedback(int, int)
+     * @author NamTang
+     */
+    @Override
+    public ToeicDetailFeedback getToeicDetailFeedback(int point, int kind) {
+        ToeicDetailFeedback tdf = null;
+
+        final HibernateCallback<List<ToeicDetailFeedback>> hcb = session -> {
+            Query q = session.createQuery("from ToeicDetailFeedback t where t.levelPoint <= :point and t.kind = :kind");
+            q.setInteger("point", point);
+            q.setInteger("kind", kind);
+
+            return q.list();
+        };
+
+        List<ToeicDetailFeedback> toeicGeneralFeedback = getHibernateTemplate().execute(hcb);
+
+        if (!toeicGeneralFeedback.isEmpty()) {
+            tdf = toeicGeneralFeedback.get(0);
+        }
+
+        return tdf;
+    }
+
+    /**
+     * [Explain the description for this method here].
+     * @param assessmentGradingId
+     * @return
+     * @see org.sakaiproject.tool.assessment.facade.AssessmentGradingFacadeQueriesAPI#getItemResults(java.lang.Long)
+     * @author NamTang
+     */
+    @Override
+    public List<Object[]> getItemResults(Long assessmentGradingId) {
+
+        final HibernateCallback<List<Object[]>> hcb = session -> {
+            Query q = session.createQuery(
+                    "select ig.answerText, s.title, a2.label, a.label, ig.isCorrect, a2.id, ig.publishedItemId "
+                            + "from ItemGradingData as ig" + ", PublishedItemData as i" + ", PublishedAnswer as a"
+                            + ", PublishedSectionData as s" + ", PublishedAnswer as a2 " + "where "
+                            + "a2.item.itemId = i.itemId and a2.isCorrect = true "
+                            + "and i.section.id = s.id and i.itemId = ig.publishedItemId "
+                            + "and ig.publishedAnswerId = a.id " + "and ig.publishedItemId = i.itemId "
+                            + "and ig.assessmentGradingId = :id ");
+
+            q.setLong("id", assessmentGradingId);
+
+            return q.list();
+        };
+
+        return getHibernateTemplate().execute(hcb);
+    }
+
+    /**
+     * [Explain the description for this method here].
+     * @param assessmentGradingId
+     * @return
+     * @see org.sakaiproject.tool.assessment.facade.AssessmentGradingFacadeQueriesAPI#loadAssessmentGradingDataOnly(java.lang.Long)
+     * @author NamTang
+     */
+    @Override
+    public AssessmentGradingData loadAssessmentGradingDataOnly(Long assessmentGradingId) {
+        AssessmentGradingData gdata = (AssessmentGradingData) getHibernateTemplate().load(AssessmentGradingData.class,
+                assessmentGradingId);
+
+        return gdata;
+    }
+
+    /**
+     * [Explain the description for this method here].
+     * @param publishedAssessmentId
+     * @return
+     * @see org.sakaiproject.tool.assessment.facade.AssessmentGradingFacadeQueriesAPI#getAllAssessmentGradingDataOnly(java.lang.Long)
+     * @author NamTang
+     */
+    @Override
+    public List<AssessmentGradingData> getAllAssessmentGradingDataOnly(Long publishedAssessmentId) {
+        final HibernateCallback<List<AssessmentGradingData>> hcb = session -> {
+            Query q = session.createQuery(
+                    "from AssessmentGradingData a where a.publishedAssessmentId = :id and a.status <> :status order by a.agentId asc, a.submittedDate desc");
+            q.setLong("id", publishedAssessmentId);
+            q.setInteger("status", AssessmentGradingData.NO_SUBMISSION);
+            return q.list();
+        };
+        List<AssessmentGradingData> list = getHibernateTemplate().execute(hcb);
+
+        return list;
+    }
+
+    /**
+     * [Explain the description for this method here].
+     * @param assessmentGradingId
+     * @return
+     * @see org.sakaiproject.tool.assessment.facade.AssessmentGradingFacadeQueriesAPI#getListPartTitleOfCorrectAnswer(java.lang.Long)
+     * @author NamTang
+     */
+    @Override
+    public List<String> getListPartTitleOfCorrectAnswer(Long assessmentGradingId) {
+        final HibernateCallback<List<String>> hcb = session -> {
+            Query q = session.createQuery(
+                    "select s.title from AssessmentGradingData ag, ItemGradingData ig, PublishedItemData i, PublishedSectionData s "
+                            + "where ag.assessmentGradingId = :id and ag.assessmentGradingId = ig.assessmentGradingId and ig.isCorrect = true "
+                            + "and ig.publishedItemId = i.itemId and i.section.id = s.id");
+            q.setLong("id", assessmentGradingId);
+            return q.list();
+        };
+        List<String> list = getHibernateTemplate().execute(hcb);
+
+        return list;
+    }
+
+    @Override
+    public void saveToeicPicture(Collection<ToeicPicture> pictures) {
+        int retryCount = persistenceHelper.getRetryCount();
+
+        pictures.removeAll(Collections.singleton(null));
+        while (retryCount > 0) {
+            try {
+                for (ToeicPicture t : pictures) {
+                    getHibernateTemplate().saveOrUpdate(t);
+                }
+                retryCount = 0;
+            } catch (Exception e) {
+                log.warn("problem inserting saveToeicPicture: " + e.getMessage());
+                retryCount = persistenceHelper.retryDeadlock(e, retryCount);
+            }
+        }
+    }
+
+    @Override
+    public ToeicPicture loadToeicPicture(Long id) {
+        ToeicPicture p = (ToeicPicture) getHibernateTemplate().load(ToeicPicture.class, id);
+
+        return p;
+    }
+
+    @Override
+    public List<ToeicPicture> getToeicPictureList() {
+        final HibernateCallback<List<ToeicPicture>> hcb = session -> {
+            Query q = session.createQuery("from ToeicPicture");
+
+            return q.list();
+        };
+
+        return getHibernateTemplate().execute(hcb);
+    }
+
+    @Override
+    public List<ToeicPicture> getPictureByAgentId(String agentId, Long assessmentGradingId) {
+        final HibernateCallback<List<ToeicPicture>> hcb = session -> {
+            Query q = session.createQuery(
+                    "select a from ToeicPicture a where a.agentId = :agentId and a.assessmentGradingId = :assessmentGradingId");
+            q.setLong("assessmentGradingId", assessmentGradingId);
+            q.setString("agentId", agentId);
+
+            return q.list();
+        };
+
         return getHibernateTemplate().execute(hcb);
     }
 }

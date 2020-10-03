@@ -127,6 +127,20 @@
                     <h:outputText rendered="#{sectionBean.type == '2'}" value="#{authorMessages.random_draw_deduct_suffix}"/>
                 </t:div>
             </t:fieldset>
+
+            <%-- Limited time --%>
+            <t:fieldset styleClass="roundedBorder" legend="#{authorMessages.limited_time}" rendered="#{sectionBean.type == '2'}">
+                <t:div id="minDurationOption" rendered="#{sectionBean.type == '2'}">
+                    <h:outputText rendered="#{sectionBean.type == '2'}" value="#{authorMessages.limited_min_duration}"/>
+                    <h:inputText rendered="#{sectionBean.type == '2'}" id="minDuration" disabled="#{sectionBean.type == '1' || !author.isEditPendingAssessmentFlow}" value="#{sectionBean.minDurationPartScore}" styleClass="ConvertPoint"/>
+                    <h:outputText rendered="#{sectionBean.type == '2'}" value="#{authorMessages.duration_unit}"/>
+                </t:div>
+                <t:div id="maxDurationOption" rendered="#{sectionBean.type == '2'}">
+                    <h:outputText rendered="#{sectionBean.type == '2'}" value="#{authorMessages.limited_max_duration}"/>
+                    <h:inputText rendered="#{sectionBean.type == '2'}" id="maxDuration" disabled="#{sectionBean.type == '1' || !author.isEditPendingAssessmentFlow}" value="#{sectionBean.maxDurationPartScore}" styleClass="ConvertPoint"/>
+                    <h:outputText rendered="#{sectionBean.type == '2'}" value="#{authorMessages.duration_unit}"/>
+                </t:div>
+            </t:fieldset>
         </fieldset>
         <%-- End Options --%>
         

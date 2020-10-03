@@ -35,6 +35,9 @@ import org.sakaiproject.tool.assessment.data.dao.grading.ItemGradingAttachment;
 import org.sakaiproject.tool.assessment.data.dao.grading.ItemGradingData;
 import org.sakaiproject.tool.assessment.data.dao.grading.MediaData;
 import org.sakaiproject.tool.assessment.data.dao.grading.StudentGradingSummaryData;
+import org.sakaiproject.tool.assessment.data.dao.grading.ToeicDetailFeedback;
+import org.sakaiproject.tool.assessment.data.dao.grading.ToeicGeneralFeedback;
+import org.sakaiproject.tool.assessment.data.dao.grading.ToeicPicture;
 import org.sakaiproject.tool.assessment.data.ifc.assessment.AttachmentIfc;
 import org.sakaiproject.tool.assessment.data.ifc.assessment.PublishedAssessmentIfc;
 import org.sakaiproject.tool.assessment.data.ifc.grading.StudentGradingSummaryIfc;
@@ -286,4 +289,32 @@ public interface AssessmentGradingFacadeQueriesAPI
   
   public List getUnSubmittedAssessmentGradingDataList(Long publishedAssessmentId, String agentIdString);
 
+  ////////////////////////////////////////////////////////////////////////////////////////////////////
+  // For module TOEIC
+  //
+  public ToeicGeneralFeedback getToeicGeneralFeedback(int point);
+  public List<ToeicGeneralFeedback> getListToeicGeneralFeedback();
+  public ToeicDetailFeedback getToeicDetailFeedback(int point, int kind);
+  public List<Object[]> getItemResults(Long assessmentGradingId);
+  public AssessmentGradingData loadAssessmentGradingDataOnly(Long assessmentGradingId);
+  public List<AssessmentGradingData> getAllAssessmentGradingDataOnly(Long publishedAssessmentId);
+  public List<String> getListPartTitleOfCorrectAnswer(Long assessmentGradingId);
+
+  public void saveToeicGeneralFeedback(Collection<ToeicGeneralFeedback> toeicGFb);
+
+  public List<ToeicDetailFeedback> getToeicDetailFeedbackList();
+
+  public void saveToeicDetailFeedback(Collection<ToeicDetailFeedback> toeicFeedbacks);
+
+  public void removeToeicDetailFeedback(List<Long> ids);
+
+  public void removeToeicGeneralFeedback(List<Long> ids);
+
+  public void saveToeicPicture(Collection<ToeicPicture> pictures);
+
+  public ToeicPicture loadToeicPicture(Long id);
+
+  public List<ToeicPicture> getToeicPictureList();
+
+  public List<ToeicPicture> getPictureByAgentId(String agentId, Long assessmentGradingId);
 }

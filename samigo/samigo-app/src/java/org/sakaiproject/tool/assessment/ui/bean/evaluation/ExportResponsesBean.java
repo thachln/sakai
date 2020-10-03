@@ -42,6 +42,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.poi.hssf.usermodel.HSSFWorkbook;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellStyle;
+import org.apache.poi.ss.usermodel.CreationHelper;
 import org.apache.poi.ss.usermodel.Font;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
@@ -427,7 +428,11 @@ public class ExportResponsesBean implements Serializable, PhaseAware {
 							} else if (data instanceof Date) {
 								// tell Excel this is a date
 								CellStyle style = wb.createCellStyle();
-								style.setDataFormat((short) 15);
+								// ThachLN~~:
+								/// style.setDataFormat((short) 15);
+								CreationHelper createHelper = wb.getCreationHelper();
+								style.setDataFormat(createHelper.createDataFormat().getFormat("yyyy-mm-dd hh:mm:ss AM/PM"));
+								// ThachLN~~
 								cell.setCellStyle(style);
 								cell.setCellValue((Date) data);
 							} else {

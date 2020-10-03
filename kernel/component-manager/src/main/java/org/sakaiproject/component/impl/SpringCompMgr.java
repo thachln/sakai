@@ -428,7 +428,7 @@ public class SpringCompMgr implements ComponentManager {
 		if (sakaiHomePath == null) {
 			String catalina = getCatalina();
 			if (catalina != null) {
-				sakaiHomePath = catalina + File.separatorChar + "sakai"
+				sakaiHomePath = catalina + File.separatorChar + "xlms"
 						+ File.separatorChar;
 			}
 		}
@@ -436,7 +436,7 @@ public class SpringCompMgr implements ComponentManager {
 		// strange case...
 		if (sakaiHomePath == null) {
 			// last resort try /tmp/sakai
-			sakaiHomePath = File.separatorChar + "tmp" + File.separatorChar + "sakai" + File.separatorChar;
+			sakaiHomePath = File.separatorChar + "tmp" + File.separatorChar + "xlms" + File.separatorChar;
 		}
 		if (!sakaiHomePath.endsWith(File.separator))
 			sakaiHomePath = sakaiHomePath + File.separatorChar;

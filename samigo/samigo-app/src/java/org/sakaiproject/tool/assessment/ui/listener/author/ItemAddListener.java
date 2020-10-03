@@ -791,6 +791,8 @@ public class ItemAddListener
      	}
       }
       item.setScore(Double.valueOf(bean.getItemScore()));
+      item.setMaxDuration(bean.getMaxDuration());
+      item.setMinDuration(bean.getMinDuration());
       item.setDiscount(Double.valueOf(bean.getItemDiscount()));
       //default should be "true", so anything other than "false" is a true value
       item.setScoreDisplayFlag(!"false".equals(bean.getItemScoreDisplayFlag()));
