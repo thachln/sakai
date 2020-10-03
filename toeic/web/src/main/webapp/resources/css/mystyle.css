@@ -1,0 +1,234 @@
+* {
+    margin: 0;
+    padding: 0;
+}
+
+.mark-color {
+    background: #c7e5ff;
+}
+
+.btnGroup {
+    margin: 10px 0 0 40px;
+}
+
+.btnGroup button {
+    margin-right: 15px;
+}
+
+.info-toeic {
+    font-size: 1.3em;
+    margin-top: 16px;
+}
+
+.num-question {
+    font-weight: bold;
+    margin: 0;
+}
+
+.time-remain-question {
+    display: inline-block;
+    margin-left: 6px;
+    font-size: 14px;
+}
+
+span.time-question {
+    font-style: italic;
+    color: #0020ff;
+}
+
+.for-listening {
+    position: relative;
+    display: block;
+    width: 400px;
+    height: 32px;
+    margin: 2px 32px;
+}
+
+.black {
+    position: absolute;
+    top: 0;
+    left: 0px;
+    width: 202px;
+    height: 32px;
+    z-index: 10;
+    //background: #ff000014;
+}
+
+audio {
+    position: absolute;
+    width: 300px;
+    height: 32px;
+    top: 0;
+    left: 0;
+    z-index: 1;
+}
+
+span#time_remain {
+    color: red;
+    font-style: italic;
+}
+
+div#time-remain-area {
+    font-size: 20px;
+    padding: 10px;
+}
+
+.footer {
+    margin-top: 40px;
+    background: #eeeeee;
+    padding: 10px 0px;
+}
+
+.toeic-clock {
+}
+
+.pic-question {
+    max-width: 515px;
+}
+
+input[type="radio"] {}
+
+.toeic-contain {
+    border: 1px solid gray;
+    border-radius: 20px;
+}
+
+
+
+/* menu */
+.navbar-default .navbar-brand {
+    color: #000000;
+    font-size: 22px;
+}
+
+.navbar-brand {
+    text-transform: uppercase;
+}
+
+/* end menu */
+.container h2 {
+    font-weight: 700;
+    color: #002ac1;
+    text-align: center;
+}
+
+p.note {
+    color: rgb(237, 67, 60);
+    font-style: italic;
+}
+
+.answer-area {
+    padding: 10px 0px 12px 10px;
+    /* background: rgba(74, 197, 255, 0.32); */
+    text-align: left;
+    height: 650px;
+    overflow: auto;
+    position: relative;
+}
+
+.ques-no {
+    margin-right: 14px;
+}
+
+.checkbox-inline + .checkbox-inline, .radio-inline + .radio-inline {
+    margin-left: 0px;
+}
+
+.title-part {
+    border-bottom: 2px solid #e3e3e3;
+    margin-bottom: 15px;
+    text-align: center;
+    margin-right: 8px;
+}
+
+.toiec-question {
+    margin-top: 10px;
+}
+
+.text-question {
+    font-size: 1.3em;
+    text-align: left;
+    margin: 0;
+}
+
+.radio-inline {
+    margin-right: 20px;
+    margin-bottom: 5px;
+}
+
+.radio-inline strong {
+
+}
+
+.toeic-form {
+    font-size: 15px;
+    padding: 4px 0px 2px 10px;
+}
+
+.toeic-select {
+    margin-top: 4px;
+    margin-left: 20px;
+    //max-width: 450px;
+}
+
+.toeic-index h4 {
+    font-size: 1.3em;
+    text-align: left;
+    font-weight: bold;
+    display: inline-block;
+}
+
+.test-box {
+    margin-bottom: 20px;
+    margin-left: 30px;
+}
+
+.pic-question img {
+    width: 100%;
+    height: auto;
+}
+
+.question-area {
+    padding: 0px 14px 0 36px;
+    border-right: 4px solid #c9c9c9;
+    min-height: 774px;
+}
+
+.question-area .radio-inline {
+    display: block;
+}
+
+.toeic-btn {
+    margin: 20px 0;
+}
+
+.toeic-btn button {
+    margin: 0 8px;
+}
+/*phone*/
+@media (max-width:767px) {
+    * {
+    }
+
+}
+
+/*may tinh bang*/
+@media (min-width:768px) and (max-width:991px) {
+    * {
+    }
+
+}
+
+/*desktop*/
+@media (min-width:992px) and (max-width:1199px) {
+    * {
+    }
+
+}
+
+/*man hinh lon*/
+@media (min-width:1200px) {
+    * {
+    }
+
+}

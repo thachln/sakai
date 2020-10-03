@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+<link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css">
+</head>
+<body>
+	<div th:fragment="answer-sheet" class="col-sm-4">
+		<div class="title-part">
+			<h3 class="text-center">Answer sheet</h3>
+		</div>					
+		<div class="answer-area">
+			<form name="form-toeic" id="form-toeic" action="#" th:action="@{/answerForm}" th:object="${answers}"
+  method="post">
+				<div class="toiec-form" th:each="answer : ${answerSheet}">
+					<label class="ques-no"><span th:text="${answer}" ></span>.</label>
+					<label class="radio-inline">
+						<!-- <input type="radio" th:name="${'answers[' + answer + ']'}" value="A"> -->
+						<input type="radio" th:name="${'answers' + answer}" value="A">
+						<strong>A</strong>
+					</label>
+					<label class="radio-inline">
+						<input type="radio" th:name="${'answers' + answer}" value="B">
+						<strong>B</strong>
+					</label>
+					<label class="radio-inline">
+						<input type="radio" th:name="${'answers' + answer}" value="C">
+						<strong>C</strong>
+					</label>
+					<label class="radio-inline">
+						<input type="radio" th:name="${'answers' + answer}" value="D">
+						<strong>D</strong>
+					</label>
+				</div>
+				<button type="submit"
+	            class="btn btn-xs btn-primary margin10-right paddingNew"
+	            name="save">Submit Test!</button>		
+			</form>
+
+		</div>
+	</div>
+</body>
+</html>

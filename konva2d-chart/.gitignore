@@ -1,0 +1,5 @@
+/tool/src/main/webapp/resources
+/tool/src/main/webapp/WEB-INF/templates
+/tool/src/main/webapp/WEB-INF/app-config.properties
+/tool/src/main/webapp/WEB-INF/applicationContext.xml
+/tool/src/main/webapp/WEB-INF/springapp-servlet.xml

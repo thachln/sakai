@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN" "http://www.hibernate.org/dtd/hibernate-mapping-3.0.dtd">
+<hibernate-mapping package="org.sakaiproject.tool.assessment.data.dao.grading"
+                   default-lazy="false">
+
+  <class name="org.sakaiproject.tool.assessment.data.dao.grading.ToeicDetailFeedback" table="TOEIC_DETAIL_FEEDBACK">
+    <id name="id" column="id" type="java.lang.Long" unsaved-value="0">
+      <generator class="native">
+        <param name="sequence">TOEIC_DETAIL_FEEDBACK_ID_S</param>
+      </generator>
+    </id>
+
+    <property name="kind" type="integer" column="KIND" not-null="true" />
+    <property name="levelPoint" type="integer" column="LEVELPOINT" not-null="true" />
+    <property name="strength" type="string" length="5000" column="STRENGTH" not-null="false" />
+    <property name="weakness" type="string" length="5000" column="WEAKNESS" not-null="false" />
+  </class>
+
+</hibernate-mapping>

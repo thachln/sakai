@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+	<groupId>m.k.s.sakai.app</groupId>
+	<artifactId>question-importer</artifactId>
+	<packaging>pom</packaging>
+	<name>question-importer</name>
+	<description>Import question from Excel to Question Pools.</description>
+
+    <parent>
+        <groupId>org.sakaiproject</groupId>
+        <artifactId>master</artifactId>
+        <version>19.3</version>
+		<relativePath>../master/pom.xml</relativePath>
+    </parent>
+
+	<dependencyManagement>
+		<dependencies>
+
+			<!-- project dependencies -->
+			<dependency>
+				<groupId>m.k.s.sakai.app</groupId>
+				<artifactId>question-importer-api</artifactId>
+				<version>${sakai.version}</version>
+				<scope>provided</scope>
+			</dependency>
+
+			<dependency>
+				<groupId>m.k.s.sakai.app</groupId>
+				<artifactId>question-importer-impl</artifactId>
+				<version>${sakai.version}</version>
+				<scope>runtime</scope>
+			</dependency>
+
+			<dependency>
+				<groupId>org.projectlombok</groupId>
+				<artifactId>lombok</artifactId>
+				<version>${sakai.lombok.version}</version>
+				<type>jar</type>
+				<scope>provided</scope>
+			</dependency>
+			<dependency>
+				<groupId>log4j</groupId>
+				<artifactId>log4j</artifactId>
+				<version>${sakai.log4j.version}</version>
+			</dependency>
+		</dependencies>
+	</dependencyManagement>
+	<properties>
+        <sakai.kernel.version>${sakai.version}</sakai.kernel.version>
+		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <thymeleaf.version>3.0.11.RELEASE</thymeleaf.version>
+	</properties>
+
+  <modules>
+    <module>api</module>
+	<module>common</module>
+    <module>impl</module>
+    <module>tool</module>
+    <module>pack</module>
+  </modules>
+</project>

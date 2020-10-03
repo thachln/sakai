@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>Demo: vẽ hình thiết bị</title>
+    <meta content='width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no' name='viewport'>
+    
+    <!-- Bootstrap Core CSS -->
+    <!-- Latest compiled and minified CSS -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+    <link rel="stylesheet" media="screen" th:href="@{/resources/hansontable/handsontable.full.css}">
+
+</head>
+<body>
+
+    <div class="row">
+      <form id="defaultForm" action="defaultAction" modelAttribute="model" method="POST">
+        <div class="col-md-3 col-sm-6 col-xs-6">  
+          <div class="panel panel-default">
+          <div class="panel-heading">
+            <h3 class="panel-title">Thông số hình học</h3>
+          </div>
+          <div class="panel-body">
+            <th:block th:include="fragments/geo-arg"></th:block>
+          </div>
+          </div>
+
+          <th:block th:include="fragments/geo-arg-ex"></th:block>
+        </div>
+        
+        <div class="col-md-4 col-sm-6 col-xs-3">
+          <div class="row">
+              <div class="col-md-10 col-sm-10 col-xs-10">
+                  <div class="panel panel-info">
+                    <div class="panel-heading">
+                      <h3 class="panel-title">Thông số động học</h3>
+                    </div>
+                    <div class="panel-body">
+                      <th:block th:include="fragments/kine-arg"></th:block>
+                    </div>
+                  </div>
+
+<!--                   <th:block th:include="fragments/kine-arg-ex"></th:block> -->
+              </div>
+              <div class="col-md-2 col-xs-2">
+                <th:block th:include="fragments/process"></th:block>
+              </div>
+          </div>
+          <th:block th:include="fragments/result-graph"></th:block>
+        </div>
+      </form>
+      
+      <div class="col-md-3 col-xs-2">  
+        <div class="panel panel-success">
+          <div class="panel-heading">
+            <h3 class="panel-title">Kết quả</h3>
+          </div>
+          <div class="panel-body">
+            <th:block th:include="fragments/result"></th:block>
+          </div>
+        </div>
+        
+<!--         <th:block th:include="fragments/result-ex"></th:block> -->
+      </div>
+      
+    </div>
+  
+  
+<!--   <div class="row"> -->
+<!--     <th:block th:include="fragments/page-ex"></th:block> -->
+<!--   </div> -->
+<!-- jQuery library -->
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.4/jquery.min.js"></script>
+
+<!-- Latest compiled JavaScript -->
+<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
+
+<!--  Define Library Handsontable -->
+<script th:src="@{/resources/hansontable/handsontable.full.min.js}" type="text/javascript"></script>
+<script th:src="@{/resources/konvajs/konva.min.js}" type="text/javascript"></script>
+<script th:src="@{/resources/js/cam.js}" type="text/javascript"></script>
+<script th:src="@{/resources/js/graph-common.js}" type="text/javascript"></script>
+<script th:src="@{/resources/js/graph-transpose.js}" type="text/javascript"></script>
+<script th:src="@{/resources/js/graph-cam-result.js}" type="text/javascript"></script>
+<script th:src="@{/resources/js/graph-speed.js}" type="text/javascript"></script>
+<script th:src="@{/resources/js/graph-acceleration.js}" type="text/javascript"></script>
+
+</body>
+</html>

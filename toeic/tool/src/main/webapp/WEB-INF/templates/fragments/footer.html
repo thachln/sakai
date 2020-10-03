@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css">
+</head>
+<body>
+    <!--/*  Multiple fragments may be defined in one file */-->
+    <div th:fragment="footer" th:align="center">
+		<!-- Submit toeic popup -->
+		<div class="modal fade" id="confirm-submit" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
+			<div class="modal-dialog">
+			    <div class="modal-content">
+			        <div class="modal-header">
+			            <button type="button" class="close" data-dismiss="modal" aria-hidden="true">×</button>
+			            <h4 class="modal-title" id="myModalLabel">Confirm Submit Toeic</h4>
+			        </div>
+			        <div class="modal-body">
+			            <p>Are you sure want to submit toeic?</p>
+			            <p>Do you want to proceed?</p>
+			        </div>
+			        <div class="modal-footer">
+			            <button type="button" class="btn btn-default" data-dismiss="modal">Cancel</button>
+			            <a class="btn btn-success btn-ok">Submit</a>
+			        </div>
+			    </div>
+			</div>
+		</div>
+
+		<!-- Reset toeic popup -->
+		<div class="modal fade" id="confirm-reset" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
+			<div class="modal-dialog">
+			    <div class="modal-content">
+			        <div class="modal-header">
+			            <button type="button" class="close" data-dismiss="modal" aria-hidden="true">×</button>
+			            <h4 class="modal-title" id="myModalLabel">Confirm Reset Toeic</h4>
+			        </div>
+			        <div class="modal-body">
+			            <p>Are you sure want to reset toeic test?</p>
+			            <p>Do you want to proceed?</p>
+			        </div>
+			        <div class="modal-footer">
+			            <button type="button" class="btn btn-default" data-dismiss="modal">Cancel</button>
+			            <a class="btn btn-danger btn-ok">Confirm</a>
+			        </div>
+			    </div>
+			</div>
+		</div>
+		
+		<!-- Confirm toeic popup -->
+		<div class="modal fade" id="confirm_password" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true" data-backdrop="static" data-keyboard="false">
+			<div class="modal-dialog">
+			    <div class="modal-content">
+			        <div class="modal-header">
+			            <button type="button" class="close btn-close" data-dismiss="modal" aria-hidden="true">×</button>
+			            <h4 class="modal-title" id="myModalLabel">Confirm Password Security</h4>
+			        </div>
+			        <div class="modal-body">
+						 <div class="form-group">
+						  <label for="pass_ser">Password:</label>
+						  <input type="password" class="form-control" id="pass_ser">
+						</div> 
+			        </div>
+			        <div class="modal-footer">
+			            <button type="button" class="btn btn-default btn-close" data-dismiss="modal">Cancel</button>
+			            <a class="btn btn-danger btn-ok">Confirm</a>
+			        </div>
+			    </div>
+			</div>
+		</div>
+		<div class="footer">
+			<div class="container text-center">
+				Copyright &copy; Campuslink Training Program 2018 - Version 0.0.1 - build 229
+			</div>
+		</div>
+    </div>
+    <div th:fragment="footer-admin" th:align="center">
+        This is administrative footer.
+    </div>
+</body>
+</html>
+

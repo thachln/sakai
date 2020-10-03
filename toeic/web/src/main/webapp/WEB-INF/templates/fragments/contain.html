@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+<link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css">
+</head>
+<body>
+	<div th:fragment="contain" class="test-area">
+    	<div class="container">
+			<div class="toeic-title">
+				
+			</div>
+			<div class="toeic-clock text-center">
+				<button data-toggle="collapse" class="btn btn-info" data-target="#time-remain">Show/Hide Time</button>
+	
+				<div id="time-remain" class="collapse in">
+					Time remaining: <span id="time-remain">34</span>
+				</div>
+			</div>
+			<div class="toeic-contain">
+				<div class="row">
+					<div class="col-sm-8 question-area">
+						<div class="title-part">
+							<h3><span>Part 1: </span>Picture description</h3>
+						</div>
+						<div class="test-box">
+							<div class="toeic-index">
+								<h4>Question 1</h4>
+							</div>
+							<div class="toeic-question">
+								<div class="pic-question">
+									<img src="images/1.jpg" class="img-responsive" alt="pic 1">
+								</div>
+							</div>
+							<div class="toeic-select">
+								<form class="toeic-form">
+									<label class="radio-inline">
+										<strong>A.</strong>
+										<span></span>
+									</label>
+									<label class="radio-inline">
+										<strong>B.</strong>
+										<span></span>
+									</label>
+									<label class="radio-inline">
+										<strong>C.</strong>
+										<span></span>
+									</label>
+									<label class="radio-inline">
+										<strong>D.</strong>
+										<span></span>
+									</label>
+								</form>
+							</div>
+							<div class="toeic-btn text-center">
+								<button type="button" class="btn btn-default" id="submit_demo">BACK</button>
+								<button type="button" class="btn btn-default" id="submit_demo">NEXT</button>
+							</div>					
+						</div>
+					</div> <!-- end col 8 -->
+	
+					<div class="col-sm-4 answersheet-area">
+						<div class="title-part">
+							<h3 class="text-center">Answer sheet</h3>
+						</div>					
+						<div class="answer-area">
+							<div class="toiec-form">
+								<label class="ques-no">1.</label>
+								<label class="radio-inline">
+									<input type="radio" name="optradio">
+									<strong>A</strong>
+								</label>
+								<label class="radio-inline">
+									<input type="radio" name="optradio">
+									<strong>B</strong>
+								</label>
+								<label class="radio-inline">
+									<input type="radio" name="optradio">
+									<strong>C</strong>
+								</label>
+								<label class="radio-inline">
+									<input type="radio" name="optradio">
+									<strong>D</strong>
+								</label>
+							</div>
+	
+							<div class="toiec-form">
+								<label class="ques-no">2.</label>
+								<label class="radio-inline">
+									<input type="radio" name="optradio1">
+									<strong>A</strong>
+								</label>
+								<label class="radio-inline">
+									<input type="radio" name="optradio1">
+									<strong>B</strong>
+								</label>
+								<label class="radio-inline">
+									<input type="radio" name="optradio1">
+									<strong>C</strong>
+								</label>
+								<label class="radio-inline">
+									<input type="radio" name="optradio1">
+									<strong>D</strong>
+								</label>
+							</div>
+	
+							<div class="toiec-form">
+								<label class="ques-no">3.</label>
+								<label class="radio-inline">
+									<input type="radio" name="optradio2">
+									<strong>A</strong>
+								</label>
+								<label class="radio-inline">
+									<input type="radio" name="optradio2">
+									<strong>B</strong>
+								</label>
+								<label class="radio-inline">
+									<input type="radio" name="optradio2">
+									<strong>C</strong>
+								</label>
+								<label class="radio-inline">
+									<input type="radio" name="optradio2">
+									<strong>D</strong>
+								</label>
+							</div>
+							<div class="toiec-form">
+								<label class="ques-no">4.</label>
+								<label class="radio-inline">
+									<input type="radio" name="optradio3">
+									<strong>A</strong>
+								</label>
+								<label class="radio-inline">
+									<input type="radio" name="optradio3">
+									<strong>B</strong>
+								</label>
+								<label class="radio-inline">
+									<input type="radio" name="optradio3">
+									<strong>C</strong>
+								</label>
+								<label class="radio-inline">
+									<input type="radio" name="optradio3">
+									<strong>D</strong>
+								</label>
+							</div>						
+						</div>
+	
+					</div>
+				</div>
+			</div>
+			</div>
+	</div>
+</body>
+</html>

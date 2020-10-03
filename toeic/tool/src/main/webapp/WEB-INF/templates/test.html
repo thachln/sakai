@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+<meta charset="UTF-8">
+<title>Test Toeic</title>
+<!-- Style -->
+<link href="resources/css/mystyle.css" rel="stylesheet" type="text/css" media="all">
+<link href="resources/css/bootstrap.min.css" rel="stylesheet" type="text/css" media="all">
+<link rel="stylesheet" type="text/css" th:href="@{'resources/robust-admin/app-assets/css/plugins/ui/jqueryui.css'}">
+<link rel="stylesheet" type="text/css" th:href="@{'resources/robust-admin/app-assets/vendors/css/ui/jquery-ui.min.css'}">
+<link rel="stylesheet" type="text/css"
+    href="resources/robust-admin/app-assets/vendors/css/extensions/jquery.toolbar.css">
+<link rel="stylesheet" type="text/css" href="resources/robust-admin/app-assets/vendors/css/extensions/sweetalert.css">
+<link rel="stylesheet" type="text/css" href="resources/robust-admin/app-assets/vendors/css/extensions/toastr.css">
+<link rel="stylesheet" type="text/css"
+    href="resources/robust-admin/app-assets/vendors/css/forms/toggle/bootstrap-switch.min.css">
+<style type="text/css" id="extraStyle">
+.toast {
+	opacity: 1 !important;
+}
+
+.ui-dialog .ui-icon-closethick:after {
+	content: none;
+}
+</style>
+</head>
+<body>
+
+    <div class="full-width-dialog ui-dialog-content ui-widget-content" style="display: none; z-index: 9999;" id="dlgImg">
+        <img id="imgQ" src="" alt="No Image...">
+    </div>
+    <div class="full-width-dialog ui-dialog-content ui-widget-content" style="display: none; z-index: 9999;"
+        id="rankDlg">
+        <div class="text-center">
+            <h4>Top Students</h4>
+        </div>
+        <ul class="list list-unstyled">
+            <li th:each="agd,iter : ${ags}"><div class="message" th:text="${iter.count + '. ' + agd.agentId}"></div>
+                <span class="time" th:text="${#numbers.formatInteger(agd.finalScore,3) + ' point'}"></span></li>
+        </ul>
+    </div>
+
+    <div id="transport-options" class="toolbar-icons hidden">
+        <a href="score"><i class="fa fa-file" title="Conversion chart"></i></a> <a href="usage"><i
+            class="fa fa-question" title="Instruction manual"></i></a> <a href="rNotes"><i class="fa fa-list-alt"
+            title="Release notes"></i></a> <a href="ranks"><i class="fa fa-list-ol" title="Ranking"></i></a>
+    </div>
+
+    <div class="default-dialog ui-dialog-content ui-widget-content" style="display: none; z-index: 9999;"
+        id="dlgAudioText"></div>
+
+    <th:block th:include="release_notes"></th:block>
+
+    <div class="container-fluid">
+        <th:block th:include="confirm_submit"></th:block>
+        <!--         <div class="scroll-text" id="rankBoard" style="width: 300px;"> -->
+        <!--             <ul class="list list-unstyled"> -->
+        <!--                 <li th:each="agd,iter : ${ags}"><div class="message" th:text="${iter.count + '. ' + agd.agentId}"></div> -->
+        <!--                     <span class="time" th:text="${#numbers.formatInteger(agd.finalScore,3) + ' point'}"></span></li> -->
+        <!--             </ul> -->
+        <!--         </div> -->
+        <div class="row">
+            <div class="col-md-4">
+                <div data-toolbar="set-04" class="btn-toolbar btn-toolbar-primary mx-auto" data-toolbar-style="primary">
+                    <i class="fa fa-info-circle"></i>
+                </div>
+            </div>
+            <div class="col-md-4 text-center">
+                <h2 id="assessmentTitle">THE TOEIC TEST</h2>
+            </div>
+            <div class="col-md-4">
+                <div class="toeic-clock text-center">
+                    <div id="time-remain-area" class="collapse in">
+                        Time remaining: <span id="time_remain"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div id="recognition" class="hidden">
+            <div style="margin-bottom: 10px;">
+                <label for="videoSource">Video source: </label><select id="videoSource" style="margin-left: 5px;"></select>
+            </div>
+            <div class="text-center" style="position: relative;">
+                <video muted="" autoplay="" id="screenshot"></video>
+                <br> <i id="screenshot-button" class="fa fa-camera"
+                    style="position: relative; font-size: 50px; cursor: pointer; bottom: 70px;"></i>
+            </div>
+            <img src="" id="screenshot" style="display: none;">
+            <canvas style="display: none;"></canvas>
+        </div>
+        <div id="start_page">
+            <div class="contain text-center">
+                <div id="info_toeic" class="info-toeic"></div>
+                <div class="info-test jumbotron">
+                    <div id="description"></div>
+                </div>
+
+                <label class="checkbox-inline" style="margin-bottom: 10px;"> Load all resources before
+                    starting the assessment <input type="checkbox" class="switchBootstrap" id="switchBootstrap20"
+                    data-on-color="info" checked="">
+                </label>
+                <br>
+                <label class="checkbox-inline" style="padding-left: 30px;"> Layout for Reading Parts 5~7 <input id="templateT" type="checkbox" checked data-toggle="toggle" data-on-text="Question By Question" data-off-text="Part by Part" data-on-color="success" data-off-color="info">
+                </label>
+                <br>
+                <p><strong>Question by question:</strong> Each question is on a separate page.</p>
+                <p><strong>Part by part:</strong> All questions of each part are displayed on a page.</p>
+                <a id="start_test" class="btn btn-primary btn-lg mt-1 disabled" style="margin-top: 20px;">Start</a>
+            </div>
+        </div>
+        <div id="test_page" class="hidden">
+            <div class="toeic-contain">
+                <div class="row">
+                    <!-- question area -->
+                    <div class="col-sm-8 question-area">
+                        <div class="area-part" id="question_contain"></div>
+                    </div>
+                    <!-- end col 8 -->
+
+                    <!-- answer area -->
+                    <div class="col-sm-4">
+                        <div class="title-part">
+                            <h3 class="text-center">
+                                <button class="btn btn-info" style="margin: 5px;" onclick="toastr.remove();">
+                                    <i class="fa fa-bell-slash"></i>
+                                </button>
+                                Answer sheet
+                            </h3>
+                        </div>
+                        <div id="answer_sheet" class="answer-area"></div>
+                        <div class="btnGroup">
+                            <div class="col-md-12">
+                                <button type="button" class="btn btn-success" id="saveBtn">SAVE</button>
+                                <button type="button" class="btn btn-success" id="submitBtn">SUBMIT</button>
+                                <div id="result" class="hidden-xs" role="alert" style="display: none" align="center">
+                                    <strong align="center">Save OK</strong>
+                                </div>
+                                <div class="loader" style="display: none" id="loading"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- end col 4 -->
+
+                </div>
+                <!-- Footer bar -->
+                <div class="row">
+                    <div class="col-sm-8">
+                        <div class="footer-bar">
+                            <div class="toeic-btn text-center">
+                                <button type="button" class="btn btn-default hidden" id="backBtn">BACK</button>
+                                <button type="button" class="btn btn-default" id="nextBtn">NEXT</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+    <div id="result_page" class="jumbotron text-center hidden"></div>
+
+    <th:block th:include="version"></th:block>
+
+    <!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
+    <!-- 	<script type="text/javascript" src="resources/js/jquery-3.1.1.min.js"></script> -->
+    <!-- 	<script type="text/javascript" src="resources/js/bootstrap.min.js"></script> -->
+    <!-- jQuery library -->
+    <script src="/library/webjars/jquery/3.4.1/dist/jquery.min.js"></script>
+    <script src="/library/webjars/bootstrap/3.3.7/js/bootstrap.min.js"></script>
+    <script type="text/javascript" src="resources/robust-admin/app-assets/js/core/libraries/jquery_ui/jquery-ui.min.js"></script>
+    <script type="text/javascript" src="resources/robust-admin/app-assets/js/scripts/extensions/block-ui.js"></script>
+    <script type="text/javascript" src="resources/robust-admin/app-assets/vendors/js/ui/jquery.sticky.js"></script>
+    <script type="text/javascript" src="resources/robust-admin/app-assets/vendors/js/charts/chart.min.js"></script>
+    <script type="text/javascript" src="resources/robust-admin/app-assets/vendors/js/extensions/jquery.toolbar.min.js"></script>
+    <script type="text/javascript" src="resources/robust-admin/app-assets/vendors/js/extensions/toastr.min.js"></script>
+    <script type="text/javascript" src="resources/js/jquery.scrollbox.js"></script>
+    <script type="text/javascript" src="resources/robust-admin/app-assets/vendors/js/extensions/sweetalert.min.js"></script>
+    <script type="text/javascript"
+        src="resources/robust-admin/app-assets/vendors/js/forms/toggle/bootstrap-switch.min.js"></script>
+    <script type="text/javascript"
+        src="resources/robust-admin/app-assets/vendors/js/forms/toggle/bootstrap-checkbox.min.js"></script>
+
+    <script th:inline="javascript">
+	/*<![CDATA[*/
+
+		var userEid = /*[[${userEid}]]*/ '';
+		console.log(userEid);
+
+	/*]]>*/
+	</script>
+
+    <script type="text/javascript" src="resources/js/d3.min.js"></script>
+    <script type="text/javascript" src="resources/js/FileSaver.js"></script>
+    <script type="text/javascript" src="resources/js/data_toeic.js"></script>
+    <script type="text/javascript" src="resources/js/adapter.js"></script>
+    <script type="text/javascript" src="resources/js/chart.js"></script>
+    <script type="text/javascript" src="resources/js/config.js"></script>
+    <script type="text/javascript" src="resources/js/toeic.js"></script>
+    <script type="text/javascript" src="resources/js/camera.js"></script>
+    <script type="text/javascript" src="resources/js/initFunc.js"></script>
+</body>
+</html>

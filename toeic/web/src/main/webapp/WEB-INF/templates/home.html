@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+<meta charset="UTF-8">
+<title>Test Toeic</title>
+<!-- Latest compiled and minified CSS -->
+<link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css">
+
+<!-- Style -->
+<link href="resources/css/bootstrap.css" rel="stylesheet" type="text/css" media="all">
+<link href="resources/css/font-awesome.min.css" rel="stylesheet" type="text/css" media="all">
+<link href="http://fonts.googleapis.com/css?family=Cabin:400,500,600,700" rel="stylesheet" type="text/css">
+<link href="resources/css/mystyle.css" rel="stylesheet" type="text/css" media="all">	
+</head>
+<body>
+
+    <div th:replace="~{fragments/header :: header}">Header</div>
+	<div class="container">
+		<div class="contain text-center">
+			<h2>THE TOEIC TEST</h2>
+			<div class="info-test jumbotron">
+				<p>Based on the TOEIC test structure, this test has a total of 7 sections, including 4 Listening sections and 3 Reading sections.</p>
+				<p>The results of this test are assessed on the basis of the TOEIC score method. The scores you receive will not guarantee your actual TOEIC score, but will more or less reflect the likelihood of achieving an equivalent score.</p>
+				<p class="note">Note: To be honest, you should try to complete the exam within 120 minutes.</p>
+			</div>
+			<a href="test" class="btn btn-primary btn-lg">Start</a>
+		</div>
+	</div>
+    <div th:replace="~{fragments/footer :: footer}">Footer</div>
+
+	<!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
+	<script type="text/javascript" src="resources/js/jquery-3.1.1.min.js"></script>
+	<script type="text/javascript" src="resources/js/bootstrap.min.js"></script>
+    <script type="text/javascript" src="resources/js/myjs.js"></script>  
+</body>
+</html>

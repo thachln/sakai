@@ -1,0 +1,29 @@
+<div class="modal fade" id="dlgCam" role="dialog">
+    <div class="modal-dialog">
+
+        <!-- Modal content-->
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 id="confirmModalTitle"></h4>
+            </div>
+            <div class="modal-body">
+                <div style="margin-bottom: 10px;">
+                    <label for="videoSource">Video source: </label><select id="videoSource" style="margin-left: 5px;"></select>
+                </div>
+                <div class="text-center" style="position: relative;">
+                    <video muted="" autoplay="" id="screenshot"></video>
+                    <br> <i id="screenshot-button" class="fa fa-camera"
+                        style="position: relative; font-size: 50px; cursor: pointer; bottom: 70px;"></i>
+                </div>
+                <div id="images" style="display: inline;">
+                    <!--                     <img src="" class="thumb" style="width: 150px" alt="Person"> -->
+                </div>
+                <canvas style="display: none;"></canvas>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-success" data-dismiss="modal" id="createStaff" disabled>Submit</button>
+            </div>
+        </div>
+
+    </div>
+</div>

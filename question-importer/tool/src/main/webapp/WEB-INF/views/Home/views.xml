@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE tiles-definitions PUBLIC "-//Apache Software Foundation//DTD Tiles Configuration
+3.0//EN" "http://tiles.apache.org/dtds/tiles-config_3_0.dtd">
+<tiles-definitions>
+    <definition name="home" extends="default">
+        <put-attribute name="css" value="/WEB-INF/views/Home/css.jsp" />
+        <put-attribute name="body" value="/WEB-INF/views/Home/home.jsp" />
+        <put-attribute name="js" value="/WEB-INF/views/Home/js.jsp" />
+    </definition>
+</tiles-definitions>
