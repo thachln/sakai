@@ -508,12 +508,17 @@ public class ShowPageProducer implements ViewComponentProducer, DefaultView, Nav
 
 		// clear session attribute if necessary, after calling Samigo
 		String clearAttr = params.getClearAttr();
+		if (StringUtils.isBlank(clearAttr)) {
+			// TODO RSF is not populating viewParams correctly so we get it off the request
+			clearAttr = httpServletRequest.getParameter("clearAttr");
+		}
 
-		if (clearAttr != null && !clearAttr.equals("")) {
+		if (StringUtils.isNotBlank(clearAttr)) {
 			Session session = SessionManager.getCurrentSession();
 			// don't let users clear random attributes
 			if (clearAttr.startsWith("LESSONBUILDER_RETURNURL")) {
 				session.setAttribute(clearAttr, null);
+				params.setClearAttr(null);
 			}
 		}
 
@@ -4933,7 +4938,7 @@ public class ShowPageProducer implements ViewComponentProducer, DefaultView, Nav
 			UIOutput.make(form, "cssDefaultInstructions", messageLocator.getMessage("simplepage.css-default-instructions"));
 			UIOutput.make(form, "cssUploadLabel", messageLocator.getMessage("simplepage.css-upload-label"));
 			UIOutput.make(form, "cssUpload");
-			boolean showSetOwner = ServerConfigurationService.getBoolean("lessonbuilder.show.set.owner", true);
+			boolean showSetOwner = ServerConfigurationService.getBoolean("lessonbuilder.show.set.owner", false);
 			if (showSetOwner){
 				//Set the changeOwner dropdown in the settings dialog
 				UIOutput.make(form, "ownerDefaultInstructions", messageLocator.getMessage("simplepage.owner-default-instructions")

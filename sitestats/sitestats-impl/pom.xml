@@ -14,7 +14,7 @@
     <parent>
         <groupId>org.sakaiproject.sitestats</groupId>
         <artifactId>sitestats</artifactId>
-        <version>19.4</version><!-- sitestats.version -->
+        <version>19.5</version><!-- sitestats.version -->
     </parent>
 
     <!-- Packaging -->
@@ -159,7 +159,7 @@
 
         <!-- JFreeChart -->
         <dependency>
-            <groupId>jfree</groupId>
+            <groupId>org.jfree</groupId>
             <artifactId>jfreechart</artifactId>
         </dependency>
 
