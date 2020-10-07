@@ -4,7 +4,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>mksgroup.konva2d.chart</groupId>
 	<artifactId>konva2d-chart</artifactId>
-	<version>19.4</version>
+	<version>19.5</version>
 	<packaging>pom</packaging>
 	<name>sakai-spring-maven-archetype</name>
 	<description>Archetype to generate a project with sakai and spring</description>
@@ -13,7 +13,7 @@
     <parent>
         <groupId>org.sakaiproject</groupId>
         <artifactId>master</artifactId>
-        <version>19.4</version>
+        <version>19.5</version>
         <relativePath>../master/pom.xml</relativePath>
     </parent>
 <!-- 	<parent> -->
@@ -29,13 +29,13 @@
 			<dependency>
 				<groupId>mksgroup.konva2d.chart</groupId>
 				<artifactId>konva2d-chart-api</artifactId>
-				<version>19.4</version>
+				<version>19.5</version>
 			</dependency>
 
 			<dependency>
 				<groupId>mksgroup.konva2d.chart</groupId>
 				<artifactId>konva2d-chart-impl</artifactId>
-				<version>19.4</version>
+				<version>19.5</version>
 			</dependency>
 
 			<dependency>

@@ -3,7 +3,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>mksgroup.konva2d.chart</groupId>
     <artifactId>konva2d-chart-web</artifactId>
-    <version>19.4</version>
+    <version>19.5</version>
     <name>konva2d-chart-web</name>
     <packaging>war</packaging>
 

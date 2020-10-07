@@ -5,7 +5,7 @@
 	<parent>
 		<artifactId>baseapp</artifactId>
 		<groupId>mksgroup.sakai.baseapp</groupId>
-		<version>19.4</version>
+		<version>19.5</version>
 	</parent>
 <!-- 	<groupId>mksgroup.sakai.baseapp</groupId> -->
 	<artifactId>baseapp-common</artifactId>

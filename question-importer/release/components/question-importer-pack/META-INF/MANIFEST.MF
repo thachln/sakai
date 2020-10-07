@@ -1,5 +1,0 @@
-Manifest-Version: 1.0
-Built-By: Le Ngoc Thach
-Created-By: Apache Maven
-Build-Jdk: 1.8.0_192
-
