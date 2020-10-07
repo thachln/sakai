@@ -9,7 +9,7 @@
 	<parent>
 		<groupId>org.sakaiproject</groupId>
 		<artifactId>master</artifactId>
-		<version>21-SNAPSHOT</version>
+		<version>22-SNAPSHOT</version>
 		<relativePath>../master/pom.xml</relativePath>
 	</parent>
 	<properties>
@@ -37,6 +37,7 @@
 		</dependencies>
 	</dependencyManagement>
 	<modules>
+		<module>bundle</module>
 		<module>tool</module>
 	</modules>
 	<build>

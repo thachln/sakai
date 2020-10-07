@@ -17,21 +17,23 @@ package org.sakaiproject.site.tool;
 
 import static org.sakaiproject.site.util.SiteConstants.STATE_TEMPLATE_INDEX;
 
-import java.io.UnsupportedEncodingException;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.text.NumberFormat;
+import java.time.Year;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Hashtable;
@@ -60,6 +62,7 @@ import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.io.filefilter.WildcardFileFilter;
+import org.apache.commons.lang.math.NumberUtils;
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.BooleanUtils;
 import org.apache.commons.lang3.ObjectUtils;
@@ -152,9 +155,7 @@ import org.sakaiproject.sitemanage.api.model.SiteSetupQuestionAnswer;
 import org.sakaiproject.sitemanage.api.model.SiteSetupUserAnswer;
 import org.sakaiproject.sitemanage.api.model.SiteTypeQuestions;
 import org.sakaiproject.thread_local.cover.ThreadLocalManager;
-import org.sakaiproject.time.api.Time;
-import org.sakaiproject.time.api.TimeBreakdown;
-import org.sakaiproject.time.cover.TimeService;
+import org.sakaiproject.time.api.UserTimeService;
 import org.sakaiproject.tool.api.Tool;
 import org.sakaiproject.tool.api.ToolException;
 import org.sakaiproject.tool.api.ToolSession;
@@ -169,18 +170,17 @@ import org.sakaiproject.userauditservice.api.UserAuditRegistration;
 import org.sakaiproject.userauditservice.api.UserAuditService;
 import org.sakaiproject.util.BaseResourcePropertiesEdit;
 import org.sakaiproject.util.FileItem;
-import org.sakaiproject.util.FormattedText;
 import org.sakaiproject.util.ParameterParser;
 import org.sakaiproject.util.RequestFilter;
 import org.sakaiproject.util.ResourceLoader;
 import org.sakaiproject.util.SortedIterator;
 import org.sakaiproject.util.Validator;
+import org.sakaiproject.util.api.FormattedText;
 import org.sakaiproject.util.api.LinkMigrationHelper;
 import org.sakaiproject.util.comparator.GroupTitleComparator;
 import org.sakaiproject.util.comparator.ToolTitleComparator;
 
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang.math.NumberUtils;
 
 /**
  * <p>
@@ -234,6 +234,8 @@ public class SiteAction extends PagedResourceActionII {
 
 	private AliasService aliasService = ComponentManager.get(AliasService.class);
 	
+	private FormattedText formattedText = ComponentManager.get(FormattedText.class);
+	
 	private static org.sakaiproject.sitemanage.api.model.SiteSetupQuestionService questionService = (org.sakaiproject.sitemanage.api.model.SiteSetupQuestionService) ComponentManager
 	.get(org.sakaiproject.sitemanage.api.model.SiteSetupQuestionService.class);
 	
@@ -246,7 +248,7 @@ public class SiteAction extends PagedResourceActionII {
 
 	private MemoryService memoryService = (MemoryService) ComponentManager.get(MemoryService.class);
 	private Cache m_userSiteCache = memoryService.newCache("org.sakaiproject.site.api.SiteService.userSiteCache");
-
+	private UserTimeService userTimeService = ComponentManager.get(UserTimeService.class);
 	private static DeveloperHelperService devHelperService = (DeveloperHelperService) ComponentManager.get(DeveloperHelperService.class);
 
 	private static final String SITE_MODE_SITESETUP = "sitesetup";
@@ -1318,7 +1320,6 @@ public class SiteAction extends PagedResourceActionII {
 	public String buildMainPanelContext(VelocityPortlet portlet,
 			Context context, RunData data, SessionState state,
 			boolean inShortcut) {
-		rb = new ResourceLoader("sitesetupgeneric");
 		context.put("tlang", rb);
 		context.put("clang", cfgRb);
 		// TODO: what is all this doing? if we are in helper mode, we are
@@ -1713,7 +1714,7 @@ public class SiteAction extends PagedResourceActionII {
 
 			//Add flash notification when new site is created
 			if(state.getAttribute(STATE_NEW_SITE_STATUS_ID) != null){
-				String siteTitle = Validator.escapeHtml((String)state.getAttribute(STATE_NEW_SITE_STATUS_TITLE));
+				String siteTitle = formattedText.escapeHtml((String)state.getAttribute(STATE_NEW_SITE_STATUS_TITLE));
 				String  flashNotifMsg = "<a title=\"" + siteTitle + "\"href=\"/portal/site/"+
 				state.getAttribute(STATE_NEW_SITE_STATUS_ID) + "\" target=\"_top\">"+
 				siteTitle+"</a>" +" "+
@@ -2076,7 +2077,7 @@ public class SiteAction extends PagedResourceActionII {
 			realmId = SiteService.siteReference(site.getId());
 			try {
 				AuthzGroup realm = authzGroupService.getAuthzGroup(realmId);
-				context.put("realmModifiedTime",realm.getModifiedTime().toStringLocalFullZ());
+				context.put("realmModifiedTime",getDateFormat(realm.getModifiedDate()));
 			} catch (GroupNotDefinedException e) {
 				log.warn("{} IdUnusedException {}", this, realmId);
 			}
@@ -2091,14 +2092,14 @@ public class SiteAction extends PagedResourceActionII {
 
 			// Site modified by information
 			User siteModifiedBy = site.getModifiedBy();
-			Time siteModifiedTime = site.getModifiedTime();
+			Date siteModifiedTime = site.getModifiedDate();
 			if( siteModifiedBy != null )
 			{
 				context.put( "siteModifiedBy", siteModifiedBy.getSortName() );
 			}
 			if( siteModifiedTime != null )
 			{
-				context.put( "siteModifiedTime", siteModifiedTime.toStringLocalFull() );
+				context.put( "siteModifiedTime", getDateFormat(siteModifiedTime));
 			}
 
 			try {
@@ -2143,10 +2144,9 @@ public class SiteAction extends PagedResourceActionII {
 				} else {
 					context.put("published", Boolean.FALSE);
 				}
-				Time creationTime = site.getCreatedTime();
+				Date creationTime = site.getCreatedDate();
 				if (creationTime != null) {
-					context.put("siteCreationDate", creationTime
-							.toStringLocalFull());
+					context.put("siteCreationDate", getDateFormat(creationTime));
 				}
 
 				ResourceProperties siteProperties = site.getProperties();
@@ -4929,7 +4929,7 @@ public class SiteAction extends PagedResourceActionII {
 				.getPortletSessionState(((JetspeedRunData) data).getJs_peid());
 
 		// read the search form field into the state object
-		String search = StringUtils.trimToNull(Validator.escapeHtml(data.getParameters().getString(FORM_SEARCH)));
+		String search = StringUtils.trimToNull(formattedText.escapeHtml(data.getParameters().getString(FORM_SEARCH)));
 
 		// If there is no search term provided, remove any previous search term from state
 		if (StringUtils.isBlank(search)) {
@@ -5585,9 +5585,6 @@ public class SiteAction extends PagedResourceActionII {
 		state.setAttribute(STATE_TEMPLATE_INDEX, "0"); // return to the site
 		// list
 
-		// TODO: hard coding this frame id is fragile, portal dependent, and
-		// needs to be fixed -ggolden
-		// schedulePeerFrameRefresh("sitenav");
 		scheduleTopRefresh();
 
 	} // doSite_delete_confirmed
@@ -7076,9 +7073,6 @@ private Map<String, List<MyTool>> getTools(SessionState state, String type, Site
 				saveSiteSetupQuestionUserAnswers(state, site.getId());
 			}
 			
-			// TODO: hard coding this frame id is fragile, portal dependent, and
-			// needs to be fixed -ggolden
-			// schedulePeerFrameRefresh("sitenav");
 			scheduleTopRefresh();
 
 			resetPaging(state);
@@ -7463,10 +7457,6 @@ private Map<String, List<MyTool>> getTools(SessionState state, String type, Site
 			Site site = getStateSite(state);
 			String id = site.getId();
 			String title = site.getTitle();
-
-			Time time = TimeService.newTime();
-			String local_time = time.toStringLocalTime();
-			String local_date = time.toStringLocalDate();
 
 			AcademicSession term = null;
 			boolean termExist = false;
@@ -8461,7 +8451,7 @@ private Map<String, List<MyTool>> getTools(SessionState state, String type, Site
 		}
 
 		//Process description so it doesn't give an error on home
-		siteInfo.description = FormattedText.processFormattedText(siteInfo.description, new StringBuilder());
+		siteInfo.description = formattedText.processFormattedText(siteInfo.description, new StringBuilder());
 		
 		Site.setDescription(siteInfo.description);
 		Site.setShortDescription(siteInfo.short_description);
@@ -9362,9 +9352,6 @@ private Map<String, List<MyTool>> getTools(SessionState state, String type, Site
 				}
 				state.setAttribute(STATE_TEMPLATE_INDEX, SiteConstants.SITE_INFO_TEMPLATE_INDEX);
 
-				// TODO: hard coding this frame id is fragile, portal dependent,
-				// and needs to be fixed -ggolden
-				// schedulePeerFrameRefresh("sitenav");
 				scheduleTopRefresh();
 
 				state.removeAttribute(STATE_JOINABLE);
@@ -9856,7 +9843,7 @@ private Map<String, List<MyTool>> getTools(SessionState state, String type, Site
 					if (state.getAttribute(STATE_MESSAGE) == null) {
 						// duplicated site title is editable; cannot but null/empty after HTML stripping, and cannot exceed max length
 						String titleOrig = params.getString("title");
-						String titleStripped = FormattedText.stripHtmlFromText(titleOrig, true, true);
+						String titleStripped = formattedText.stripHtmlFromText(titleOrig, true, true);
 						if (isSiteTitleValid(titleOrig, titleStripped, state)) {
 							state.setAttribute(SITE_DUPLICATED_NAME, titleStripped);
 
@@ -10088,10 +10075,6 @@ private Map<String, List<MyTool>> getTools(SessionState state, String type, Site
 										log.warn(this + " actionForTemplate chef_siteinfo-duplicate:: PermissionException when saving " + newSiteId);
 									}
 
-									// TODO: hard coding this frame id
-									// is fragile, portal dependent, and
-									// needs to be fixed -ggolden
-									// schedulePeerFrameRefresh("sitenav");
 									scheduleTopRefresh();
 
 									// send site notification
@@ -10891,7 +10874,7 @@ private Map<String, List<MyTool>> getTools(SessionState state, String type, Site
 		{
 			// site title is editable; cannot but null/empty after HTML stripping, and cannot exceed max length
 			String titleOrig = params.getString("title");
-			String titleStripped = FormattedText.stripHtmlFromText(titleOrig, true, true);
+			String titleStripped = formattedText.stripHtmlFromText(titleOrig, true, true);
 			if (isSiteTitleValid(titleOrig, titleStripped, state)) {
 				siteInfo.title = titleStripped;
 			}
@@ -10900,7 +10883,7 @@ private Map<String, List<MyTool>> getTools(SessionState state, String type, Site
 		if (params.getString("description") != null) {
 			StringBuilder alertMsg = new StringBuilder();
 			String description = params.getString("description");
-			siteInfo.description = FormattedText.processFormattedText(description, alertMsg);
+			siteInfo.description = formattedText.processFormattedText(description, alertMsg);
 		}
 		if (params.getString("short_description") != null) {
 			siteInfo.short_description = params.getString("short_description");
@@ -10910,7 +10893,7 @@ private Map<String, List<MyTool>> getTools(SessionState state, String type, Site
 		}
 		String icon = params.getString("iconUrl");
 		if (icon != null) {
-			if (!(icon.isEmpty() || FormattedText.validateURL(icon))) {
+			if (!(icon.isEmpty() || formattedText.validateURL(icon))) {
 				addAlert(state, rb.getString("alert.protocol"));
 			}
 			siteInfo.iconUrl = icon;
@@ -10946,7 +10929,7 @@ private Map<String, List<MyTool>> getTools(SessionState state, String type, Site
 		if (email != null) {
 			if (!email.isEmpty() && !EmailValidator.getInstance().isValid(email)) {
 				// invalid email
-				addAlert(state, rb.getFormattedMessage("java.invalid.email", new Object[]{FormattedText.escapeHtml(email,false)}));
+				addAlert(state, rb.getFormattedMessage("java.invalid.email", new Object[]{formattedText.escapeHtml(email,false)}));
 			}
 			siteInfo.site_contact_email = email;
 		}
@@ -10983,7 +10966,7 @@ private Map<String, List<MyTool>> getTools(SessionState state, String type, Site
 			return false;
 		}
 		boolean isSimpleResourceName = aliasId.equals(Validator.escapeResourceName(aliasId));
-		boolean isSimpleUrl = aliasId.equals(Validator.escapeUrl(aliasId));
+		boolean isSimpleUrl = aliasId.equals(formattedText.escapeUrl(aliasId));
 		if ( !(isSimpleResourceName) || !(isSimpleUrl) ) {
 			// The point of these site aliases is to have easy-to-recall,
 			// easy-to-guess URLs. So we take a very conservative approach
@@ -12611,8 +12594,7 @@ private Map<String, List<MyTool>> getTools(SessionState state, String type, Site
 	} // orderToolIds
 
 	private void setupFormNamesAndConstants(SessionState state) {
-		TimeBreakdown timeBreakdown = (TimeService.newTime()).breakdownLocal();
-		String mycopyright = COPYRIGHT_SYMBOL + " " + timeBreakdown.getYear()
+		String mycopyright = COPYRIGHT_SYMBOL + " " + Year.now().toString()
 				+ ", " + UserDirectoryService.getCurrentUser().getDisplayName()
 				+ ". All Rights Reserved. ";
 		state.setAttribute(STATE_MY_COPYRIGHT, mycopyright);
@@ -12891,7 +12873,7 @@ private Map<String, List<MyTool>> getTools(SessionState state, String type, Site
 							if (attributeInput != null)
 							{
 								// save the attribute input if valid, otherwise generate alert
-								if ( FormattedText.validateURL(attributeInput) )
+								if ( formattedText.validateURL(attributeInput) )
 									attributes.put(attribute, attributeInput);
 								else {
 									addAlert(state, rb.getString("java.invurl"));
@@ -13508,9 +13490,6 @@ private Map<String, List<MyTool>> getTools(SessionState state, String type, Site
 		// add the pre-configured site type tools to a new site
 		addSiteTypeFeatures(state);
 
-		// TODO: hard coding this frame id is fragile, portal dependent, and
-		// needs to be fixed -ggolden
-		// schedulePeerFrameRefresh("sitenav");
 		scheduleTopRefresh();
 
 		resetPaging(state);
@@ -13863,7 +13842,7 @@ private Map<String, List<MyTool>> getTools(SessionState state, String type, Site
 		}
 		
 		// now consider those user with affiliated sections
-		List affiliatedSectionEids = affiliatedSectionProvider.getAffiliatedSectionEids(userId, academicSessionEid);
+		List<String> affiliatedSectionEids = affiliatedSectionProvider.getAffiliatedSectionEids(userId, academicSessionEid);
 		if (affiliatedSectionEids != null)
 		{
 			for (int k = 0; k < affiliatedSectionEids.size(); k++) {
@@ -15837,6 +15816,7 @@ private Map<String, List<MyTool>> getTools(SessionState state, String type, Site
 		Site site = (Site) state.getAttribute("site");
 		SitePage page = (SitePage) state.getAttribute("overview");
 		List<ToolConfiguration> tools = (List<ToolConfiguration>) state.getAttribute("tools");
+		if ( tools == null ) return;
 		ToolConfiguration tool = null;
 
 		for(ToolConfiguration pageTool: tools){
@@ -15844,6 +15824,7 @@ private Map<String, List<MyTool>> getTools(SessionState state, String type, Site
 				tool = pageTool;
 			}
 		}
+		if ( tool == null ) return;
 		String hints = tool.getLayoutHints();
 		String[] hintArr = hints.split(",");
 		String col = null;
@@ -15922,6 +15903,7 @@ private Map<String, List<MyTool>> getTools(SessionState state, String type, Site
 		Site site = (Site) state.getAttribute("site");
 		SitePage page = (SitePage) state.getAttribute("overview");
 		List<ToolConfiguration> tools = (List<ToolConfiguration>) state.getAttribute("tools");
+		if ( tools == null ) return;
 		ToolConfiguration tool = null;
 
 		for(ToolConfiguration pageTool: tools){
@@ -15930,6 +15912,7 @@ private Map<String, List<MyTool>> getTools(SessionState state, String type, Site
 			}
 		}
 
+		if ( tool == null ) return;
 		String hints = tool.getLayoutHints();
 		String[] hintArr = hints.split(",");
 		String col = null;
@@ -16005,7 +15988,9 @@ private Map<String, List<MyTool>> getTools(SessionState state, String type, Site
 		// get the tool
 		Site site = (Site) state.getAttribute("site");
 		SitePage page = (SitePage) state.getAttribute("overview");
+		if ( page == null ) return;
 		ToolConfiguration tool = page.getTool(id);
+		if ( tool == null ) return;
 
 		// move it
 		String hints = tool.getLayoutHints();
@@ -16027,12 +16012,15 @@ private Map<String, List<MyTool>> getTools(SessionState state, String type, Site
 		SessionState state = ((JetspeedRunData) data).getPortletSessionState(((JetspeedRunData) data).getJs_peid());
 
 		String id = data.getParameters().getString("id");
+		if ( id == null ) return;
 		
 
 		// get the tool
 		Site site = (Site) state.getAttribute("site");
 		SitePage page = (SitePage) state.getAttribute("overview");
+		if ( page == null ) return;
 		ToolConfiguration tool = page.getTool(id);
+		if ( tool == null ) return;
 
 		// move it
 		String hints = tool.getLayoutHints();
@@ -16093,12 +16081,8 @@ private Map<String, List<MyTool>> getTools(SessionState state, String type, Site
 		state.removeAttribute("site");
 		state.removeAttribute("allWidgets");
 
-		// make sure auto-updates are enabled
-		enableObserver(state);
-
 		// TODO: hard coding this frame id is fragile, portal dependent, and needs to be fixed -ggolden
 		schedulePeerFrameRefresh("sitenav");
-
 
 		doContinue(data);
 
@@ -16215,6 +16199,7 @@ private Map<String, List<MyTool>> getTools(SessionState state, String type, Site
 
 		SitePage page = (SitePage) state.getAttribute("overview");
 		List<ToolConfiguration> tools = (List<ToolConfiguration>) state.getAttribute("tools");
+		if ( tools == null ) return;
 
 		List<ToolConfiguration> removedTools = (List<ToolConfiguration>) state.getAttribute("removedTools");
 		if(removedTools == null){
@@ -16231,5 +16216,10 @@ private Map<String, List<MyTool>> getTools(SessionState state, String type, Site
 		tools.removeAll(removedTools);
 
 		state.setAttribute("tools", tools);
+	}
+	
+	private String getDateFormat(Date date) {
+		String f = userTimeService.shortPreciseLocalizedTimestamp(date.toInstant(), userTimeService.getLocalTimeZone(), comparator_locale);
+		return f;
 	}
 }

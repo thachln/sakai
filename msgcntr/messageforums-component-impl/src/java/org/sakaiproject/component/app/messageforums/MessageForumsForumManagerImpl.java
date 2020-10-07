@@ -34,7 +34,7 @@ import java.util.TreeSet;
 
 import lombok.Getter;
 import lombok.Setter;
-import org.hibernate.Query;
+import org.hibernate.query.Query;
 import org.hibernate.collection.internal.PersistentSet;
 import org.sakaiproject.hibernate.HibernateUtils;
 
@@ -78,8 +78,8 @@ import org.sakaiproject.site.api.ToolConfiguration;
 import org.sakaiproject.tool.api.Placement;
 import org.sakaiproject.tool.api.SessionManager;
 import org.sakaiproject.tool.api.ToolManager;
-import org.springframework.orm.hibernate4.HibernateCallback;
-import org.springframework.orm.hibernate4.support.HibernateDaoSupport;
+import org.springframework.orm.hibernate5.HibernateCallback;
+import org.springframework.orm.hibernate5.support.HibernateDaoSupport;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -717,7 +717,7 @@ public class MessageForumsForumManagerImpl extends HibernateDaoSupport implement
       nonSpecifiedUser.setUuid(typeManager.getNotSpecifiedType());
       nonSpecifiedUser.setTypeUuid(typeManager.getNotSpecifiedType());
                   
-      actorPermissions.addAccesssor(nonSpecifiedUser);      
+      actorPermissions.addAccessor(nonSpecifiedUser);
       actorPermissions.addContributor(nonSpecifiedUser);
       actorPermissions.addModerator(nonSpecifiedUser);
        return actorPermissions;
@@ -914,6 +914,7 @@ public class MessageForumsForumManagerImpl extends HibernateDaoSupport implement
             discussionForum.addTopic(topic);
         } else {
             topicReturn = (DiscussionTopic) getSessionFactory().getCurrentSession().merge(topic);
+            topicReturn.setBaseForum(topic.getBaseForum());
         }
 
         //now schedule any jobs that are needed for the open/close dates
@@ -1526,6 +1527,7 @@ public class MessageForumsForumManagerImpl extends HibernateDaoSupport implement
 				.getNamedQuery("findAllowedGroupInTopic")
 				.setLong("id", topicId)
 				.setString("permissionLevelName", permissionName)
+                .setCacheable(true)
 				.uniqueResult();
 			return getHibernateTemplate().execute(hcb);
 		}
@@ -1538,6 +1540,7 @@ public class MessageForumsForumManagerImpl extends HibernateDaoSupport implement
 				.getNamedQuery("findAllowedGroupInForum")
 				.setLong("id", forumId)
 				.setString("permissionLevelName", permissionName)
+                .setCacheable(true)
 				.uniqueResult();
 			return getHibernateTemplate().execute(hcb);
 		}

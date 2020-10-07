@@ -73,6 +73,8 @@ import org.sakaiproject.exception.IdUnusedException;
 import org.sakaiproject.lti.api.LTIService;
 import org.sakaiproject.lti13.LineItemUtil;
 
+import org.springframework.cache.Cache;
+import org.springframework.cache.CacheManager;
 import org.tsugi.basiclti.BasicLTIUtil;
 import org.tsugi.jackson.JacksonUtil;
 import org.tsugi.lti13.LTI13KeySetUtil;
@@ -117,17 +119,63 @@ public class LTI13Servlet extends HttpServlet {
 	// TODO: Rotate these after a while
 	private KeyPair tokenKeyPair = null;
 
+    private CacheManager cacheManager;
+    private Cache cache;
+
+	private static final String CACHE_NAME = LTI13Servlet.class.getName() + "_cache";
+	private static final String CACHE_PUBLIC = "key::public";
+	private static final String CACHE_PRIVATE = "key::private";
+
 	@Override
 	public void init(ServletConfig config) throws ServletException {
 		super.init(config);
 		if (ltiService == null) {
 			ltiService = (LTIService) ComponentManager.get("org.sakaiproject.lti.api.LTIService");
 		}
+
+        cacheManager = (CacheManager) ComponentManager.get("org.sakaiproject.ignite.SakaiCacheManager");
+        cache = cacheManager.getCache(CACHE_NAME);
+
+		// Lets try to load from properties
+		if (tokenKeyPair == null) {
+			// lti.advantage.lti13servlet.public=MIIBIjANBgkqhkiG9w [snip] Yfu3RbCda/nq4lipjRQIDAQAB
+			String publicB64 = ServerConfigurationService.getString("lti.advantage.lti13servlet.public", null);
+			String privateB64 = ServerConfigurationService.getString("lti.advantage.lti13servlet.private", null);
+			if ( publicB64 != null && privateB64 != null) {
+				tokenKeyPair = LTI13Util.strings2KeyPair(publicB64, privateB64);
+				if ( tokenKeyPair == null ) {
+					Logger.getLogger(LTI13Servlet.class.getName()).log(Level.SEVERE, "Could not load tokenKeyPair from sakai.properties");
+				} else {
+					Logger.getLogger(LTI13Servlet.class.getName()).log(Level.INFO, "Loaded tokenKeyPair from sakai.properties");
+				}
+			}
+		}
+
+		// Get it from the cluster cache
+		if (tokenKeyPair == null) {
+			Cache.ValueWrapper publicB64 = cache.get(CACHE_PUBLIC);
+			Cache.ValueWrapper privateB64 = cache.get(CACHE_PRIVATE);
+			if ( publicB64 != null && privateB64 != null) {
+				tokenKeyPair = LTI13Util.strings2KeyPair((String) publicB64.get(), (String) privateB64.get());
+				if ( tokenKeyPair == null ) {
+					Logger.getLogger(LTI13Servlet.class.getName()).log(Level.SEVERE, "Could not parse tokenKeyPair from Ignite Cache");
+				} else {
+					Logger.getLogger(LTI13Servlet.class.getName()).log(Level.INFO, "Loaded tokenKeyPair from Ignite Cache");
+				}
+			}
+        }
+
+		// Lets make a new key
 		if (tokenKeyPair == null) {
 			try {
 				KeyPairGenerator keyGen = KeyPairGenerator.getInstance("RSA");
 				keyGen.initialize(2048);
 				tokenKeyPair = keyGen.genKeyPair();
+				String publicB64 = LTI13Util.getPublicB64(tokenKeyPair);
+				String privateB64 = LTI13Util.getPrivateB64(tokenKeyPair);
+				cache.put(CACHE_PUBLIC, publicB64);
+				cache.put(CACHE_PRIVATE, privateB64);
+				Logger.getLogger(LTI13Servlet.class.getName()).log(Level.INFO, "Generated tokenKeyPair and stored in Ignite Cache");
 			} catch (NoSuchAlgorithmException ex) {
 				Logger.getLogger(LTI13Servlet.class.getName()).log(Level.SEVERE, "Unable to generate tokenKeyPair", ex);
 			}
@@ -141,6 +189,18 @@ public class LTI13Servlet extends HttpServlet {
 		String[] parts = uri.split("/");
 
 		SakaiLineItem filter = getLineItemFilter(request);
+
+		// /imsblis/lti13/proxy
+		if (parts.length == 4 && "proxy".equals(parts[3])) {
+			handleProxy(request, response);
+			return;
+		}
+
+		// /imsblis/lti13/sakai-config
+		if (parts.length == 4 && "sakai_config".equals(parts[3])) {
+			handleSakaiConfig(request, response);
+			return;
+		}
 
 		// Get a keys for a client_id
 		// /imsblis/lti13/keyset/{tool-id}
@@ -235,6 +295,12 @@ public class LTI13Servlet extends HttpServlet {
 
 		String[] parts = uri.split("/");
 
+		// /imsblis/lti13/lineitems/{signed-placement}/{lineitem-id}
+		if (parts.length == 5 && "lineitem".equals(parts[3])) {
+			log.error("Attempt to modify on-demand line item request={}", uri);
+			LTI13Util.return400(response, "Attempt to modify an 'on-demand' line item");
+			return;
+		}
 
 		// Handle lineitems created by the tool
 		// /imsblis/lti13/lineitems/{signed-placement}/{lineitem-id}
@@ -245,8 +311,8 @@ public class LTI13Servlet extends HttpServlet {
 			return;
 		}
 
-		log.error("Unrecognized DELETE request parts={} request={}", parts.length, uri);
-		LTI13Util.return400(response, "Unrecognized DELETE request parts="+parts.length+" request="+uri);
+		log.error("Unrecognized PUT request parts={} request={}", parts.length, uri);
+		LTI13Util.return400(response, "Unrecognized PUT request parts="+parts.length+" request="+uri);
 	}
 
 	protected void doPost(HttpServletRequest request, HttpServletResponse response)
@@ -293,6 +359,116 @@ public class LTI13Servlet extends HttpServlet {
 		log.error("Unrecognized POST request parts={} request={}", parts.length, uri);
 		LTI13Util.return400(response, "Unrecognized POST request parts="+parts.length+" request="+uri);
 
+	}
+
+	// A very locked down proxy - JSON Only
+	protected void handleProxy(HttpServletRequest request, HttpServletResponse response) {
+		String proxyUrl = request.getParameter("proxyUrl");
+		if ( proxyUrl == null ) {
+			LTI13Util.return400(response, "Missing proxyUrl");
+			return;
+		}
+
+		Session sess = SessionManager.getCurrentSession();
+		if ( sess == null || sess.getUserId() == null ) {
+			LTI13Util.return400(response, "Must be logged in");
+			return;
+		}
+
+		// https://stackoverflow.com/a/43708457/1994792
+		try {
+			java.net.URL url = new java.net.URL(proxyUrl);
+			java.net.HttpURLConnection con = (java.net.HttpURLConnection) url.openConnection();
+			con.setRequestMethod("GET");
+			con.setConnectTimeout(3000);
+			con.setReadTimeout(3000);
+			con.setInstanceFollowRedirects(true);
+
+			try ( java.io.BufferedReader in = new java.io.BufferedReader(
+				new java.io.InputStreamReader(con.getInputStream())) )
+			{
+				String inputLine;
+				StringBuffer content = new StringBuffer();
+				while ((inputLine = in.readLine()) != null) {
+					content.append(inputLine);
+				}
+				if ( content.length() > 10000 ) {
+					LTI13Util.return400(response, "Content too long");
+					return;
+				}
+
+				String jsonString = content.toString();
+
+				Object js = JSONValue.parse(jsonString);
+				if (js == null || !(js instanceof JSONObject)) {
+					LTI13Util.return400(response, "Badly formatted JSON");
+					return;
+				}
+
+				response.setContentType(APPLICATION_JSON);
+				PrintWriter out = response.getWriter();
+
+				out.println(((JSONObject) js).toJSONString());
+			} catch (Exception e) {
+				response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+			}
+		} catch (Exception e) {
+			response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+		}
+	}
+
+	// Provide LTI Advantage Sakai parameters through JSON
+	protected void handleSakaiConfig(HttpServletRequest request, HttpServletResponse response) {
+		String clientId = request.getParameter("clientId");
+		if ( clientId == null ) {
+			LTI13Util.return400(response, "Missing clientId");
+			return;
+		}
+
+		String key = request.getParameter("key");
+		if ( key == null ) {
+			LTI13Util.return400(response, "Missing key");
+			return;
+		}
+
+		String issuerURL = request.getParameter("issuerURL");
+		if ( issuerURL == null ) {
+			LTI13Util.return400(response, "Missing issuerURL");
+			return;
+		}
+
+		String deploymentId = request.getParameter("deploymentId");
+		if ( deploymentId == null ) {
+			LTI13Util.return400(response, "Missing deploymentId");
+			return;
+		}
+
+		String keySetUrl = getOurServerUrl() + "/imsblis/lti13/keyset/" + key;
+		String tokenUrl = getOurServerUrl() + "/imsblis/lti13/token/" + key;
+		String authOIDC = getOurServerUrl() + "/imsoidc/lti13/oidc_auth";
+
+		String sakaiVersion = ServerConfigurationService.getString("version.sakai", "2");
+
+		JSONObject context_obj = new JSONObject();
+		context_obj.put("issuerURL", issuerURL);
+		context_obj.put("clientId", clientId);
+		context_obj.put("keySetUrl", keySetUrl);
+		context_obj.put("tokenUrl", tokenUrl);
+		context_obj.put("authOIDC", authOIDC);
+		context_obj.put("deploymentId", deploymentId);
+		context_obj.put("productFamilyCode", "sakai");
+		context_obj.put("version", sakaiVersion);
+		context_obj.put("answer", "42");
+
+		response.setContentType(APPLICATION_JSON);
+		try {
+			PrintWriter out = response.getWriter();
+			out.print(JacksonUtil.prettyPrint(context_obj));
+		} catch (Exception e) {
+			log.error(e.getMessage(), e);
+			response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+			return;
+		}
 	}
 
 	protected void handleKeySet(String tool_id, HttpServletRequest request, HttpServletResponse response) {
@@ -1293,15 +1469,13 @@ public class LTI13Servlet extends HttpServlet {
 		// If we are only returning a single line item
 		if ( ! all ) {
 			response.setContentType(SakaiLineItem.MIME_TYPE);
-			SakaiLineItem item = LineItemUtil.getLineItem(content);
+			SakaiLineItem item = LineItemUtil.getDefaultLineItem(site, content);
 			PrintWriter out = response.getWriter();
 			out.print(JacksonUtil.prettyPrint(item));
 			return;
 		}
 
-		// Return all the line items for the tool
-		List<SakaiLineItem> preItems = LineItemUtil.getPreCreatedLineItems(site, sat.tool_id, filter);
-
+		// Find the line items created for this tool
 		List<SakaiLineItem> toolItems = LineItemUtil.getLineItemsForTool(signed_placement, site, sat.tool_id, filter);
 
 		response.setContentType(SakaiLineItem.MIME_TYPE_CONTAINER);
@@ -1309,11 +1483,6 @@ public class LTI13Servlet extends HttpServlet {
 		PrintWriter out = response.getWriter();
 		out.print("[");
 		boolean first = true;
-		for (SakaiLineItem item : preItems) {
-			out.println(first ? "" : ",");
-			first = false;
-			out.print(JacksonUtil.prettyPrint(item));
-		}
 
 		for (SakaiLineItem item : toolItems) {
 			out.println(first ? "" : ",");

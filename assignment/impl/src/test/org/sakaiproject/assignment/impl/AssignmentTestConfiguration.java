@@ -23,7 +23,10 @@ import javax.annotation.Resource;
 import javax.sql.DataSource;
 
 import org.hibernate.SessionFactory;
+import org.hibernate.boot.registry.StandardServiceRegistry;
+import org.hibernate.boot.registry.StandardServiceRegistryBuilder;
 import org.hibernate.dialect.HSQLDialect;
+import org.hibernate.id.factory.internal.MutableIdentifierGeneratorFactoryInitiator;
 import org.hsqldb.jdbcDriver;
 import org.mockito.Mockito;
 import org.sakaiproject.announcement.api.AnnouncementService;
@@ -39,6 +42,7 @@ import org.sakaiproject.calendar.api.CalendarService;
 import org.sakaiproject.component.api.ServerConfigurationService;
 import org.sakaiproject.content.api.ContentHostingService;
 import org.sakaiproject.contentreview.service.ContentReviewService;
+import org.sakaiproject.elfinder.SakaiFsService;
 import org.sakaiproject.email.api.DigestService;
 import org.sakaiproject.email.api.EmailService;
 import org.sakaiproject.entity.api.EntityManager;
@@ -54,6 +58,7 @@ import org.sakaiproject.service.gradebook.shared.GradebookFrameworkService;
 import org.sakaiproject.service.gradebook.shared.GradebookService;
 import org.sakaiproject.site.api.SiteService;
 import org.sakaiproject.springframework.orm.hibernate.AdditionalHibernateMappings;
+import org.sakaiproject.tasks.api.TaskService;
 import org.sakaiproject.taggable.api.TaggingManager;
 import org.sakaiproject.time.api.TimeService;
 import org.sakaiproject.time.api.UserTimeService;
@@ -71,8 +76,8 @@ import org.springframework.context.annotation.ImportResource;
 import org.springframework.context.annotation.PropertySource;
 import org.springframework.core.env.Environment;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
-import org.springframework.orm.hibernate4.HibernateTransactionManager;
-import org.springframework.orm.hibernate4.LocalSessionFactoryBuilder;
+import org.springframework.orm.hibernate5.HibernateTransactionManager;
+import org.springframework.orm.hibernate5.LocalSessionFactoryBuilder;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
 import org.springframework.transaction.support.TransactionTemplate;
 
@@ -93,11 +98,16 @@ public class AssignmentTestConfiguration {
 
     @Bean(name = "org.sakaiproject.springframework.orm.hibernate.GlobalSessionFactory")
     public SessionFactory sessionFactory() throws IOException {
-        LocalSessionFactoryBuilder sfb = new LocalSessionFactoryBuilder(dataSource());
+        DataSource dataSource = dataSource();
+        LocalSessionFactoryBuilder sfb = new LocalSessionFactoryBuilder(dataSource);
+        StandardServiceRegistryBuilder srb = sfb.getStandardServiceRegistryBuilder();
+        srb.applySetting(org.hibernate.cfg.Environment.DATASOURCE, dataSource);
+        srb.applySettings(hibernateProperties());
+        StandardServiceRegistry sr = srb.build();
+        sr.getService(MutableIdentifierGeneratorFactoryInitiator.INSTANCE.getServiceInitiated())
+                .register("uuid2", AssignableUUIDGenerator.class);
         hibernateMappings.processAdditionalMappings(sfb);
-        sfb.addProperties(hibernateProperties());
-        sfb.getIdentifierGeneratorFactory().register("uuid2", AssignableUUIDGenerator.class);
-        return sfb.buildSessionFactory();
+        return sfb.buildSessionFactory(sr);
     }
 
     @Bean(name = "javax.sql.DataSource")
@@ -118,6 +128,7 @@ public class AssignmentTestConfiguration {
                 setProperty(org.hibernate.cfg.Environment.HBM2DDL_AUTO, environment.getProperty(org.hibernate.cfg.Environment.HBM2DDL_AUTO));
                 setProperty(org.hibernate.cfg.Environment.ENABLE_LAZY_LOAD_NO_TRANS, environment.getProperty(org.hibernate.cfg.Environment.ENABLE_LAZY_LOAD_NO_TRANS, "true"));
                 setProperty(org.hibernate.cfg.Environment.USE_SECOND_LEVEL_CACHE, environment.getProperty(org.hibernate.cfg.Environment.USE_SECOND_LEVEL_CACHE));
+                setProperty(org.hibernate.cfg.Environment.CURRENT_SESSION_CONTEXT_CLASS, environment.getProperty(org.hibernate.cfg.Environment.CURRENT_SESSION_CONTEXT_CLASS));
             }
         };
     }
@@ -298,6 +309,11 @@ public class AssignmentTestConfiguration {
         return mock(RubricsService.class);
     }
 
+    @Bean(name = "org.sakaiproject.elfinder.SakaiFsService")
+    public SakaiFsService sakaiFsService() {
+        return mock(SakaiFsService.class);
+    }
+
     @Bean(name = "org.sakaiproject.search.api.SearchService")
     public SearchService searchService() {
         return mock(SearchService.class);
@@ -311,5 +327,10 @@ public class AssignmentTestConfiguration {
     @Bean(name = "org.springproject.transaction.support.TransactionTemplate")
     public TransactionTemplate transactionTemplate() {
         return mock(TransactionTemplate.class);
+    }
+
+    @Bean(name = "org.sakaiproject.tasks.api.TaskService")
+    public TaskService taskService() {
+        return mock(TaskService.class);
     }
 }

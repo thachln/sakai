@@ -341,6 +341,39 @@ $( document ).ready( function() {
             $("input", this).click();
         }
     });
+
+    // Setup extended time radios
+    $('input[name="assessmentSettingsAction\\:userOrGroup"]').change(function () {
+        var $t = $(this);
+        var $thisSelect;
+        var $otherSelect;
+
+        if($t.attr('id') === 'assessmentSettingsAction:extendedEnableUser') {
+            $thisSelect = $('#assessmentSettingsAction\\:newEntry-user');
+            $otherSelect = $('#assessmentSettingsAction\\:newEntry-group');
+        } else {
+            $thisSelect = $('#assessmentSettingsAction\\:newEntry-group');
+            $otherSelect = $('#assessmentSettingsAction\\:newEntry-user');
+        }
+
+        $thisSelect.prop('disabled', false);
+        $otherSelect.prop('disabled', true);
+        $otherSelect.val('');
+    });
+
+    if($('#assessmentSettingsAction\\:newEntry-user').val() === '') {
+        $('#assessmentSettingsAction\\:newEntry-user').prop('disabled', 'disabled');
+        $('#assessmentSettingsAction\\:extendedEnableUser').prop('checked', false);
+    } else {
+        $('#assessmentSettingsAction\\:extendedEnableUser').prop('checked', true);
+    }
+
+    if($('#assessmentSettingsAction\\:newEntry-group').val() === '') {
+        $('#assessmentSettingsAction\\:newEntry-group').prop('disabled', 'disabled');
+        $('#assessmentSettingsAction\\:extendedEnableGroup').prop('checked', false);
+    } else {
+        $('#assessmentSettingsAction\\:extendedEnableGroup').prop('checked', true);
+    }
 });
 
 function validationWarningSetDefault(element, value) {
@@ -789,3 +822,22 @@ function toggleCategories(checkbox) {
         }
     }
 }
+
+function expandAccordion(iframId){
+    $('div#jqueryui-accordion > .ui-accordion-content').show();
+    mySetMainFrameHeight(iframId);
+    $("#collapseLink").show();
+    $("#expandLink").hide();
+    $("div#jqueryui-accordion > h3.ui-accordion-header > span").removeClass("ui-icon-triangle-1-e").addClass("ui-icon-triangle-1-s");
+    $("div#jqueryui-accordion > h3.ui-accordion-header").addClass("ui-accordion-header-active ui-state-active");
+}
+
+function collapseAccordion(iframId){
+    $('.ui-accordion-content').hide();
+    mySetMainFrameHeight(iframId);
+    $("#collapseLink").hide();
+    $("#expandLink").show();
+    $("div#jqueryui-accordion > h3.ui-accordion-header > span").removeClass("ui-icon-triangle-1-s").addClass("ui-icon-triangle-1-e");
+    $("div#jqueryui-accordion > h3.ui-accordion-header").removeClass("ui-accordion-header-active ui-state-active");
+}
+

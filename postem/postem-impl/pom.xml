@@ -4,7 +4,7 @@
   <parent>
     <artifactId>postem-base</artifactId>
     <groupId>org.sakaiproject</groupId>
-    <version>21-SNAPSHOT</version>
+    <version>22-SNAPSHOT</version>
     <relativePath>../pom.xml</relativePath>
   </parent>
   <name>sakai-postem-impl</name>
@@ -39,8 +39,6 @@
       <groupId>org.sakaiproject</groupId>
       <artifactId>sakai-postem-hbm</artifactId>
     </dependency>
-<!--${sakai.hibernate.groupId}${sakai.hibernate.artifactId}${sakai.hibernate.version}-->
-<!--${sakai.spring.groupId}${sakai.spring.artifactId}${sakai.spring.version}-->
   </dependencies>
   <build>
     <resources>
