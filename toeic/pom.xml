@@ -47,11 +47,11 @@
 		</dependencies>
 	</dependencyManagement>
 	<properties>
-	    <sakai.kernel.version>19.4</sakai.kernel.version>
+	    <sakai.kernel.version>19.5</sakai.kernel.version>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-		<spring.version>4.3.17.RELEASE</spring.version>
-        <spring.security.version>4.2.6.RELEASE</spring.security.version>
-        <module.version>19.4</module.version>
+		<spring.version>4.3.19.RELEASE</spring.version>
+        <spring.security.version>4.2.9.RELEASE</spring.security.version>
+        <module.version>19.5</module.version>
         <thymeleaf.version>3.0.8.RELEASE</thymeleaf.version>
 		<sakai.servletapi.version>2.4</sakai.servletapi.version>
 	</properties>

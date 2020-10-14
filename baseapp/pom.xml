@@ -46,13 +46,13 @@
 		</dependencies>
 	</dependencyManagement>
 	<properties>
-	    <sakai.kernel.version>19.4</sakai.kernel.version>
+	    <sakai.kernel.version>19.5</sakai.kernel.version>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<spring.version>4.3.19.RELEASE</spring.version>
         <spring.security.version>4.2.9.RELEASE</spring.security.version>
         <spring.data-commons.version>1.13.15.RELEASE</spring.data-commons.version>
         <spring.data-jpa.version>1.11.15.RELEASE</spring.data-jpa.version>
-        <module.version>19.4</module.version>
+        <module.version>19.5</module.version>
         <thymeleaf.version>3.0.8.RELEASE</thymeleaf.version>
 	</properties>
 
