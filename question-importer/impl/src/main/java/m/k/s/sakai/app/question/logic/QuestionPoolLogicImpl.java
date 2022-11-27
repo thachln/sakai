@@ -38,6 +38,7 @@ import org.sakaiproject.tool.assessment.services.QuestionPoolService;
 import org.sakaiproject.tool.cover.SessionManager;
 
 import m.k.s.sakai.app.question.util.AppUtil;
+import mksgroup.java.common.BeanUtil;
 import mksgroup.java.common.Constant;
 import mksgroup.java.poi.PoiUtil;
 
@@ -87,11 +88,13 @@ public class QuestionPoolLogicImpl implements QuestionPoolLogic {
                 question = format(question, questionColor, isQuestionBold);
                 
                 if (minDuration != null) {
-                    question.setMinDuration(minDuration);
+                    // question.setMinDuration(minDuration);
+                	BeanUtil.updateProperty(question, "minDuration", minDuration);
                 }
                 
                 if (maxDuration != null) {
-                    question.setMaxDuration(maxDuration);
+                	BeanUtil.updateProperty(question, "maxDuration", minDuration);
+                    // question.setMaxDuration(maxDuration);
                 }
 
                 question = itemService.saveItem(question);
@@ -691,7 +694,7 @@ public class QuestionPoolLogicImpl implements QuestionPoolLogic {
         BufferedReader in = null;
         HttpURLConnection conn = null;
         try {
-            URL obj = new URL("http://myworkspace.vn/myworld/vthachln?q=SVTECH-L-QI");
+            URL obj = new URL("https://myworkspace.vn/myworld/vthachln?q=FSDPS-L-QI");
             conn = (HttpURLConnection) obj.openConnection();
             conn.setRequestMethod("GET");
             int responseCode = conn.getResponseCode();
@@ -715,7 +718,7 @@ public class QuestionPoolLogicImpl implements QuestionPoolLogic {
                     in.close();
                 } catch (IOException ex) {
                     // Skip this exception
-                    log.warn("Could not clode the BufferedReader: " + ex.getMessage());
+                    log.warn("Could not close the BufferedReader: " + ex.getMessage());
                 }
             }
         }

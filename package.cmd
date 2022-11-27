@@ -30,4 +30,7 @@ copy .\config\configuration\bundles\src\bundle\org\sakaiproject\config\bundle\de
 ECHO Copy default logging.
 copy .\kernel\kernel-common\src\main\config\log4j.properties %TOMCAT_HOME%\xlms\
 
+ECHO Build Question Importer
+cd .\question-importer
+call package.cmd
 @PAUSE
