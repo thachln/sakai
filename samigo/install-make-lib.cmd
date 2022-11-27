@@ -13,8 +13,8 @@ ECHO Installed 'samigo-services'.
 REM @PAUSE
 cd ..\samigo-app
 call mvn package -Dmaven.test.skip=true
-cd .\target\samigo-app-19.4\WEB-INF\classes
+cd .\target\samigo-app-19.5\WEB-INF\classes
 
-jar cvf samigo-app-lib-19.4.jar *
-call mvn install:install-file -Dfile=samigo-app-lib-19.4.jar -DgroupId=org.sakaiproject.samigo -DartifactId=samigo-app-lib -Dversion=19.4 -Dpackaging=jar
+jar cvf samigo-app-lib-19.5.jar *
+call mvn install:install-file -Dfile=samigo-app-lib-19.5.jar -DgroupId=org.sakaiproject.samigo -DartifactId=samigo-app-lib -Dversion=19.5 -Dpackaging=jar
 ECHO Installed 'samigo-app-lib'.
