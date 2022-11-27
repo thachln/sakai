@@ -149,7 +149,8 @@ public class AssessmentDataVocabulary {
 
         try {
             TimeUtil tu = new TimeUtil();
-            dateString = tu.getDisplayDateTime(displayFormat, dueDate, true);
+//            dateString = tu.getDisplayDateTime(displayFormat, dueDate, true);
+            dateString = tu.getDisplayDateTime(displayFormat, dueDate);
         } catch (Exception ex) {
             // we will leave it as an empty string
             LOG.warn("getDueDateString(): " + ex);

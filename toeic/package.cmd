@@ -21,11 +21,11 @@ IF "%OUTPUT_FOLDER%"=="" (
 ) 
 
 ECHO Run script ".\samigo\install-make-lib.cmd" before run following command:
-cd ..\samigo\
-CALL package.cmd
-CALL install-make-lib.cmd
+REM cd ..\samigo\
+REM CALL package.cmd
+REM CALL install-make-lib.cmd
 
-cd ..\toeic
+REM cd ..\toeic
 CALL mvn clean package sakai:deploy -Dmaven.tomcat.home=%OUTPUT_FOLDER% -Dmaven.test.skip=true
 
 

@@ -24,8 +24,6 @@ REM ECHO Run script ".\samigo\install-make-lib.cmd" before run following command
 REM cd ..\samigo\
 REM CALL install-make-lib.cmd
 
-REM cd ..\toeic
 CALL mvn clean package sakai:deploy -Dmaven.tomcat.home=%OUTPUT_FOLDER% -Dmaven.test.skip=true
-REM CALL mvn package sakai:deploy -Dmaven.tomcat.home=%OUTPUT_FOLDER% -Dmaven.test.skip=true
 
 @PAUSE
