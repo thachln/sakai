@@ -4,7 +4,7 @@
   <parent>
     <artifactId>user</artifactId>
     <groupId>org.sakaiproject.user</groupId>
-    <version>22.2</version>
+    <version>22.3</version>
     <relativePath>../../pom.xml</relativePath>
   </parent>
   <name>sakai-user-tool-prefs</name>
@@ -33,6 +33,12 @@
       <groupId>org.apache.myfaces.tomahawk</groupId>
       <artifactId>tomahawk</artifactId>
       <version>1.1.14</version>
+      <exclusions>
+        <exclusion>
+          <groupId>commons-logging</groupId>
+          <artifactId>commons-logging</artifactId>
+        </exclusion>
+      </exclusions>
     </dependency>
     <!-- pull through the JSF tool dependencies -->
     <dependency>

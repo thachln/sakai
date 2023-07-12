@@ -49,6 +49,17 @@ export class SakaiRubric extends RubricsElement {
 
   get rubric() { return this._rubric; }
 
+  matches(search) {
+
+    const rubricTitle = this.querySelector('.rubric-name').textContent;
+    const rubricAuthor = this.querySelector('.rubric-creator-name').textContent;
+    const rubricSite = this.querySelector('.rubric-site-title').textContent;
+
+    return rubricAuthor.toLowerCase().includes(search) ||
+            rubricTitle.toLowerCase().includes(search) ||
+            rubricSite.toLowerCase().includes(search);
+  }
+
   shouldUpdate() {
     return this.rubric;
   }
@@ -70,8 +81,8 @@ export class SakaiRubric extends RubricsElement {
           }
         </div>
 
-        <div class="hidden-xs">${this.rubric.siteTitle}</div>
-        <div class="hidden-xs">${this.rubric.creatorDisplayName}</div>
+        <div class="hidden-xs rubric-site-title">${this.rubric.siteTitle}</div>
+        <div class="hidden-xs rubric-creator-name">${this.rubric.creatorDisplayName}</div>
         <div class="hidden-xs">${this.rubric.formattedModifiedDate}</div>
 
         <div class="actions">
@@ -286,8 +297,13 @@ export class SakaiRubric extends RubricsElement {
     this.rubric.weighted = !this.rubric.weighted;
     if (this.rubric.weighted) {
       this.rubric.criteria.forEach(cr => cr.weight = 0);
-      this.rubric.criteria[0].weight = 100;
-      this.handleSaveWeights(e);
+      //Try to get first criterion, that is not a criterion group
+      const firstCriterion = this.rubric.criteria.find(criteria => criteria.ratings?.length > 0);
+      if (firstCriterion) {
+        //Set weight of first criterion to 100 (%)
+        firstCriterion.weight = 100;
+        this.handleSaveWeights(e);
+      }
       this.handleRefreshTotalWeight();
     }
 

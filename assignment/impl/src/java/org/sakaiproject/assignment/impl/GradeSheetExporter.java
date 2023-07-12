@@ -51,7 +51,7 @@ import org.sakaiproject.assignment.api.AssignmentService;
 import org.sakaiproject.assignment.api.model.Assignment;
 import org.sakaiproject.assignment.api.model.AssignmentSubmission;
 import org.sakaiproject.assignment.api.model.AssignmentSubmissionSubmitter;
-import org.sakaiproject.assignment.impl.sort.AssignmentComparator;
+import org.sakaiproject.assignment.api.sort.AssignmentComparator;
 import org.sakaiproject.site.api.Group;
 import org.sakaiproject.site.api.Site;
 import org.sakaiproject.site.api.SiteService;
@@ -373,7 +373,7 @@ public class GradeSheetExporter {
                             cell.setCellStyle(style);
                         } else {
                             cell = sheetRow.createCell(column++, CellType.STRING);
-                            cell.setCellValue(submissionInfo != null ? submissionInfo.grade.toString() : rb.getString("listsub.nosub"));
+                            cell.setCellValue(submissionInfo != null && submissionInfo.grade != null ? submissionInfo.grade.toString() : rb.getString("listsub.nosub"));
                         }
 
                         // Scale

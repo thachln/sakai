@@ -22,6 +22,9 @@
 
 package org.sakaiproject.rubrics.impl;
 
+import static org.sakaiproject.rubrics.api.RubricsConstants.RBCS_CONFIG;
+import static org.sakaiproject.rubrics.api.RubricsConstants.RBCS_PREFIX;
+
 import java.awt.Color;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -276,13 +279,20 @@ public class RubricsServiceImpl implements RubricsService, EntityProducer, Entit
 
         bean.setFormattedCreatedDate(userTimeService.dateTimeFormat(bean.getCreated(), FormatStyle.MEDIUM, FormatStyle.SHORT));
         bean.setFormattedModifiedDate(userTimeService.dateTimeFormat(bean.getModified(), FormatStyle.MEDIUM, FormatStyle.SHORT));
-        try {
-            bean.setCreatorDisplayName(userDirectoryService.getUser(bean.getCreatorId()).getDisplayName());
-            bean.setSiteTitle(siteService.getSite(bean.getOwnerId()).getTitle());
-        } catch (Exception e) {
-            log.error("Failed to set the creatorDisplayName or the siteTitle", e);
+        if (StringUtils.isNotBlank(bean.getCreatorId())) {
+            try {
+                bean.setCreatorDisplayName(userDirectoryService.getUser(bean.getCreatorId()).getDisplayName());
+            } catch (UserNotDefinedException undfe) {
+                log.warn("Failed to set the creatorDisplayName on rubric bean: {}", undfe.toString());
+            }
         }
-        //bean.locked = rubric.getAssociations().size() > 0;
+        if (StringUtils.isNotBlank(bean.getOwnerId())) {
+            try {
+                bean.setSiteTitle(siteService.getSite(bean.getOwnerId()).getTitle());
+            } catch (IdUnusedException iue) {
+                log.warn("Failed to set the siteTitle on rubric bean: {}", iue.toString());
+            }
+        }
         return bean;
     }
 
@@ -786,13 +796,7 @@ public class RubricsServiceImpl implements RubricsService, EntityProducer, Entit
             final String optionRubricAssociate = Optional.ofNullable(params.get(RubricsConstants.RBCS_ASSOCIATE)).orElse(StringUtils.EMPTY);
             final Optional<ToolItemRubricAssociation> existingAssociation = getRubricAssociation(toolId, toolItemId);
 
-            Long requestedRubricId;
-            try {
-                requestedRubricId = NumberUtils.createLong(optionRubricId);
-            } catch (NumberFormatException nfe) {
-                log.warn("requested rubric id [{}] could not be converted to a long", optionRubricId, nfe);
-                return Optional.empty();
-            }
+            Long requestedRubricId = NumberUtils.toLong(optionRubricId);
 
             if (existingAssociation.isPresent()) {
                 final ToolItemRubricAssociation association = existingAssociation.get();
@@ -822,9 +826,20 @@ public class RubricsServiceImpl implements RubricsService, EntityProducer, Entit
                             }
                         }
                     }
+                } else if (requestedRubricId.equals(0L)){
+                    //deactivating an association without making a new one
+                    association.setActive(false);
+                    associationRepository.save(association);
+                    return Optional.empty();
                 }
             } else {
-                // first association for this rubric
+                // if existingAssociation is not present, it could just mean that it was deactivated previously
+                // the specific getRubricAssociation impl that we used earlier to load it will ignore deactivated ones.
+                Optional<ToolItemRubricAssociation> optionalExistingAssociation = findAssociationByItemIdAndRubricId(toolItemId, requestedRubricId);    // this will include inactive [soft-deleted] ones
+                if (optionalExistingAssociation.isPresent()) {  // if there's already an old association for the requested rubric that was deactivated previously, reuse it
+                    optionalExistingAssociation.get().setActive(true);
+                    return Optional.of(associationRepository.save(optionalExistingAssociation.get()));
+                }
                 Optional<ToolItemRubricAssociation> newAssociation = createToolItemRubricAssociation(toolId, toolItemId, params, requestedRubricId);
                 if (newAssociation.isPresent()) {
                     return Optional.of(associationRepository.save(newAssociation.get()));
@@ -883,21 +898,15 @@ public class RubricsServiceImpl implements RubricsService, EntityProducer, Entit
         Map<String, Boolean> merged = new HashMap<>();
 
         //Get the parameters
-        params.forEach((name, value1) -> {
-            if (name.startsWith(RubricsConstants.RBCS_CONFIG)) {
-                Boolean value = Boolean.FALSE;
-                if ((value1 != null) && (value1.equals("1"))) {
-                    value = Boolean.TRUE;
-                }
-                merged.put(name.substring(12), value);
+        params.forEach((k, v) -> {
+            if (k.startsWith(RBCS_CONFIG)) {
+                merged.put(StringUtils.remove(k, RBCS_CONFIG), BooleanUtils.toBooleanObject(v));
             }
         });
 
-        for (String name : oldParams.keySet()) {
-            if (!(params.containsKey(RubricsConstants.RBCS_CONFIG + name))) {
-                merged.put(name, Boolean.FALSE);
-            }
-        }
+        oldParams.keySet().stream()
+                .filter(name -> !(params.containsKey(RBCS_CONFIG + name)))
+                .forEach(name -> merged.put(name, Boolean.FALSE));
         return merged;
     }
 
@@ -1021,12 +1030,12 @@ public class RubricsServiceImpl implements RubricsService, EntityProducer, Entit
     public byte[] createPdf(String siteId, Long rubricId, String toolId, String itemId, String evaluatedItemId)
             throws IOException {
 
-        if (!isEvaluator(siteId) && !isEvaluee(siteId)) {
+        Rubric rubric = rubricRepository.findById(rubricId)
+                .orElseThrow(() -> new IllegalArgumentException("No rubric for id " + rubricId));
+
+        if (!isEvaluator(siteId) && !isEvaluee(siteId) && !rubric.getShared()) {
             throw new SecurityException("You must be either an evaluator or evaluee to create PDFs");
         }
-
-        Rubric rubric = rubricRepository.findById(rubricId)
-            .orElseThrow(() -> new IllegalArgumentException("No rubric for id " + rubricId));
 
         Optional<Evaluation> optEvaluation = Optional.empty();
         if (toolId != null && itemId != null && evaluatedItemId != null) {
@@ -1205,7 +1214,7 @@ public class RubricsServiceImpl implements RubricsService, EntityProducer, Entit
                 clone.setCreated(Instant.now());
                 clone.setModified(Instant.now());
                 clone = rubricRepository.save(clone);
-                traversalMap.put(RubricsConstants.RBCS_PREFIX + rubric.getId(), RubricsConstants.RBCS_PREFIX + clone.getId());
+                traversalMap.put(RBCS_PREFIX + rubric.getId(), RBCS_PREFIX + clone.getId());
             } catch (Exception e) {
                 log.error("Failed to clone rubric into new site", e);
             }
@@ -1234,17 +1243,17 @@ public class RubricsServiceImpl implements RubricsService, EntityProducer, Entit
             for (Map.Entry<String, String> entry : transversalMap.entrySet()) {
                 String key = entry.getKey();
                 //1 get all the rubrics from map
-                if (key.startsWith(RubricsConstants.RBCS_PREFIX)) {
+                if (key.startsWith(RBCS_PREFIX)) {
                     try {
-                        //2 for each, get its associations
-                        Long rubricId = Long.parseLong(key.substring(RubricsConstants.RBCS_PREFIX.length()));
-                        associationRepository.findByRubricId(rubricId).forEach(association -> {
-
-                            //2b get association params
-                            Map<String,Boolean> originalParams = association.getParameters();
+                        //2 for each, get its active associations
+                        Long rubricId = NumberUtils.toLong(key.substring(RBCS_PREFIX.length()));
+                        associationRepository.findByRubricId(rubricId).stream()
+                                .filter(ToolItemRubricAssociation::getActive)
+                                .forEach(association -> {
 
                             String tool = association.getToolId();
                             String itemId = association.getItemId();
+                            String newRubricId = transversalMap.get(RBCS_PREFIX + rubricId).substring(RBCS_PREFIX.length());
                             String newItemId = null;
                             //3 association type
                             if (RubricsConstants.RBCS_TOOL_ASSIGNMENT.equals(tool)){
@@ -1285,11 +1294,13 @@ public class RubricsServiceImpl implements RubricsService, EntityProducer, Entit
                             }
 
                             //4 save new association
-                            if (newItemId != null) {
-                                Map<String, String> params = originalParams.entrySet().stream()
-                                        .map(e -> Map.entry(e.getKey(), BooleanUtils.toString(e.getValue(), "1", "0")))
-                                        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-                                createToolItemRubricAssociation(tool, newItemId, params, rubricId).ifPresent(associationRepository::save);
+                            if (StringUtils.isNoneBlank(newItemId, newRubricId)) {
+                                Map<String, String> params = association.getFormattedAssociation();
+                                params.put(RubricsConstants.RBCS_LIST, newRubricId);
+                                log.debug("Create association for the new rubric [{}] and new item [{}] in the tool [{}]", newRubricId, newItemId, tool);
+                                saveRubricAssociation(tool, newItemId, params);
+                            } else {
+                                log.warn("Cannot create association with blank rubric id [{}] or item [{}]", newRubricId, newItemId);
                             }
                         });
                     } catch (Exception ex){

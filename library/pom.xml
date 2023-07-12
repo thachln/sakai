@@ -5,7 +5,7 @@
 	<parent>
 		<artifactId>master</artifactId>
 		<groupId>org.sakaiproject</groupId>
-		<version>22.2</version>
+		<version>22.3</version>
 		<relativePath>../master/pom.xml</relativePath>
 	</parent>
 	<name>Sakai Library</name>
@@ -14,7 +14,7 @@
 	<packaging>war</packaging>
 	<properties>
 		<!-- This is used in re-write rules as well -->
-		<ckeditor.version>4.16.1</ckeditor.version>
+		<ckeditor.version>4.21.0</ckeditor.version>
 		<bootstrap-version>3.3.7</bootstrap-version>
 		<font-awesome-version>4.7.0</font-awesome-version>
 		<!-- Default extra plugins enabled -->
@@ -82,8 +82,8 @@
 			<scope>runtime</scope>
 		</dependency>
 		<dependency>
-			<groupId>org.webjars.bower</groupId>
-			<artifactId>github-com-bahriddin-ckeditor-html5-video</artifactId>
+			<groupId>org.webjars</groupId>
+			<artifactId>ckeditor-html5-video</artifactId>
 			<version>${ckeditor.html5video.version}</version>
 			<scope>runtime</scope>
 		</dependency>
@@ -435,7 +435,15 @@
                         <groupId>com.samaxes.maven</groupId>
                         <artifactId>minify-maven-plugin</artifactId>
                         <version>1.7.6</version>
-                        <executions>
+						<dependencies>
+							<!-- Must override this dependency, even though not declared (see MNG-6965) -->
+							<dependency>
+								<groupId>org.codehaus.plexus</groupId>
+								<artifactId>plexus-utils</artifactId>
+								<version>3.5.1</version>
+							</dependency>
+						</dependencies>
+						<executions>
                             <execution>
                                 <id>default-minify</id>
                                 <configuration>

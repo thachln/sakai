@@ -420,6 +420,7 @@ sakai.editor.editors.ckeditor.launch = function(targetId, config, w, h) {
         templates_files: [basePath+"templates/default.js"],
         templates: 'customtemplates',
         templates_replaceContent: false,
+        clipboard_handleImages: false
     };
 
     // Merge config values into ckconfig
@@ -461,7 +462,7 @@ sakai.editor.editors.ckeditor.launch = function(targetId, config, w, h) {
 
         //These could be applicable to the basic toolbar
         CKEDITOR.plugins.addExternal('lineutils',basePath+'lineutils/', 'plugin.js');
-        CKEDITOR.plugins.addExternal('html5video',webJars+'github-com-bahriddin-ckeditor-html5-video/${ckeditor.html5video.version}/html5video/', 'plugin.js');
+        CKEDITOR.plugins.addExternal('html5video',webJars+'ckeditor-html5-video/${ckeditor.html5video.version}/', 'plugin.js');
         CKEDITOR.plugins.addExternal('audiorecorder',basePath+'audiorecorder/', 'plugin.js');
         CKEDITOR.plugins.addExternal('contentitem',basePath+'contentitem/', 'plugin.js');
         CKEDITOR.plugins.addExternal('sakaipreview',basePath+'sakaipreview/', 'plugin.js');

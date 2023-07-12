@@ -93,8 +93,8 @@ import org.sakaiproject.assignment.api.model.AssignmentSupplementItemService;
 import org.sakaiproject.assignment.api.persistence.AssignmentRepository;
 import org.sakaiproject.assignment.api.reminder.AssignmentDueReminderService;
 import org.sakaiproject.assignment.api.taggable.AssignmentActivityProducer;
-import org.sakaiproject.assignment.impl.sort.AnonymousSubmissionComparator;
-import org.sakaiproject.assignment.impl.sort.AssignmentSubmissionComparator;
+import org.sakaiproject.assignment.api.sort.AnonymousSubmissionComparator;
+import org.sakaiproject.assignment.api.sort.AssignmentSubmissionComparator;
 import org.sakaiproject.authz.api.AuthzGroup;
 import org.sakaiproject.authz.api.AuthzGroupService;
 import org.sakaiproject.authz.api.AuthzPermissionException;
@@ -1315,7 +1315,6 @@ public class AssignmentServiceImpl implements AssignmentService, EntityTransferr
             }
 
             Set<AssignmentSubmissionSubmitter> submissionSubmitters = new HashSet<>();
-            List<String> submitterIds = new ArrayList<>();
             Optional<String> groupId = Optional.empty();
             if (site != null) {
                 if (a.getIsGroup()) {
@@ -1329,7 +1328,6 @@ public class AssignmentServiceImpl implements AssignmentService, EntityTransferr
                                     AssignmentSubmissionSubmitter ass = new AssignmentSubmissionSubmitter();
                                     ass.setSubmitter(member.getUserId());
                                     submissionSubmitters.add(ass);
-                                    submitterIds.add(member.getUserId());
                                 });
                         groupId = Optional.of(submitter);
                     } else {
@@ -1340,7 +1338,6 @@ public class AssignmentServiceImpl implements AssignmentService, EntityTransferr
                         AssignmentSubmissionSubmitter submissionSubmitter = new AssignmentSubmissionSubmitter();
                         submissionSubmitter.setSubmitter(submitter);
                         submissionSubmitters.add(submissionSubmitter);
-                        submitterIds.add(submitter);
                     } else {
                         log.warn("Cannot add a submission for submitter {} to assignment {} as they are not a member of the site", submitter, assignmentId);
                     }
@@ -1355,8 +1352,6 @@ public class AssignmentServiceImpl implements AssignmentService, EntityTransferr
             // identify who the submittee is using the session
             String currentUser = sessionManager.getCurrentSessionUserId();
             submissionSubmitters.stream().filter(s -> s.getSubmitter().equals(currentUser)).findFirst().ifPresent(s -> s.setSubmittee(true));
-
-            taskService.completeUserTaskByReference(assignmentReference, submitterIds);
 
             AssignmentSubmission submission = assignmentRepository.newSubmission(a.getId(), groupId, Optional.of(submissionSubmitters), Optional.empty(), Optional.empty(), Optional.empty());
 
@@ -1463,20 +1458,20 @@ public class AssignmentServiceImpl implements AssignmentService, EntityTransferr
 
         assignment.setDateModified(Instant.now());
         assignment.setModifier(sessionManager.getCurrentSessionUserId());
-        assignmentRepository.merge(assignment);
+        Assignment updatedAssingment = assignmentRepository.merge(assignment);
 
         Task task = new Task();
-        task.setSiteId(assignment.getContext());
+        task.setSiteId(updatedAssingment.getContext());
         task.setReference(reference);
         task.setSystem(true);
-        task.setDescription(assignment.getTitle());
-        task.setGroups(assignment.getGroups());
+        task.setDescription(updatedAssingment.getTitle());
+        task.getGroups().addAll(updatedAssingment.getGroups());
 
-        if (!assignment.getHideDueDate()) {
-            task.setDue(assignment.getDueDate());
+        if (!updatedAssingment.getHideDueDate()) {
+            task.setDue(updatedAssingment.getDueDate());
         }
 
-        if (!assignment.getDraft()) {
+        if (!updatedAssingment.getDraft()) {
             taskService.createTask(task, allowAddSubmissionUsers(reference)
                     .stream().map(User::getId).collect(Collectors.toSet()),
                     Priorities.HIGH);
@@ -1574,6 +1569,11 @@ public class AssignmentServiceImpl implements AssignmentService, EntityTransferr
 
                 // student notification, whether the student gets email notification once he submits an assignment
                 notificationToStudent(submission, a);
+
+                List<String> submitterIds
+                    = submission.getSubmitters().stream()
+                        .map(ass -> ass.getSubmitter()).collect(Collectors.toList());
+                taskService.completeUserTaskByReference(assignmentReference, submitterIds);
             }
         }
     }
@@ -4942,16 +4942,16 @@ public class AssignmentServiceImpl implements AssignmentService, EntityTransferr
     }
 
     @Override
-    public Assignment getAssignmentForGradebookLink(String context, String linkId) throws IdUnusedException, PermissionException {
+    public Optional<Assignment> getAssignmentForGradebookLink(String context, String linkId) throws IdUnusedException, PermissionException {
         if (StringUtils.isNoneBlank(context, linkId)) {
-            String assignmentId = assignmentRepository.findAssignmentIdForGradebookLink(context, linkId);
-            if (assignmentId != null) {
-                return getAssignment(assignmentId);
+            Optional<String> assignmentId = assignmentRepository.findAssignmentIdForGradebookLink(context, linkId);
+            if (assignmentId.isPresent()) {
+                return Optional.of(getAssignment(assignmentId.get()));
             } else {
-                log.warn("No assignment id could be found for context {} and link {}", context, linkId);
+                log.debug("No assignment id could be found for context {} and link {}", context, linkId);
             }
         }
-        return null;
+        return Optional.empty();
     }
 
     @Override

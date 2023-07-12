@@ -922,7 +922,7 @@ public class LTI13Servlet extends HttpServlet {
 		}
 
 		if (scope.contains(LaunchLIS.SCOPE_NAMES_AND_ROLES)) {
-			if (allowOutcomes != 1) {
+			if (allowRoster != 1) {
 				LTI13Util.return400(response, "invalid_scope", LaunchLIS.SCOPE_NAMES_AND_ROLES);
 				log.error("Scope lineitem not allowed {}", tool_id);
 				return;
@@ -1694,7 +1694,7 @@ public class LTI13Servlet extends HttpServlet {
 
 		SakaiLineItem item = (SakaiLineItem) getObjectFromPOST(request, response, SakaiLineItem.class);
 		if ( item == null )  {
-			return; // Error alredy handled
+			return; // Error already handled
 		}
 
 		Map<String, Object> content = loadContentCheckSignature(signed_placement, response);

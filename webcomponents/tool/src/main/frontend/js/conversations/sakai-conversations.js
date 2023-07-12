@@ -298,6 +298,8 @@ export class SakaiConversations extends SakaiElement {
     } else {
       this.state = STATE_NOTHING_SELECTED;
     }
+
+    location.reload();
   }
 
   resetState() {
@@ -552,6 +554,8 @@ export class SakaiConversations extends SakaiElement {
         @topic-add-cancelled=${this.cancelAddTopic}
         @topic-dirty=${this.topicDirty}
         @edit-tags=${this.editTags}
+        ?can-create-discussion=${this.data.canCreateDiscussion}
+        ?can-create-question=${this.data.canCreateQuestion}
         ?can-pin=${this.data.canPin}
         ?can-edit-tags=${this.data.canEditTags}
         ?can-anon=${this.data.settings.allowAnonPosting}

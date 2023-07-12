@@ -21,35 +21,33 @@
 
 package org.sakaiproject.tool.assessment.facade;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
-import java.util.TreeMap;
 import java.util.stream.Collectors;
 
-import lombok.extern.slf4j.Slf4j;
-
+import org.apache.commons.lang3.StringUtils;
 import org.hibernate.Hibernate;
 import org.hibernate.query.Query;
-
 import org.sakaiproject.component.cover.ServerConfigurationService;
-import org.sakaiproject.event.cover.EventTrackingService;
 import org.sakaiproject.content.api.ContentResource;
 import org.sakaiproject.entity.api.ResourceProperties;
+import org.sakaiproject.event.cover.EventTrackingService;
 import org.sakaiproject.exception.IdUnusedException;
 import org.sakaiproject.exception.PermissionException;
 import org.sakaiproject.exception.TypeException;
-import org.sakaiproject.rubrics.api.model.ToolItemRubricAssociation;
 import org.sakaiproject.rubrics.api.RubricsConstants;
 import org.sakaiproject.rubrics.api.RubricsService;
+import org.sakaiproject.rubrics.api.model.ToolItemRubricAssociation;
 import org.sakaiproject.samigo.util.SamigoConstants;
 import org.sakaiproject.service.gradebook.shared.GradebookExternalAssessmentService;
 import org.sakaiproject.site.api.Group;
@@ -103,7 +101,6 @@ import org.sakaiproject.tool.assessment.facade.util.PagingUtilQueriesAPI;
 import org.sakaiproject.tool.assessment.integration.context.IntegrationContextFactory;
 import org.sakaiproject.tool.assessment.integration.helper.ifc.GradebookServiceHelper;
 import org.sakaiproject.tool.assessment.osid.shared.impl.IdImpl;
-import org.sakaiproject.tool.assessment.qti.constants.AuthoringConstantStrings;
 import org.sakaiproject.tool.assessment.services.PersistenceService;
 import org.sakaiproject.tool.assessment.services.QuestionPoolService;
 import org.sakaiproject.tool.assessment.services.assessment.AssessmentService;
@@ -112,6 +109,8 @@ import org.springframework.orm.hibernate5.HibernateCallback;
 import org.springframework.orm.hibernate5.HibernateQueryException;
 import org.springframework.orm.hibernate5.support.HibernateDaoSupport;
 import org.springframework.web.client.HttpClientErrorException;
+
+import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 public class AssessmentFacadeQueries extends HibernateDaoSupport implements AssessmentFacadeQueriesAPI {
@@ -714,22 +713,15 @@ public class AssessmentFacadeQueries extends HibernateDaoSupport implements Asse
 		}
 		
 		List<AssessmentFacade> assessmentList = new ArrayList<>();
-		String lastModifiedBy = "";
-		Map groupsForSite = null;
-		Map releaseToGroups = new HashMap();
-		AgentFacade agent = null;
 		for (AssessmentData a : list) {
-			releaseToGroups = null;
+			Map<String, String> releaseToGroups = null;
 			if (AssessmentAccessControl.RELEASE_TO_SELECTED_GROUPS.equals(a.getReleaseTo())) {
-				if (groupsForSite == null) {
-					groupsForSite = getGroupsForSite(siteAgentId);
-				}
 				Long assessmentId = a.getAssessmentBaseId();
-				releaseToGroups = getReleaseToGroups(groupsForSite, assessmentId);
+				releaseToGroups = getReleaseToGroups(siteAgentId, assessmentId);
 			}
 
-			agent = new AgentFacade(a.getLastModifiedBy());
-			lastModifiedBy = agent.getDisplayName();
+			AgentFacade agent = new AgentFacade(a.getLastModifiedBy());
+			String lastModifiedBy = agent.getDisplayName();
 			int questionSize = 0;
 			if (questionSizeMap.get(a.getAssessmentBaseId()) != null) {
 				questionSize = ((Long) questionSizeMap.get(a.getAssessmentBaseId())).intValue();
@@ -1623,54 +1615,101 @@ public class AssessmentFacadeQueries extends HibernateDaoSupport implements Asse
 		for (AssessmentData assessmentData : newList) {
 		    getHibernateTemplate().saveOrUpdate(assessmentData); // write
 		}
-		
-		// authorization
-		for (AssessmentData a : newList) {
-			PersistenceService.getInstance().getAuthzQueriesFacade()
-					.createAuthorization(toContext, "EDIT_ASSESSMENT",
-							a.getAssessmentId().toString());
-			
-			Map assessmentMetaDataMap = a.getAssessmentMetaDataMap();
-			if (!assessmentMetaDataMap.containsKey("markForReview_isInstructorEditable")) {
-				a.addAssessmentMetaData("markForReview_isInstructorEditable", "true");
-				a.getAssessmentAccessControl().setMarkForReview(1);
-			}
-			
-			// reset PARTID in ItemMetaData to the section of the newly created section
-			Set sectionSet = a.getSectionSet();
-			Iterator sectionIter = sectionSet.iterator();
-			while (sectionIter.hasNext()) {
-				SectionData section = (SectionData) sectionIter.next();
-				Set itemSet = section.getItemSet();
-				Iterator itemIter = itemSet.iterator();
-				while (itemIter.hasNext()) {
-					ItemData item = (ItemData) itemIter.next();
-					//We use this place to add the saveItem Events used by the search index to index all the new questions
-					EventTrackingService.post(EventTrackingService.newEvent(SamigoConstants.EVENT_ASSESSMENT_SAVEITEM, "/sam/" + AgentFacade.getCurrentSiteId() + "/saved itemId=" + item.getItemId().toString(), true));
-					String oldRef = assessmentMap.get(a);
-					String associationId = oldRef.substring(CoreAssessmentEntityProvider.ENTITY_PREFIX.length() + 1) + "." + item.getOriginalItemId();
 
-					try{
-						if(rubricsService.getRubricAssociation(RubricsConstants.RBCS_TOOL_SAMIGO, associationId).isPresent()) {
-							transversalMap.put(ItemEntityProvider.ENTITY_PREFIX + "/" + associationId, ItemEntityProvider.ENTITY_PREFIX + "/" + a.getAssessmentBaseId() + "." + item.getItemId());
+		try {
+			Site oSite = SiteService.getSite(fromContext);
+			Site nSite = SiteService.getSite(toContext);
+			AuthzQueriesFacadeAPI authzQueriesFacadeAPI = PersistenceService.getInstance().getAuthzQueriesFacade();
+			int assessmentIdx = 0;
+
+			// authorization
+			for (AssessmentData a : newList) {
+				Map<String, String> releaseToGroups = getReleaseToGroups(fromContext, list.get(assessmentIdx).getAssessmentBaseId());
+
+				PersistenceService.getInstance().getAuthzQueriesFacade()
+						.createAuthorization(toContext, "EDIT_ASSESSMENT", a.getAssessmentId().toString());
+
+				Map assessmentMetaDataMap = a.getAssessmentMetaDataMap();
+				if (!assessmentMetaDataMap.containsKey("markForReview_isInstructorEditable")) {
+					a.addAssessmentMetaData("markForReview_isInstructorEditable", "true");
+					a.getAssessmentAccessControl().setMarkForReview(1);
+				}
+
+				if (!releaseToGroups.isEmpty()) {
+					boolean siteChanged = false;
+					Collection<Group> nGroups = nSite.getGroups();
+
+					Long assessmentId = a.getAssessmentBaseId();
+					Set<String> groupsAuthorized = new HashSet<>();
+
+					for (Entry<String, String> groupId : releaseToGroups.entrySet()) {
+						Group oGroup = oSite.getGroup(groupId.getKey());
+						Optional<Group> existingGroup = nGroups.stream().filter(g -> StringUtils.equals(g.getTitle(), oGroup.getTitle())).findAny();
+						Group nGroup;
+						if (existingGroup.isPresent()) {
+							groupsAuthorized.add(existingGroup.get().getId());
+							siteChanged = true;
+						} else {
+							// create group
+							nGroup = nSite.addGroup();
+							nGroup.setTitle(oGroup.getTitle());
+							nGroup.setDescription(oGroup.getDescription());
+							nGroup.getProperties().addProperty("group_prop_wsetup_created", Boolean.TRUE.toString());
+							groupsAuthorized.add(nGroup.getId());
+							siteChanged = true;
 						}
-					} catch(HttpClientErrorException hcee) {
-						log.debug("Current user doesn't have permission to get a rubric: {}", hcee.getMessage());
-					} catch(Exception e){
-						log.error("Error while trying to duplicate Rubrics: {} ", e.getMessage());
 					}
-					Set itemMetaDataSet = item.getItemMetaDataSet();
-					Iterator itemMetaDataIter = itemMetaDataSet.iterator();
-					while (itemMetaDataIter.hasNext()) {
-						ItemMetaData itemMetaData = (ItemMetaData) itemMetaDataIter.next();
-						if (itemMetaData.getLabel() != null && itemMetaData.getLabel().equals(ItemMetaDataIfc.PARTID)) {
-							log.debug("sectionId = " + section.getSectionId());
-							itemMetaData.setEntry(section.getSectionId().toString());
+					if (siteChanged) {
+						SiteService.save(nSite);
+						for (String group : groupsAuthorized) {
+							authzQueriesFacadeAPI.createAuthorization(group, "TAKE_ASSESSMENT", assessmentId.toString());
 						}
 					}
 				}
+
+				// reset PARTID in ItemMetaData to the section of the newly created section
+				Set sectionSet = a.getSectionSet();
+				Iterator sectionIter = sectionSet.iterator();
+				while (sectionIter.hasNext()) {
+					SectionData section = (SectionData) sectionIter.next();
+					Set itemSet = section.getItemSet();
+					Iterator itemIter = itemSet.iterator();
+					while (itemIter.hasNext()) {
+						ItemData item = (ItemData) itemIter.next();
+						//We use this place to add the saveItem Events used by the search index to index all the new questions
+						EventTrackingService.post(EventTrackingService.newEvent(SamigoConstants.EVENT_ASSESSMENT_SAVEITEM, "/sam/" + AgentFacade.getCurrentSiteId() + "/saved itemId=" + item.getItemId().toString(), true));
+						String oldRef = assessmentMap.get(a);
+						String associationId = oldRef.substring(CoreAssessmentEntityProvider.ENTITY_PREFIX.length() + 1) + "." + item.getOriginalItemId();
+
+						try{
+							if(rubricsService.getRubricAssociation(RubricsConstants.RBCS_TOOL_SAMIGO, associationId).isPresent()) {
+								transversalMap.put(ItemEntityProvider.ENTITY_PREFIX + "/" + associationId, ItemEntityProvider.ENTITY_PREFIX + "/" + a.getAssessmentBaseId() + "." + item.getItemId());
+							}
+						} catch(HttpClientErrorException hcee) {
+							log.debug("Current user doesn't have permission to get a rubric: {}", hcee.getMessage());
+						} catch(Exception e){
+							log.error("Error while trying to duplicate Rubrics: {} ", e.getMessage());
+						}
+						Set itemMetaDataSet = item.getItemMetaDataSet();
+						Iterator itemMetaDataIter = itemMetaDataSet.iterator();
+						while (itemMetaDataIter.hasNext()) {
+							ItemMetaData itemMetaData = (ItemMetaData) itemMetaDataIter.next();
+							if (itemMetaData.getLabel() != null && itemMetaData.getLabel().equals(ItemMetaDataIfc.PARTID)) {
+								log.debug("sectionId = " + section.getSectionId());
+								itemMetaData.setEntry(section.getSectionId().toString());
+							}
+						}
+					}
+				}
+
+				assessmentIdx++;
 			}
+		} catch (IdUnusedException ex) {
+			log.error("Cannot find a site with id {} or {}", fromContext, toContext);
+		} catch (PermissionException ex) {
+			log.error("No permission to save a site with id {} or {}", fromContext, toContext);
 		}
+
 		for (AssessmentData data : newList) {
 			// now make sure we have a unique name for the assessment
 			String title = data.getTitle();
@@ -1830,49 +1869,36 @@ public class AssessmentFacadeQueries extends HibernateDaoSupport implements Asse
 				newAssessment, (AssessmentFeedback) a.getAssessmentFeedback());
 		newAssessment.setAssessmentFeedback(newFeedback);
 		// metadata
-		Set newMetaDataSet = prepareAssessmentMetaDataSet(newAssessment, a
-				.getAssessmentMetaDataSet());
+		Set<AssessmentMetaData> newMetaDataSet = prepareAssessmentMetaDataSet(newAssessment, a.getAssessmentMetaDataSet());
+
+		final String releaseTo = newAccessControl.getReleaseTo();
+		switch (releaseTo) {
+			case AssessmentAccessControl.ANONYMOUS_USERS:
+				// generate an alias to the pub assessment
+				String alias = AgentFacade.getAgentString() + Instant.now().toEpochMilli();
+				AssessmentMetaData meta = new AssessmentMetaData(newAssessment, "ALIAS", alias);
+				newMetaDataSet.add(meta);
+				break;
+			case AssessmentAccessControl.RELEASE_TO_SELECTED_GROUPS:
+				// nothing additional to do for group release
+				break;
+			default:
+				// if not anonymous or group then set releaseTo to the site title
+				if (toContext != null) {
+					try {
+						Site site = SiteService.getSite(toContext);
+						newAccessControl.setReleaseTo(site.getTitle());
+					} catch (IdUnusedException e) {
+						log.debug("Site not found [{}], {}", toContext, e.toString());
+					}
+				}
+				break;
+		}
+
 		log.debug(" metadata set" + a.getAssessmentMetaDataSet());
 		log.debug(" new metadata set" + newMetaDataSet);
 		newAssessment.setAssessmentMetaDataSet(newMetaDataSet);
-		// let's check if we need a newUrl
-		String releaseTo = newAccessControl.getReleaseTo();
-		if (releaseTo != null) {
-			boolean anonymousAllowed = ((releaseTo)
-					.indexOf(AuthoringConstantStrings.ANONYMOUS) > -1);
-			if (anonymousAllowed) {
-				// generate an alias to the pub assessment
-				String alias = AgentFacade.getAgentString()
-						+ (new Date()).getTime();
-				AssessmentMetaData meta = new AssessmentMetaData(newAssessment,
-						"ALIAS", alias);
-				newMetaDataSet.add(meta);
-				newAssessment.setAssessmentMetaDataSet(newMetaDataSet);
-			}
-			else {
-				// if it's not anonymous, then set it to the whole site (removes group access too)
-				if(toContext != null){
-					releaseTo = toContext;
-					try{
-						Site toSite = SiteService.getSite(toContext);
-						releaseTo = toSite.getTitle();
-					}catch (IdUnusedException e) {
-						log.debug("IdUnusedException: " + e.getMessage());
-					}
-					newAccessControl.setReleaseTo(releaseTo);
-				}
-			}
-		}
-		else {
-			releaseTo = toContext;
-			try{
-				Site toSite = SiteService.getSite(toContext);
-				releaseTo = toSite.getTitle();
-			}catch (IdUnusedException e) {
-				log.debug("IdUnusedException: " + e.getMessage());
-			}
-			newAccessControl.setReleaseTo(releaseTo);
-		}
+
 		// IPAddress
 		Set newIPSet = prepareSecuredIPSet(newAssessment, a
 				.getSecuredIPAddressSet());
@@ -1946,16 +1972,8 @@ public class AssessmentFacadeQueries extends HibernateDaoSupport implements Asse
 		return newEvaluationModel;
 	}
 
-	public Set prepareAssessmentMetaDataSet(AssessmentData p, Set metaDataSet) {
-		HashSet h = new HashSet();
-		Iterator i = metaDataSet.iterator();
-		while (i.hasNext()) {
-			AssessmentMetaData metaData = (AssessmentMetaData) i.next();
-			AssessmentMetaData newMetaData = new AssessmentMetaData(p, metaData
-					.getLabel(), metaData.getEntry());
-			h.add(newMetaData);
-		}
-		return h;
+	public Set<AssessmentMetaData> prepareAssessmentMetaDataSet(AssessmentData p, Set<AssessmentMetaData> metaDataSet) {
+		return metaDataSet.stream().map(m -> new AssessmentMetaData(p, m.getLabel(), m.getEntry())).collect(Collectors.toSet());
 	}
 
 	public Set prepareSecuredIPSet(AssessmentData p, Set ipSet) {
@@ -2350,47 +2368,30 @@ public class AssessmentFacadeQueries extends HibernateDaoSupport implements Asse
 		return h;
 	}
 
-	private Map<String, String> getReleaseToGroups(Map groupsForSite, Long assessmentId) {
-		Map<String, String> releaseToGroups = new HashMap();
+	private Map<String, String> getReleaseToGroups(final String siteId, final Long assessmentId) {
+		Map<String, String> releaseToGroups = new HashMap<>();
 		AuthzQueriesFacadeAPI authz = PersistenceService.getInstance().getAuthzQueriesFacade();
-		List authorizations = authz.getAuthorizationByFunctionAndQualifier("TAKE_ASSESSMENT", assessmentId.toString());
-		if (authorizations != null && authorizations.size()>0) {
-			Iterator authsIter = authorizations.iterator();
-			while (authsIter.hasNext()) {
-				AuthorizationData ad = (AuthorizationData) authsIter.next();
-				if (groupsForSite.containsKey(ad.getAgentIdString())) {
-					String group = groupsForSite.get(ad.getAgentIdString()).toString();
-					if (group != null) {
-							releaseToGroups.put(ad.getAgentIdString(), group);
-					}
-				}
-			}
-			releaseToGroups.entrySet().stream()
-				.sorted(Map.Entry.comparingByValue())
-				.collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue,
-				(oldValue, newValue) -> oldValue, LinkedHashMap::new));
+		List<AuthorizationData> authorizations = authz.getAuthorizationByFunctionAndQualifier("TAKE_ASSESSMENT", assessmentId.toString());
+		if (authorizations != null && !authorizations.isEmpty()) {
+			Map<String, String> allGroupsInSite = getAllGroupsForSite(siteId);
+			authorizations.stream().filter(a -> allGroupsInSite.containsKey(a.getAgentIdString()))
+					.forEach(a -> releaseToGroups.put(a.getAgentIdString(), allGroupsInSite.get(a.getAgentIdString())));
 		}
 		return releaseToGroups;
 	}
 
-	private Map getGroupsForSite(String siteId){
-		Map sortedGroups = new TreeMap();
-		Site site;
+	private Map<String, String> getAllGroupsForSite(final String siteId) {
+		Map<String, String> groupInfo = new HashMap<>();
 		try {
-			site = SiteService.getSite(siteId);
-			Collection groups = site.getGroups();
-			if (groups != null && groups.size() > 0) {
-				Iterator groupIter = groups.iterator();
-				while (groupIter.hasNext()) {
-					Group group = (Group) groupIter.next();
-					sortedGroups.put(group.getId(), group.getTitle());
-				}
+			Site site = SiteService.getSite(siteId);
+			Collection<Group> groups = site.getGroups();
+			if (groups != null) {
+				groups.forEach(g -> groupInfo.put(g.getId(), g.getTitle()));
 			}
+		} catch (Exception e) {
+			log.warn("Site [{}] not found while attempting to get its groups, {}", siteId, e.toString());
 		}
-		catch (IdUnusedException ex) {
-			// No site available
-		}
-		return sortedGroups;
+		return groupInfo;
 	}
 
     public List<AssessmentData> getDeletedAssessments(final String siteAgentId) {

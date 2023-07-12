@@ -214,10 +214,6 @@ public class ConversationsServiceImpl implements ConversationsService, Observer 
             throw new IllegalArgumentException("Failed to get siteRef for siteId: " + siteId);
         }
 
-        if (!securityService.unlock(Permissions.TOPIC_CREATE.label, siteRef)) {
-            throw new ConversationsPermissionsException("Can't create a blank topic");
-        }
-
         String currentUserId = sessionManager.getCurrentSessionUserId();
 
         TopicTransferBean blankTopic = new TopicTransferBean();
@@ -227,7 +223,11 @@ public class ConversationsServiceImpl implements ConversationsService, Observer 
         blankTopic.siteId = siteId;
         blankTopic.title = "";
         blankTopic.message = "";
-        blankTopic.type = TopicType.QUESTION.name();
+        if (securityService.unlock(Permissions.QUESTION_CREATE.label, siteRef)) {
+            blankTopic.type = TopicType.QUESTION.name();
+        } else if (securityService.unlock(Permissions.DISCUSSION_CREATE.label, siteRef)) {
+            blankTopic.type = TopicType.DISCUSSION.name();
+        }
         blankTopic.availability = "AVAILABILITY_NOW";
         blankTopic.pinned = false;
         blankTopic.aboutReference = siteRef;
@@ -399,12 +399,21 @@ public class ConversationsServiceImpl implements ConversationsService, Observer 
         boolean isMine = !isNew && topicBean.creator.equals(currentUserId);
 
         if (isNew) {
-            if (!securityService.unlock(Permissions.TOPIC_CREATE.label, siteRef)) {
+            if (!securityService.unlock(Permissions.QUESTION_CREATE.label, siteRef)
+                && !securityService.unlock(Permissions.DISCUSSION_CREATE.label, siteRef)) {
                 throw new ConversationsPermissionsException("Current user cannot create topic.");
             }
         } else if (!securityService.unlock(Permissions.TOPIC_UPDATE_ANY.label, siteRef)
                 && (isMine && !securityService.unlock(Permissions.TOPIC_UPDATE_OWN.label, siteRef))) {
             throw new ConversationsPermissionsException("Current user cannot update topic.");
+        }
+
+        if (topicBean.type.equals(TopicType.QUESTION.name()) && !securityService.unlock(Permissions.QUESTION_CREATE.label, siteRef)) {
+            throw new ConversationsPermissionsException("Current user cannot create questions.");
+        }
+
+        if (topicBean.type.equals(TopicType.DISCUSSION.name()) && !securityService.unlock(Permissions.DISCUSSION_CREATE.label, siteRef)) {
+            throw new ConversationsPermissionsException("Current user cannot create discussions.");
         }
 
         boolean wasDraft = false;

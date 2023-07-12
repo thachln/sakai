@@ -4,7 +4,7 @@
     <parent>
         <artifactId>dav-base</artifactId>
         <groupId>org.sakaiproject</groupId>
-        <version>22.2</version>
+        <version>22.3</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
     <name>dav</name>
@@ -50,6 +50,15 @@
             <artifactId>tomcat-catalina</artifactId>
             <version>${sakai.tomcat.version}</version>
 	    <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-lang3</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-core</artifactId>
+            <scope>test</scope>
         </dependency>
         <!-- in tomcat server lib, so we need it here, too -->
 <!--

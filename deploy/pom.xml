@@ -6,7 +6,7 @@
     <parent>
         <groupId>org.sakaiproject</groupId>
         <artifactId>master</artifactId>
-        <version>22.2</version>
+        <version>22.3</version>
         <relativePath>../master/pom.xml</relativePath>
     </parent>
 
@@ -171,12 +171,18 @@
             <scope>compile</scope>
         </dependency>
 
-        <!-- Required by Tomcat 7.  Can be dropped once it's confirmed that JSF-related tools are bundling it up in their webapps. -->
+        <!-- Required by Tomcat.  Can be dropped once it's confirmed that JSF-related tools are bundling it up in their webapps. -->
         <dependency>
             <groupId>commons-el</groupId>
             <artifactId>commons-el</artifactId>
             <version>1.0</version>
             <scope>compile</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>commons-logging</groupId>
+                    <artifactId>commons-logging</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
 
@@ -455,6 +461,11 @@
         <dependency>
             <groupId>org.codehaus.woodstox</groupId>
             <artifactId>stax2-api</artifactId>
+            <scope>compile</scope>
+        </dependency>
+        <dependency>
+            <groupId>xerces</groupId>
+            <artifactId>xercesImpl</artifactId>
             <scope>compile</scope>
         </dependency>
 

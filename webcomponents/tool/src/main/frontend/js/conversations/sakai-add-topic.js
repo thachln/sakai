@@ -21,6 +21,8 @@ export class SakaiAddTopic extends SakaiElement {
       tags: { attribute: "tags", type: Array },
       canPin: { attribute: "can-pin", type: Boolean },
       canAnonPost: { attribute: "can-anon", type: Boolean },
+      canCreateDiscussion: { attribute: "can-create-discussion", type: Boolean },
+      canCreateQuestion: { attribute: "can-create-question", type: Boolean },
       disableDiscussions: { attribute: "disable-discussions", type: Boolean },
       canEditTags: { attribute: "can-edit-tags", type: Boolean },
       topic: { type: Object },
@@ -161,7 +163,8 @@ export class SakaiAddTopic extends SakaiElement {
     } else {
       this.topic.type = e.target.dataset.type;
     }
-    this.requestUpdate();
+
+    this.saveWip();
   }
 
   selectTag() {
@@ -356,6 +359,7 @@ export class SakaiAddTopic extends SakaiElement {
 
         ${this.disableDiscussions ? "" : html`
         <div class="add-topic-block">
+          ${this.canCreateQuestion && this.canCreateDiscussion ? html`
           <div id="post-type-label" class="add-topic-label">${this.i18n.topic_type}</div>
           <div id="topic-type-toggle-block">
             <div @click=${this.setType}
@@ -375,6 +379,7 @@ export class SakaiAddTopic extends SakaiElement {
               <div>${this.i18n.type_discussion}</div>
             </div>
           </div>
+          ` : ""}
         </div>
         `}
 

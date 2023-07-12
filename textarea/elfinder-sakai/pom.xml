@@ -7,7 +7,7 @@
     <parent>
         <artifactId>textarea-base</artifactId>
         <groupId>org.sakaiproject</groupId>
-        <version>22.2</version>
+        <version>22.3</version>
     </parent>
 
     <groupId>org.sakaiproject</groupId>
@@ -34,6 +34,12 @@
             <version>1.2</version>
             <classifier>classes</classifier>
             <type>jar</type>
+            <exclusions>
+                <exclusion>
+                    <groupId>log4j</groupId>
+                    <artifactId>log4j</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
     </dependencies>
 

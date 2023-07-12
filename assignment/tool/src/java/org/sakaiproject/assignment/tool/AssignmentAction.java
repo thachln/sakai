@@ -2721,9 +2721,10 @@ public class AssignmentAction extends PagedResourceActionII {
                     
             // Get visibility value of assignments tool
             String isAssignmentsVisible = toolConfig.getConfig().getProperty(ToolManager.PORTAL_VISIBLE);
-            
+            boolean isVisible = StringUtils.isBlank(isAssignmentsVisible) || StringUtils.equalsIgnoreCase(isAssignmentsVisible, Boolean.TRUE.toString());
+
             // Checks if the assignments tool is visible from the LHS Menu.
-            context.put("isAssignmentsToolVisible", StringUtils.equalsIgnoreCase(isAssignmentsVisible, Boolean.TRUE.toString()));
+            context.put("isAssignmentsToolVisible", isVisible);
             
         } catch(IdUnusedException e) {
             log.error(e.getMessage(), e);
@@ -4436,6 +4437,9 @@ public class AssignmentAction extends PagedResourceActionII {
 
         String submissionId = state.getAttribute(GRADE_SUBMISSION_SUBMISSION_ID).toString();
         List<SubmitterSubmission> subs = (List<SubmitterSubmission>) state.getAttribute(STATE_PAGEING_TOTAL_ITEMS);
+        if (!subs.isEmpty() && !(subs.get(0) instanceof SubmitterSubmission)) {
+            return 1;
+        }
         int subIndex = 0;
 
         for (int i = 0; i < subs.size(); ++i) {
@@ -7433,8 +7437,8 @@ public class AssignmentAction extends PagedResourceActionII {
             Map<String, Object> rubricAssociationMap = new HashMap<>();
             rubricAssociationMap.put("rubricId", rubricId);
             Map<String, String> rubricAssociationParameters = new HashMap<>();
-            rubricAssociationParameters.put("fineTunePoints", params.getString("rbcs-config-fineTunePoints"));
-            rubricAssociationParameters.put("hideStudentPreview", params.getString("rbcs-config-hideStudentPreview"));
+            rubricAssociationParameters.put("fineTunePoints", params.getString(RubricsConstants.RBCS_CONFIG + "fineTunePoints"));
+            rubricAssociationParameters.put("hideStudentPreview", params.getString(RubricsConstants.RBCS_CONFIG + "hideStudentPreview"));
             rubricAssociationMap.put("parameters", rubricAssociationParameters);
             try {
                 state.setAttribute(RUBRIC_ASSOCIATION, (new ObjectMapper()).writeValueAsString(rubricAssociationMap));
@@ -7714,6 +7718,9 @@ public class AssignmentAction extends PagedResourceActionII {
                 // check the date is valid
                 if (!resubmitCloseTime.isAfter(openTime)) {
                     addAlert(state, rb.getString("acesubdea6"));
+                }
+                if (resubmitCloseTime.isBefore(dueTime)) {
+                	addAlert(state, rb.getString("acesubdea7"));
                 }
             }
         } else if (Assignment.SubmissionType.NON_ELECTRONIC_ASSIGNMENT_SUBMISSION != Assignment.SubmissionType.values()[(Integer) state.getAttribute(NEW_ASSIGNMENT_SUBMISSION_TYPE)]) {
@@ -11409,8 +11416,8 @@ public class AssignmentAction extends PagedResourceActionII {
 
             String privateNotes = processFormattedTextFromBrowser(state, params.getCleanString(GRADE_SUBMISSION_PRIVATE_NOTES), true);
             // private notes value changed?
-            hasChange = submission != null && valueDiffFromStateAttribute(state, privateNotes, submission.getPrivateNotes());
-            if (feedbackComment != null) {
+            hasChange = !hasChange && submission != null ? valueDiffFromStateAttribute(state, privateNotes, submission.getPrivateNotes()) : hasChange;
+            if (privateNotes != null) {
                 state.setAttribute(GRADE_SUBMISSION_PRIVATE_NOTES, privateNotes);
             }
 
