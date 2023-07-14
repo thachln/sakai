@@ -1,0 +1,1 @@
+docker run -d --name xlms -v D:/opt/tomcat/sakai:/opt/tomcat/sakai -v D:/opt/tomcat/logs:/opt/tomcat/logs  -p 5050:8080 -p 5443:8443 xlms/sakai:22.3

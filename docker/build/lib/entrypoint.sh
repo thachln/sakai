@@ -1,6 +1,6 @@
 #!/bin/bash
 # Append any secret properties from /run/secrets/security.properties
-cat /run/secrets/security.properties >> /usr/local/tomcat/sakai/security.properties
+# cat /run/secrets/security.properties >> /opt/tomcat/sakai/security.properties
 
 # Start tomcat
-catalina.sh run
+/opt/tomcat/bin/catalina.sh run
