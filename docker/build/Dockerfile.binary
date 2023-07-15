@@ -41,5 +41,6 @@ ENV CATALINA_OPTS \
 -Dsun.lang.ClassLoader.allowArraySyntax=true \
 -Djava.util.Arrays.useLegacyMergeSort=true 
 
-ENTRYPOINT ["/entrypoint.sh"]
+# ENTRYPOINT ["/entrypoint.sh"]
+ENTRYPOINT [ "/opt/tomcat/bin/catalina.sh", "run" ]
 EXPOSE 8080
