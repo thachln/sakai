@@ -1,3 +1,3 @@
 @ECHO OFF
-SET JAVA_HOME=C:\Program Files\Java\jdk1.8.0_341
+SET JAVA_HOME=C:\Program Files\Java\jdk1.8.0_202
 SET PATH=%JAVA_HOME%\bin;%PATH%
