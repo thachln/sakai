@@ -1,4 +1,4 @@
-REM call mvn clean package
+call ..\env.cmd
 
 REM Install samigo-api
 cd .\samigo-api

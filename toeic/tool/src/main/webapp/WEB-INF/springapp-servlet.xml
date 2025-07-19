@@ -58,9 +58,10 @@
 	<!-- Load configuration file. -->
 	<bean class="org.springframework.context.support.PropertySourcesPlaceholderConfigurer">
 		<property name="ignoreUnresolvablePlaceholders" value="true" />
-		<property name="location">
-			<value>/WEB-INF/app-config.properties</value>
-		</property>
+        <property name="location" value="file:///etc/myworkspace/toeic/app-config.properties" />
+<!-- 		<property name="location"> -->
+<!-- 			<value>/WEB-INF/app-config.properties</value> -->
+<!-- 		</property> -->
 	</bean>
 
 	<bean id="multipartResolver" class="org.springframework.web.multipart.commons.CommonsMultipartResolver" />
@@ -79,19 +80,21 @@
 		</property>
 		<property name="jpaProperties">
 			<props>
-				<prop key="hibernate.show_sql">true</prop>
-				<prop key="hibernate.hbm2ddl.auto">update</prop>
-				<prop key="hibernate.dialect">org.hibernate.dialect.MySQL5InnoDBDialect</prop>
-				<prop key="hibernate.globally_quoted_identifiers">true</prop>
+				<prop key="hibernate.dialect">${hibernate.dialect}</prop>
+				<prop key="hibernate.show_sql">${hibernate.show_sql}</prop>
+				<!-- <prop key="hibernate.cache.use_second_level_cache">${hibernate.cache.use_second_level_cache}</prop> -->
+				<prop key="hibernate.query.substitutions">true 1, false 0</prop>
+				<prop key="hibernate.hbm2ddl.auto">${hibernate.hbm2ddl.auto}</prop>
 			</props>
 		</property>
 	</bean>
-	<bean id="dataSource" class="org.springframework.jdbc.datasource.DriverManagerDataSource">
-		<property name="driverClassName" value="com.mysql.jdbc.Driver" />
-		<property name="url" value="jdbc:mysql://localhost:3306/sakaimks?useUnicode=true&amp;characterEncoding=UTF-8&amp;useSSL=false" />
-		<property name="username" value="sakaimks" />
-		<property name="password" value="SakaiMKS!2018" />
-	</bean>
+    <!-- Step 1 -->
+    <bean id="dataSource" class="org.springframework.jdbc.datasource.DriverManagerDataSource">
+        <property name="driverClassName" value="${driverClassName@javax.sql.BaseDataSource}" />
+        <property name="url" value="${url@javax.sql.BaseDataSource}" />
+        <property name="username" value="${username@javax.sql.BaseDataSource}" />
+        <property name="password" value="${password@javax.sql.BaseDataSource}" />
+    </bean>
 	<!-- <tx:annotation-driven/> -->
 
 	<jpa:repositories base-package="m.k.s.eng.sakai.repository" />

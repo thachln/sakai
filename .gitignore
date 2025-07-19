@@ -24,3 +24,5 @@ rsf/sakai-rsf-web/test/overlays
 .checkstyle
 assets
 /samigo/samigo-app/samigo-app-lib-19.3.jar
+release
+.factorypath
